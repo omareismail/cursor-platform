@@ -60,6 +60,9 @@ convention" is a decision, not an observation.
 
 ## First run on a new project
 
+See [`.cursor/docs/NEW-PROJECT.md`](../.cursor/docs/NEW-PROJECT.md) for the
+full bootstrap checklist. Short version:
+
 1. Run `/context-sync` to populate Tier 1 from the actual codebase.
 2. Review Tier 2 files — they ship with realistic fintech/.NET/React examples so the
    format is clear, but the *content* is a starting point, not your project's truth.

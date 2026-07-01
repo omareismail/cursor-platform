@@ -1,6 +1,9 @@
 # START HERE — Workspace Quick Reference
 
 66 skills, 11 rules. This card tells you which to use for common tasks.
+Full skill catalog: `.cursor/docs/skill-catalog.md`
+New app repo bootstrap: `.cursor/docs/NEW-PROJECT.md`
+Agent session brief: `AGENTS.md` (copy to each app repo)
 Full dependency model: `.cursor/docs/skill-graph.md`
 Full execution sequence: `.cursor/docs/shared-execution-pipeline.md`
 
@@ -121,26 +124,32 @@ writes.
 
 ---
 
-## The 11 rules (always-on — you don't invoke these)
+## The 11 rules (automatic — you don't invoke these)
 
-| Rule | Fires on |
+Four rules apply **every session** (`alwaysApply: true`). Seven apply when
+matching files are in context (globs). None are slash commands.
+
+| Rule | Scope |
 |---|---|
-| `00-memory-think` | Every action — reads memory-bank and checks repo-map freshness |
-| `01-specify-rules` | `specs/**`, `src/**`, `frontend/**` — enforces spec-first |
+| `00-memory-think` | **Global** — memory-bank + repo-map freshness; routes to `skill-catalog.md` |
+| `05-planning-rigor` | **Global** — options-with-tradeoffs before plans/specs/ADRs |
+| `09-minimal-changes` | **Global** — only change what the task requires |
+| `10-evidence-and-dependency-guard` | **Global** — verify before referencing; no new packages |
+| `01-specify-rules` | `specs/**`, `src/**`, `frontend/**` — spec-first |
 | `02-dotnet-architecture-guard` | `**/*.cs`, `**/*.csproj` — layer boundaries |
 | `03-react-architecture-guard` | `**/*.tsx`, `**/*.ts` — component architecture |
 | `04-security-guard` | `.cs`, `.tsx`, `.ts`, `.json`, `.yml`, `.yaml` — OWASP |
-| `05-planning-rigor` | Every plan/spec/ADR — forces options-with-tradeoffs |
 | `06-database-provider-guard` | `**/*.cs`, `**/*.sql` — dialect correctness |
 | `07-audit-trail-guard` | `**/*.cs` — audit trails + financial domain invariants |
 | `08-rtl-i18n-guard` | `**/*.tsx`, `**/*.css` — RTL/bilingual layout correctness |
-| `09-minimal-changes` | All files — no unrelated reformatting/renames/scope creep |
-| `10-evidence-and-dependency-guard` | All files — verify before referencing, no new packages |
 
 ---
 
 ## Key shared infrastructure docs
 
+- `AGENTS.md` — agent session instructions (copy to each app repo root)
+- `.cursor/docs/NEW-PROJECT.md` — bootstrap a new application repo
+- `.cursor/docs/skill-catalog.md` — full 66-skill catalog and routing categories
 - `.cursor/docs/skill-graph.md` — who depends on whom
 - `.cursor/docs/shared-execution-pipeline.md` — canonical execution order
 - `.cursor/docs/MIGRATION_NOTES_PASS1.md` — full change history + what was deliberately NOT built

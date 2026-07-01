@@ -6,7 +6,7 @@ on-demand, only at the moment the agent is actually routing a request to
 a skill, instead of loading all 66 skills' descriptions into every single
 message. If you edit skill descriptions, edit them here, not in the rule.
 
-## Step 2.5 — Skill Auto-Routing (all 65 skills, announce before running)
+## Step 2.5 — Skill Auto-Routing (all 66 skills, announce before running)
 
 Skills are written as slash commands (`/dotnet-migration`, `/database-audit`,
 etc.) for manual invocation, but the user should not have to know or type
