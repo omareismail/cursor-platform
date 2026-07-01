@@ -1,0 +1,63 @@
+---
+description: Enforce minimal-change discipline — only modify what the task requires, minimize git diff, never introduce unrelated changes
+alwaysApply: true
+---
+
+## What This Rule Does
+
+Prevents the single most common way AI-generated changes introduce
+unintended regressions and reviewer fatigue: making changes *beyond* what
+the task requires. A request to fix a bug in one method shouldn't reformat
+the whole file, rename unrelated variables, reorder using statements, or
+fix an adjacent issue the developer didn't ask about. Each of those is a
+separate change, and bundling them makes the PR diff harder to review,
+the blame history harder to read, and regressions harder to bisect.
+
+This rule has no glob restriction — it applies to every file type — because
+the "unrelated change" problem appears identically in `.cs`, `.tsx`, `.sql`,
+`.yml`, and `.md` files.
+
+---
+
+## What Gets Refused
+
+- **Unrelated reformatting.** The task touches method A; the rest of the
+  file's indentation, blank lines, or brace style is not touched even if it
+  doesn't match the repo's style guide. That's a separate formatting commit.
+- **Opportunistic renames.** A variable or file that's poorly named but
+  not directly related to the task is not renamed. If the name is confusing
+  enough to flag, do so as a `technical-debt-tracker` entry, not an inline
+  rename bundled into an unrelated change.
+- **Implicit scope creep.** The task is to add a field to a DTO; this
+  doesn't implicitly include updating every endpoint that returns that DTO,
+  fixing an adjacent validator, or adding a missing OpenAPI annotation on
+  a neighboring endpoint — unless the task explicitly covers those, they're
+  separate work and should be called out as such.
+- **`using` / `import` reordering.** Do not sort, group, or clean up
+  existing `using` statements or TypeScript `import` blocks unless the task
+  requires adding one. Reordering creates meaningless diff noise.
+
+## What's Explicitly Allowed
+
+- Removing a `using`/`import` that the current task's change makes
+  genuinely unused — that's a direct consequence of the change, not
+  unrelated cleanup.
+- Adding a comment or a brief inline note that directly explains a
+  non-obvious aspect of *the changed code* — not a general cleanup of
+  existing comments.
+
+## When to Flag Instead of Refuse
+
+If, while implementing the task, a clearly broken or dangerous thing is
+noticed in adjacent code (a security issue, a null-reference that will
+crash in production): **flag it**, don't silently fix it alongside the
+task. "I noticed X while making this change — flagging it separately so it
+can be addressed explicitly" is the correct behavior. Silent bundled fixes
+hide what changed and why.
+
+## Relationship to Other Rules
+
+This rule says nothing about *what* to generate — that's `02`/`03`/`04`/
+`05`/`06`/`07`/`08`. It says only *how much* to generate. A change can be
+architecturally correct, secure, and pattern-conformant and still violate
+this rule by modifying more than was asked for.

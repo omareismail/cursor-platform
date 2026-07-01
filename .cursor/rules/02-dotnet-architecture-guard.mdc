@@ -1,0 +1,255 @@
+---
+description: Enforce Clean Architecture layer boundaries in .NET projects
+alwaysApply: true
+globs: ["**/*.cs", "**/*.csproj"]
+---
+
+## What This Rule Does
+
+Enforces Clean Architecture dependency rules across all .NET code. Any
+generated or reviewed code that violates layer boundaries is refused and the
+correct pattern is shown instead. Architecture boundary tests (`*.ArchitectureTests`)
+are treated as a first-class build gate, not an optional nice-to-have.
+
+**Memory references:** `memory-bank/architecture.md` (layer rules, module
+boundaries for multi-database projects), `memory-bank/backendConventions.md`
+(handler/CQRS shape this rule expects generated code to follow).
+
+---
+
+## Layer Dependency Rules (Strictly Enforced)
+
+```
+Domain ──────────────────────────── zero NuGet deps (except result primitives)
+   ↑
+Application ──────────────────────── depends on Domain only
+   ↑                                  never Infrastructure, never API
+Infrastructure ───────────────────── depends on Application + Domain
+   ↑                                  never API
+API ──────────────────────────────── depends on Application only
+                                      never Domain directly, never Infrastructure
+Contracts ────────────────────────── depends on nothing (shared event/DTO types)
+```
+
+Violations of these arrows are **refused at generation time** — the agent
+will not produce code that crosses a forbidden boundary, regardless of how the
+request is framed.
+
+---
+
+## Forbidden Patterns
+
+Each entry shows the violation, the harm, and the correct alternative.
+
+### 1. `DbContext` in Application Layer
+```csharp
+// ❌ VIOLATION — handler depends on EF Core infrastructure
+public class GetOrdersHandler(AppDbContext db) : IRequestHandler<GetOrdersQuery, ...>
+{
+    public async Task<...> Handle(...) => await db.Orders.ToListAsync();
+}
+
+// ✅ CORRECT — handler depends on an interface defined in Application
+public class GetOrdersHandler(IOrderRepository orders) : IRequestHandler<GetOrdersQuery, ...>
+{
+    public async Task<...> Handle(...) => await orders.GetAllAsync(cancellationToken);
+}
+```
+
+### 2. `HttpContext` in Domain or Application
+```csharp
+// ❌ VIOLATION — Application handler reading HTTP context directly
+public class PlaceOrderHandler(IHttpContextAccessor http) : IRequestHandler<...>
+{
+    public async Task<...> Handle(PlaceOrderCommand cmd, CancellationToken ct)
+    {
+        var userId = http.HttpContext!.User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+    }
+}
+
+// ✅ CORRECT — current user ID resolved in API layer, passed as part of the command
+public record PlaceOrderCommand(Guid UserId, IReadOnlyList<OrderLineDto> Lines) : IRequest<...>;
+// API layer: var cmd = new PlaceOrderCommand(User.GetUserId(), body.Lines);
+```
+
+### 3. Business Logic in Controllers
+```csharp
+// ❌ VIOLATION
+[HttpPost]
+public async Task<IActionResult> CreateOrder(CreateOrderRequest req)
+{
+    if (req.Lines.Count == 0) return BadRequest("No lines");
+    var order = new Order(req.Lines);
+    _db.Orders.Add(order);
+    await _db.SaveChangesAsync();
+    return Ok(order.Id);
+}
+
+// ✅ CORRECT — controller delegates immediately to MediatR
+[HttpPost]
+[ProducesResponseType<CreateOrderResponse>(StatusCodes.Status201Created)]
+[ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
+public async Task<IActionResult> CreateOrder(
+    CreateOrderRequest req, CancellationToken ct)
+{
+    var result = await _mediator.Send(new CreateOrderCommand(req.Lines), ct);
+    return result.IsSuccess ? CreatedAtAction(nameof(GetOrder), new { id = result.Value.Id }, result.Value)
+                            : result.ToProblemDetails();
+}
+```
+
+### 4. `new SomeService()` Inside a Class
+```csharp
+// ❌ VIOLATION — breaks DI, untestable, ignores lifetime management
+public class InvoiceService
+{
+    private readonly EmailSender _email = new EmailSender();
+}
+
+// ✅ CORRECT
+public class InvoiceService(IEmailSender email)
+{
+    // _email resolved by DI container with correct lifetime
+}
+```
+
+### 5. Public Property Setters on Domain Entities
+```csharp
+// ❌ VIOLATION — entity can be mutated from anywhere, no invariant protection
+public class Order
+{
+    public Guid Id { get; set; }
+    public OrderStatus Status { get; set; }
+    public decimal Total { get; set; }
+}
+
+// ✅ CORRECT — private setters, state changes via methods that enforce invariants
+public class Order
+{
+    public Guid Id { get; private set; }
+    public OrderStatus Status { get; private set; }
+    public decimal Total { get; private set; }
+
+    private Order() { } // for EF Core
+
+    public static Order Create(IReadOnlyList<OrderLine> lines)
+    {
+        if (lines.Count == 0) throw new DomainException("Order must have at least one line.");
+        var order = new Order { Id = Guid.NewGuid(), Status = OrderStatus.Pending };
+        order.Total = lines.Sum(l => l.UnitPrice * l.Quantity);
+        return order;
+    }
+
+    public Result Ship()
+    {
+        if (Status != OrderStatus.Confirmed) return Result.Failure("Only confirmed orders can be shipped.");
+        Status = OrderStatus.Shipped;
+        return Result.Success();
+    }
+}
+```
+
+### 6. `IQueryable<T>` Returned from Repository
+```csharp
+// ❌ VIOLATION — leaks EF Core semantics into Application layer
+public interface IOrderRepository
+{
+    IQueryable<Order> GetAll(); // Application can now build EF queries — wrong
+}
+
+// ✅ CORRECT
+public interface IOrderRepository
+{
+    Task<IReadOnlyList<Order>> GetAllAsync(CancellationToken ct = default);
+    Task<Order?> GetByIdAsync(Guid id, CancellationToken ct = default);
+}
+```
+
+### 7. `.Result` / `.Wait()` on Async Code
+```csharp
+// ❌ VIOLATION — deadlock risk, wastes thread pool threads
+var order = _repository.GetByIdAsync(id).Result;
+
+// ✅ CORRECT
+var order = await _repository.GetByIdAsync(id, cancellationToken);
+```
+
+### 8. Static Methods with Side Effects on Domain Entities
+```csharp
+// ❌ VIOLATION — static state is global, untestable, hidden coupling
+public class EmailService
+{
+    public static void SendConfirmation(string email) { /* sends email */ }
+}
+
+// ✅ CORRECT — instance method, injected, mockable
+public interface IEmailService { Task SendConfirmationAsync(string email, CancellationToken ct); }
+```
+
+### 9. Swallowed Exceptions
+```csharp
+// ❌ VIOLATION — failure is silent, debugging is impossible
+try { await _repository.SaveAsync(); }
+catch (Exception) { }
+
+// ✅ CORRECT — catch specific exceptions, log meaningfully, rethrow or wrap
+try { await _repository.SaveAsync(ct); }
+catch (DbUpdateConcurrencyException ex)
+{
+    _logger.LogWarning(ex, "Concurrency conflict saving order {OrderId}", order.Id);
+    throw new DomainException("The order was updated by another process. Please retry.", ex);
+}
+```
+
+### 10. Cross-Layer `using` Directives
+```csharp
+// ❌ VIOLATION — Domain project must never reference Infrastructure
+// In Domain/Entities/Order.cs:
+using MyApp.Infrastructure.Persistence; // ← compile error + architecture test failure
+
+// ✅ CORRECT — Domain declares its own interfaces, Infrastructure implements them
+// Domain/Interfaces/IOrderRepository.cs — the interface lives in Domain/Application
+// Infrastructure/Persistence/OrderRepository.cs — the implementation lives in Infrastructure
+```
+
+---
+
+## Required Patterns
+
+The agent generates or reminds the user to add these for every new feature:
+
+- **Validator co-location:** Every command/query has a `CommandNameValidator.cs`
+  in the same folder as the handler
+- **Handler unit test:** Every handler has a corresponding test in `*.UnitTests`
+- **Endpoint integration test:** Every new endpoint has a test in `*.IntegrationTests`
+- **Architecture boundary test:** `*.ArchitectureTests` project runs in CI with
+  `NetArchTest` rules enforcing all layer boundaries above
+
+---
+
+## Violations
+
+### ❌ Violation 1 — Repository interface defined in Infrastructure
+
+**Trigger:** Agent generates `ProductRepository` with the interface and
+implementation in the same `Infrastructure/Persistence/` folder.
+
+**What to flag:**
+> The `IProductRepository` interface must live in
+> `Application/Interfaces/IProductRepository.cs` (or `Domain/Interfaces/`),
+> not in `Infrastructure`. The Infrastructure project depends on Application,
+> not the other way around. Move the interface — the implementation stays in Infrastructure.
+
+---
+
+### ❌ Violation 2 — Controller action contains conditional business logic
+
+**Trigger:** PR adds a 40-line controller action with if-statements determining
+order eligibility, discount calculation, and tax rounding.
+
+**What to flag:**
+> Controllers are transport adapters — they map HTTP to MediatR and back.
+> All the logic in lines 15–55 belongs in a `CalculateOrderTotalsCommand`
+> handler in the Application layer, where it can be unit-tested without
+> spinning up an HTTP server. Refactor: extract to handler, controller becomes
+> 8 lines.

@@ -1,0 +1,143 @@
+---
+description: Enforce spec-driven development — no implementation without a spec
+alwaysApply: false
+globs: ["specs/**", "src/**", "frontend/**"]
+---
+
+## What This Rule Does
+
+Ensures that every feature follows a mandatory, sequential pipeline before a
+single line of production code is written. The spec is the source of truth —
+not the code, not the commit message, not the PR description. If a spec does
+not exist, implementation cannot begin. If the spec changes after implementation
+starts, a new clarification cycle is required.
+
+---
+
+## The Pipeline (Mandatory and Sequential)
+
+```
+analyze → clarify → constitution → plan → specify → implement → checklist → commit
+```
+
+Each stage gates the next. Skipping any stage or running them out of order is
+a rule violation. The agent must refuse to run a later-stage skill if earlier
+stages have not produced their output artifacts.
+
+---
+
+## Gate Rules
+
+| Gate | Condition |
+|------|-----------|
+| `speckit-implement` | Requires `specs/features/[feature-slug].md` to exist |
+| `speckit-git-commit` | Requires `speckit-checklist` to have passed in this session |
+| `speckit-checklist` | Requires all TASK items for the feature marked Done in progress.md |
+| `speckit-specify` | Requires `specs/plans/[feature-slug]-plan.md` to exist |
+| `speckit-plan` | Requires `specs/constitutions/[feature-slug]-constitution.md` to exist |
+| `speckit-constitution` | Requires `specs/clarifications/[feature-slug].md` to exist |
+| `speckit-clarify` | Requires analysis from `speckit-analyze` (inline or in a file) |
+
+**Never skip `speckit-clarify`.** Question count and format are governed by
+`.cursor/rules/05-planning-rigor.mdc` — never fewer than 5 questions, scaled
+by complexity, and every question must be presented as labeled options, not
+open blanks.
+
+---
+
+## Spec Immutability After Implementation Starts
+
+Specs are **append-only** once `/speckit-implement` has been run for any task
+in the feature.
+
+- **Allowed:** Adding an `## Addendum` section with new information
+- **Allowed:** Correcting a factual error (wrong field name, wrong HTTP method) with a dated note
+- **Forbidden:** Editing acceptance criteria to match incomplete code
+- **Forbidden:** Removing out-of-scope items after they were built
+
+Scope changes require:
+1. A new `/speckit-clarify` cycle tagged as `[Scope Change - feature-slug-v2]`
+2. A new spec file `specs/features/[feature-slug]-v2.md`
+3. New task entries in `memory-bank/progress.md`
+4. A note in the original spec pointing to the v2 spec
+
+---
+
+## Spec File Naming
+
+```
+specs/features/[kebab-case-feature-name].md
+specs/clarifications/[kebab-case-feature-name].md
+specs/constitutions/[kebab-case-feature-name]-constitution.md
+specs/plans/[kebab-case-feature-name]-plan.md
+specs/retros/[kebab-case-feature-name]-retro.md
+```
+
+Feature names must be **kebab-case**, descriptive, and unique within the
+project. Avoid vague names like `fix-bug` or `update-api` — use
+`add-payment-retry-logic` or `user-profile-avatar-upload` instead.
+
+---
+
+## Spec Traceability
+
+Every commit message must reference the spec filename:
+```
+feat(application): add payment retry handler
+
+Spec: specs/features/add-payment-retry-logic.md
+Closes #42
+```
+
+Every test that validates an acceptance criterion must have a comment
+identifying which criterion it covers:
+```csharp
+// AC-3: Retry must not exceed 3 attempts for network errors
+[Fact]
+public async Task Handle_NetworkError_RetriesMaxThreeTimes() { ... }
+```
+
+---
+
+## Full-Stack Features
+
+A full-stack feature has **one spec** that covers both the API contract and
+the UI behavior. Never split a single user-facing feature into separate
+backend and frontend specs — they belong together so contract alignment is
+visible in one document.
+
+---
+
+## Violations
+
+### ❌ Violation 1 — Implementing without a spec
+
+**Trigger:** User asks: *"Just add an export-to-CSV button on the reports page."*
+
+**Bad behavior:**
+> Agent immediately generates a `CsvExportButton.tsx` component and a
+> `/api/reports/export` endpoint with no spec, no acceptance criteria, and
+> no test plan.
+
+**Correct behavior:**
+> Agent responds: *"Before generating code I need a spec. Let me run
+> `/speckit-analyze` first — it will take 2 minutes and means we won't
+> need to rewrite the component when edge cases come up in review."*
+> Agent runs `/speckit-analyze` → `/speckit-clarify` before touching any
+> source file.
+
+---
+
+### ❌ Violation 2 — Editing a spec to match incomplete code
+
+**Trigger:** During implementation, the handler turns out to be more complex
+than expected. User says: *"Just remove AC-4 from the spec, we'll do it next sprint."*
+
+**Bad behavior:**
+> Agent deletes AC-4 from `specs/features/payment-retry.md` so the checklist passes.
+
+**Correct behavior:**
+> Agent responds: *"The spec is append-only after implementation starts. I'll
+> add a dated note to `specs/features/payment-retry.md` under an `## Addendum`
+> section documenting that AC-4 is deferred to the next sprint, and create a
+> GitHub issue for it so it's tracked. The original criterion stays in the spec."*

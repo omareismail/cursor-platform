@@ -1,0 +1,85 @@
+---
+description: Enforce multi-provider database discipline (parameterization, dialect correctness, provider boundaries, transaction scope)
+alwaysApply: true
+globs: ["**/*.cs", "**/*.sql"]
+---
+
+## What This Rule Does
+
+Catches database anti-patterns specific to running multiple providers
+(SQL Server / PostgreSQL / Oracle) in the same codebase — on top of, not
+duplicating, `04-security-guard.mdc`'s SQL injection check. This rule is about
+correctness and provider boundaries; `04-security-guard.mdc` is about
+injection/exposure. A query can be perfectly parameterized and still violate
+this rule by crossing a provider boundary it shouldn't.
+
+**Memory references:** `memory-bank/databaseConventions.md` (provider roles,
+naming conventions), `memory-bank/architecture.md` (module boundary rule:
+one DbContext/connection factory per data source).
+
+---
+
+## Violations this rule blocks
+
+**1. Writing to a provider marked read-only secondary in `databaseConventions.md`.**
+Any `INSERT`/`UPDATE`/`DELETE`/`dotnet ef migrations` targeting a provider whose
+role is `read-only-secondary` is refused. Redirect to `dotnet-multi-db-gen` if the
+role needs to change — that's a deliberate decision, not a one-line fix.
+
+**2. A single `DbContext` or connection factory spanning two providers.**
+If generated code configures one `DbContext` with entities/tables that don't
+exist in the same physical database (a tell-tale sign someone tried to "just add"
+a second provider to the existing context), refuse and point to
+`dotnet-multi-db-gen`.
+
+**3. Provider-specific SQL syntax used against the wrong provider.**
+`TOP n` against PostgreSQL/Oracle, `LIMIT n` against SQL Server, `ROWNUM`/`FETCH
+FIRST` confusion on Oracle versions — checked against the `[provider]` parameter
+or the connection factory's configured provider, not assumed from the syntax
+that "looks right."
+
+**4. A multi-statement operation against one provider without an explicit transaction.**
+More than one write statement (EF Core: more than one `SaveChangesAsync()`
+expected to be atomic; Dapper: more than one `ExecuteAsync()`) without a
+`BeginTransaction()`/`IDbContextTransaction` wrapping them.
+
+**5. A "distributed transaction" implied across two different providers.**
+Code that opens a transaction on provider A and another on provider B and
+expects them to commit/rollback together. There is no real distributed
+transaction here without a coordinator the project doesn't have — refuse and
+point to the outbox pattern or explicit compensating-action design instead.
+
+**6. Bulk operation implemented as a loop of single-row calls.**
+More than ~50 rows processed via individual `INSERT`/`SaveChangesAsync()` calls
+in a loop — redirect to `dotnet-dapper-gen`'s bulk operation patterns or EF
+Core's `ExecuteUpdate`/`ExecuteDelete`.
+
+---
+
+## Example
+
+**Generated code attempting:**
+```csharp
+// Inside AppDbContext (SQL Server, system of record)
+public DbSet<LegacyMotorModel> LegacyMotorModels { get; set; } // queries Oracle table
+```
+
+**Rule response:**
+```
+❌ BLOCKED: LegacyMotorModels references a table that lives in the Oracle
+   read-only secondary (per databaseConventions.md), not the SQL Server
+   system-of-record database this DbContext is configured for.
+
+   Use /dotnet-multi-db-gen to scaffold a separate connection factory for the
+   Oracle source, and /dotnet-dapper-gen for the actual query — EF Core
+   migrations should never be generated against a read-only secondary.
+```
+
+---
+
+## Output
+
+Blocking findings refuse generation and show the corrected pattern, consistent
+with `02-dotnet-architecture-guard.mdc`'s enforcement style. Warn-level findings
+(e.g. transaction scope ambiguity in a single-write operation that doesn't
+strictly need one) are flagged inline without blocking.

@@ -1,0 +1,267 @@
+---
+description: Enforce component architecture and separation of concerns in React/TypeScript
+alwaysApply: true
+globs: ["**/*.tsx", "**/*.ts", "!**/*.test.*", "!**/*.spec.*"]
+---
+
+## What This Rule Does
+
+Enforces a strict separation of concerns across the React/TypeScript layer.
+Components are presentational — they receive data and emit events. Hooks
+own logic and side effects. The API layer owns all server communication.
+Violating these boundaries produces code that is hard to test, hard to reuse,
+and prone to data-fetching waterfalls and stale-state bugs.
+
+**Memory references:** `memory-bank/architecture.md` (frontend module
+boundaries), `memory-bank/frontendConventions.md` (state-decision tree this
+rule enforces between useState/TanStack Query/Zustand/React Hook Form).
+
+---
+
+## Layer Model
+
+```
+pages/
+  └── Route-level components. Compose feature modules. Zero business logic.
+      Responsibility: layout, routing params, page title, auth guard.
+
+features/[name]/
+  ├── components/   Feature-scoped UI, may use local hooks and shared components
+  ├── hooks/        Feature-scoped custom hooks (data fetching, local state machines)
+  ├── api/          Feature API functions — fetchers only, no React Query here
+  └── types/        Feature-scoped TypeScript interfaces
+
+components/
+  └── Shared, reusable, stateless UI. No API calls. No global state reads.
+      Pure function of props. Tested in isolation. Documented in Storybook.
+
+hooks/
+  └── Shared custom hooks. Single responsibility. Return named object, not array.
+
+api/
+  └── All React Query hooks (useQuery / useMutation). All fetcher functions.
+      All MSW handlers for tests. queryKeys.ts constant file.
+
+store/
+  └── Global client-only state (Zustand slices or Redux Toolkit slices).
+      Never stores server cache — that lives in React Query's cache.
+
+utils/
+  └── Pure functions. Formatters, validators, transformers. No React imports.
+
+types/
+  └── Shared TypeScript interfaces and type aliases. api.ts for API shapes.
+```
+
+---
+
+## Forbidden Patterns
+
+### 1. Direct `fetch`/`axios` in Component Body
+```tsx
+// ❌ VIOLATION
+export function ProductList() {
+  const [products, setProducts] = useState([]);
+  useEffect(() => {
+    fetch('/api/products').then(r => r.json()).then(setProducts);
+  }, []);
+}
+
+// ✅ CORRECT — fetcher in api/, React Query hook in hooks/ or api/
+// api/products.ts
+export async function getProducts(): Promise<Product[]> {
+  const res = await apiClient.get<Product[]>('/products');
+  return res.data;
+}
+
+// hooks/useProducts.ts (or features/catalog/hooks/useProducts.ts)
+export function useProducts() {
+  return useQuery({ queryKey: QUERY_KEYS.products.all, queryFn: getProducts });
+}
+
+// component
+export function ProductList() {
+  const { data: products = [], isLoading, isError } = useProducts();
+  if (isLoading) return <ProductListSkeleton />;
+  if (isError) return <ErrorMessage message="Failed to load products." />;
+  return <ul>{products.map(p => <ProductItem key={p.id} product={p} />)}</ul>;
+}
+```
+
+### 2. Business Logic in JSX / Render
+```tsx
+// ❌ VIOLATION
+export function OrderSummary({ order }: { order: Order }) {
+  const tax = order.lines.reduce((sum, l) => sum + l.price * 0.15, 0);
+  const eligible = order.lines.length > 0 && order.status === 'pending'
+    && new Date() < new Date(order.expiresAt);
+  return <div>{eligible ? <CheckoutButton tax={tax} /> : <ExpiredBadge />}</div>;
+}
+
+// ✅ CORRECT — extract to hook or util
+function useOrderSummary(order: Order) {
+  const tax = useMemo(() => order.lines.reduce((s, l) => s + l.price * TAX_RATE, 0), [order.lines]);
+  const isEligibleForCheckout = useMemo(
+    () => order.lines.length > 0 && order.status === 'pending' && new Date() < new Date(order.expiresAt),
+    [order]
+  );
+  return { tax, isEligibleForCheckout };
+}
+```
+
+### 3. Inline Props Interface
+```tsx
+// ❌ VIOLATION — interface buried inside component file, unreferenceable from tests/stories
+export function Avatar({ size, src, alt }: { size: 'sm' | 'md' | 'lg'; src: string; alt: string }) {}
+
+// ✅ CORRECT — defined above the component (or in types/ for shared components)
+export interface AvatarProps {
+  size: 'sm' | 'md' | 'lg';
+  src: string;
+  alt: string;
+}
+export function Avatar({ size, src, alt }: AvatarProps) {}
+```
+
+### 4. `any` Type
+```tsx
+// ❌ VIOLATION
+function parseResponse(data: any) { return data.items; }
+
+// ✅ CORRECT
+interface ApiListResponse<T> { items: T[]; total: number; }
+function parseResponse<T>(data: unknown): T[] {
+  const parsed = data as ApiListResponse<T>;
+  return parsed.items;
+}
+```
+
+### 5. Direct DOM Manipulation
+```tsx
+// ❌ VIOLATION
+document.getElementById('modal-root')!.style.display = 'block';
+
+// ✅ CORRECT
+const modalRef = useRef<HTMLDivElement>(null);
+useEffect(() => { if (open) modalRef.current?.focus(); }, [open]);
+```
+
+### 6. Side Effects in Component Body (Outside useEffect)
+```tsx
+// ❌ VIOLATION — runs on every render, not just on mount
+export function Dashboard() {
+  analytics.track('dashboard_viewed'); // side effect in render body
+  return <DashboardContent />;
+}
+
+// ✅ CORRECT
+useEffect(() => { analytics.track('dashboard_viewed'); }, []);
+```
+
+### 7. Mutating State Directly
+```tsx
+// ❌ VIOLATION
+const [items, setItems] = useState<Item[]>([]);
+items.push(newItem); // mutates without triggering re-render
+setItems(items);     // same reference — React may skip re-render
+
+// ✅ CORRECT
+setItems(prev => [...prev, newItem]);
+```
+
+### 8. `console.log` in Production Code
+```tsx
+// ❌ VIOLATION
+console.log('user data:', user); // leaks PII to browser console
+
+// ✅ CORRECT — use a structured logger utility or remove entirely
+logger.debug('User session established', { userId: user.id });
+```
+
+### 9. Hardcoded Strings in JSX
+```tsx
+// ❌ VIOLATION
+<button>Submit Order</button>
+<p>Your order has been placed successfully.</p>
+
+// ✅ CORRECT — constants file or i18n key
+<button>{t('order.submitButton')}</button>
+<p>{t('order.successMessage')}</p>
+```
+
+### 10. Component > 200 Lines
+```
+// ❌ VIOLATION — CheckoutPage.tsx is 380 lines
+// ✅ CORRECT — split into:
+//   CheckoutPage.tsx           (route-level, ~40 lines)
+//   features/checkout/components/OrderSummaryPanel.tsx
+//   features/checkout/components/ShippingForm.tsx
+//   features/checkout/components/PaymentSection.tsx
+//   features/checkout/hooks/useCheckout.ts
+```
+
+### 11. Prop Drilling > 2 Levels
+```
+// ❌ VIOLATION: Page → Section → Panel → Widget → Button all receive `onOrderComplete`
+// ✅ CORRECT: Lift to Zustand slice, React Query mutation cache, or Context at the Section level
+```
+
+### 12. `useEffect` with Missing / Suppressed Dependencies
+```tsx
+// ❌ VIOLATION
+useEffect(() => {
+  fetchUser(userId); // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []); // userId missing from deps — stale closure bug
+
+// ✅ CORRECT
+useEffect(() => { fetchUser(userId); }, [userId]);
+// If fetchUser is stable, wrap in useCallback first
+```
+
+---
+
+## Required TypeScript Rules
+
+- `"strict": true` in `tsconfig.json` — **non-negotiable**, enforce in every project
+- All event handlers typed: `React.ChangeEvent<HTMLInputElement>`, `React.FormEvent<HTMLFormElement>`
+- All API response shapes in `src/types/api.ts` as TypeScript interfaces
+- Zod schemas for all form validation and all API response validation at the boundary
+
+---
+
+## Required Test Coverage
+
+| Subject | Test Tool | Minimum |
+|---------|-----------|---------|
+| Custom hooks | `renderHook` (RTL) | All return values + state transitions |
+| Shared components | React Testing Library | Renders, interactions, a11y |
+| API functions | MSW handlers in `src/mocks/handlers.ts` | Happy + error paths |
+| Critical user flows | Playwright E2E | At least one E2E per flow |
+
+---
+
+## Violations
+
+### ❌ Violation 1 — Feature hook contains raw fetch call
+
+**Trigger:** Agent generates `useOrderHistory` that calls `fetch('/api/orders')` directly.
+
+**What to flag:**
+> All server communication goes through the `api/` layer. Create
+> `src/api/orders.ts` with `getOrderHistory(): Promise<Order[]>`, then
+> reference it in the React Query hook. The component and the hook never
+> contain fetch/axios calls directly.
+
+---
+
+### ❌ Violation 2 — `useEffect` with exhaustive-deps ESLint disable
+
+**Trigger:** PR adds `// eslint-disable-next-line react-hooks/exhaustive-deps`
+above a `useEffect` with an empty dependency array.
+
+**What to flag:**
+> Suppressing the exhaustive-deps rule here means `userId` in the closure
+> will go stale when the prop changes — this is a latent bug. Either include
+> `userId` in the dependency array, or if the intent is truly "run only on
+> mount," replace with a `useRef` pattern or move the logic to an event
+> handler that fires explicitly. Never suppress this lint rule.

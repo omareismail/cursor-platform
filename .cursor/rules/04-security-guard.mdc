@@ -1,0 +1,219 @@
+---
+description: Catch security anti-patterns in both .NET and React code
+alwaysApply: true
+globs: ["**/*.cs", "**/*.tsx", "**/*.ts", "**/*.json", "**/*.yml", "**/*.yaml"]
+---
+
+## What This Rule Does
+
+Detects security anti-patterns before they reach a commit. Critical findings
+block code generation entirely — the agent refuses to produce the violating
+code and provides the secure alternative. Warning-level findings are flagged
+inline without blocking, but must be acknowledged before proceeding through
+`speckit-checklist`.
+
+**Memory references:** `memory-bank/securityStandards.md` (the non-negotiable
+vs. warn-level list this rule enforces, including compliance context like
+SAMA CSF/PCI DSS), `memory-bank/commonMistakes.md` (previously-caught issues
+of this class, e.g. CM-001 disabled webhook verification).
+
+---
+
+## Critical — Refuse to Generate / Flag Immediately
+
+Any of these found in the codebase triggers a hard stop. The agent explains
+the risk and provides the secure replacement pattern.
+
+### 1. Hardcoded Secrets in Source Files
+```csharp
+// ❌ CRITICAL — .NET: connection string, API key, or password in source
+private const string _connStr = "Server=prod.db;Password=P@ssw0rd!;";
+// Also in appsettings.json checked into git with real values
+
+// ✅ SECURE — use environment variables or Azure Key Vault references
+// appsettings.json: { "ConnectionStrings": { "Default": "" } }
+// appsettings.Development.json: (gitignored) real dev string
+// Production: injected via Azure Key Vault / environment variable
+```
+
+```tsx
+// ❌ CRITICAL — React: API key embedded in frontend source
+const PAYMENT_SECRET_KEY = "sk_live_abcdef123456"; // exposed in browser bundle
+
+// ✅ SECURE — secret operations go through backend; only publishable keys in frontend
+const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+```
+
+### 2. JWT Tokens in localStorage
+```tsx
+// ❌ CRITICAL — XSS attack reads localStorage, exfiltrates token
+localStorage.setItem('token', response.accessToken);
+
+// ✅ SECURE — httpOnly cookie (set by server) or in-memory only (React state/Zustand)
+// Never stored in localStorage or sessionStorage
+// For SPA: keep token in memory, use refresh-token rotation via httpOnly cookie
+```
+
+### 3. SQL String Concatenation
+```csharp
+// ❌ CRITICAL — SQL injection
+var sql = $"SELECT * FROM Orders WHERE UserId = '{userId}'";
+var orders = await db.Database.ExecuteSqlRawAsync(sql);
+
+// ✅ SECURE — parameterized via EF Core or explicit parameters
+var orders = await db.Orders
+    .Where(o => o.UserId == userId)
+    .ToListAsync(ct);
+
+// Raw SQL (when genuinely needed) must use parameters:
+var orders = await db.Orders.FromSqlRaw(
+    "SELECT * FROM Orders WHERE UserId = {0}", userId).ToListAsync(ct);
+```
+
+### 4. `[AllowAnonymous]` on Sensitive Endpoints Without Justification
+```csharp
+// ❌ CRITICAL — payment endpoint exposed publicly with no auth check
+[AllowAnonymous]
+[HttpPost("payments/process")]
+public async Task<IActionResult> ProcessPayment(PaymentRequest req) { ... }
+
+// ✅ SECURE — remove AllowAnonymous, or add documented justification comment
+[Authorize(Policy = "PaymentProcessor")]
+[HttpPost("payments/process")]
+public async Task<IActionResult> ProcessPayment(PaymentRequest req) { ... }
+
+// Genuinely public endpoints must have a comment:
+[AllowAnonymous] // Public: health check, no sensitive data exposed
+[HttpGet("health")]
+public IActionResult HealthCheck() => Ok();
+```
+
+### 5. CORS Policy Allowing `*` Origin in Production
+```csharp
+// ❌ CRITICAL — allows any origin to make credentialed requests
+app.UseCors(p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+
+// ✅ SECURE
+app.UseCors(p => p
+    .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()!)
+    .AllowAnyMethod()
+    .AllowAnyHeader()
+    .AllowCredentials());
+```
+
+### 6. `app.UseDeveloperExceptionPage()` Without Environment Guard
+```csharp
+// ❌ CRITICAL — stack traces exposed in production
+app.UseDeveloperExceptionPage();
+
+// ✅ SECURE
+if (app.Environment.IsDevelopment())
+    app.UseDeveloperExceptionPage();
+else
+    app.UseExceptionHandler("/error");
+```
+
+### 7. User-Supplied Input Rendered as Raw HTML
+```tsx
+// ❌ CRITICAL — XSS: attacker-controlled HTML executes in browser
+<div dangerouslySetInnerHTML={{ __html: userComment }} />
+
+// ✅ SECURE — sanitize with DOMPurify before rendering, or avoid entirely
+import DOMPurify from 'dompurify';
+<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userComment) }} />
+// Better yet: render as plain text unless rich HTML is a product requirement
+<p>{userComment}</p>
+```
+
+### 8. `eval()` or `new Function()` in JavaScript/TypeScript
+```ts
+// ❌ CRITICAL — executes arbitrary code, unacceptable in any context
+eval(userInput);
+const fn = new Function('x', userInput);
+
+// ✅ SECURE — never use these constructs; if dynamic behavior is needed,
+// use a safe pattern (JSON.parse for data, strategy pattern for behavior)
+```
+
+### 9. Disabling HTTPS Redirection in Production
+```csharp
+// ❌ CRITICAL
+// Removing app.UseHttpsRedirection() in production config
+// or: builder.WebHost.UseUrls("http://0.0.0.0:5000") without TLS termination
+
+// ✅ SECURE
+app.UseHttpsRedirection();
+app.UseHsts(); // HSTS header for browsers
+```
+
+---
+
+## Warning — Flag but Don't Block
+
+These are flagged inline. Must be resolved before `speckit-checklist` passes.
+
+| Pattern | Warning |
+|---------|---------|
+| Missing `[Authorize]` on new controller / endpoint | Add or explicitly document as public with a comment |
+| PII (emails, phone numbers) logged at INFO level | Downgrade to DEBUG or mask before logging |
+| Missing `SameSite` cookie attribute | Set `SameSite=Strict` or `Lax`; document if `None` is required |
+| Auth endpoints without rate limiting | Add middleware or attribute-based rate limiting |
+| No input length validation | DoS risk; add `MaxLength` / FluentValidation `MaximumLength` |
+| `appsettings.json` with non-placeholder values | Move to environment-specific gitignored file or Key Vault |
+
+---
+
+## CI/CD YAML Rules
+
+For every `.yml` / `.yaml` file checked or generated:
+
+- **No hardcoded secrets** — must use `${{ secrets.NAME }}` (GitHub Actions) or
+  equivalent vault reference
+- **Dependency versions pinned** — `actions/checkout@v4` not `actions/checkout@latest`
+- **No `--no-verify` git flags** — bypasses commit hooks, hides real failures
+- **Docker build args** must not contain secrets — use build secrets or multi-stage
+
+```yaml
+# ❌ VIOLATION
+- name: Deploy
+  run: echo "Password is $HARDCODED_PASS" | docker login
+
+# ✅ CORRECT
+- name: Deploy
+  run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login --username ${{ secrets.DOCKER_USERNAME }} --password-stdin
+```
+
+---
+
+## Violations
+
+### ❌ Violation 1 — JWT stored in localStorage
+
+**Trigger:** Agent generates an auth hook that calls
+`localStorage.setItem('access_token', data.token)` after login.
+
+**What to flag and refuse:**
+> Storing JWTs in localStorage exposes them to any XSS attack on the page.
+> An attacker who injects a single script tag can exfiltrate the token
+> silently. Instead: if using a BFF (Backend for Frontend), the server sets
+> the token in an httpOnly cookie and the React app never touches the token
+> string. If token must live in the SPA, store in module-scoped memory
+> (Zustand store) that clears on page refresh, and use refresh-token rotation
+> via httpOnly cookie to re-authenticate silently.
+
+---
+
+### ❌ Violation 2 — Real database password in `appsettings.json`
+
+**Trigger:** Developer adds `appsettings.json` to a commit with a real
+connection string including `Password=RealPass123!`.
+
+**What to flag:**
+> This file is about to be committed with a real credential. Even if removed
+> later, the password will be visible in git history forever unless the history
+> is rewritten. Immediate actions:
+> 1. `git reset HEAD appsettings.json` before committing
+> 2. Rotate the database password now — treat it as compromised
+> 3. Move the connection string to `appsettings.Development.json` (already in
+>    `.gitignore`) or to a local secrets store (`dotnet user-secrets`)
+> 4. For production: Azure Key Vault reference or environment variable injection

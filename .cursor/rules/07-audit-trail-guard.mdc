@@ -1,0 +1,153 @@
+---
+description: Enforce audit trail capture on financial/policy data mutations
+alwaysApply: true
+globs: ["**/*.cs"]
+---
+
+## What This Rule Does
+
+`memory-bank/securityStandards.md` already states the requirement — "any
+mutation of financial/policy data records who/when/what-changed... not
+optional, not 'add later for compliance'" — but until this rule, nothing
+actually enforced it at generation or review time. It existed as
+documentation, not as a gate. Given this workspace's actual production
+systems (RHODES's journal-entry status synchronization has a known history
+of audit trail conflicts; Tamkeen's `FulfillmentSaga` pattern touches
+financial transaction state at every step), this gap was a real risk, not a
+theoretical one.
+
+This rule closes it: any command handler, repository method, or EF Core
+`SaveChangesAsync` override that mutates an entity flagged as audit-required
+(see classification below) is refused — generated or reviewed — unless the
+mutation captures who, when, and what changed.
+
+**Memory references:** `memory-bank/securityStandards.md` (the source
+requirement), `memory-bank/businessRules.md` (which entities require it —
+human-authored, this rule does not guess), `.cursor/cache/repo-map.json`
+(from `repo-discovery`, to identify entities in the financial/policy bounded
+context when `businessRules.md` hasn't explicitly enumerated one).
+
+---
+
+## Classification
+
+An entity is audit-required if either is true:
+
+1. `businessRules.md` explicitly lists it (authoritative — always wins over
+   inference).
+2. It's not listed, but it lives in a bounded context `repo-map.json` labels
+   as payment/financial/policy-adjacent (e.g. `Tamkeen.Payments.*`,
+   `Rhodes.Accounting.*`) AND has a money, status, or approval-state field.
+   In this case, flag it as a **probable** audit-required entity and prompt
+   for confirmation rather than silently enforcing or silently skipping —
+   `businessRules.md` should then be updated to make the classification
+   explicit, closing the gap for next time.
+
+## What Counts as a Valid Audit Trail
+
+Minimum bar — all three required, not any one:
+
+- **Who** — the acting principal's identity (user ID or service principal,
+  never just "system" for an interactively-triggered mutation)
+- **When** — UTC timestamp captured server-side, never trusting a
+  client-supplied timestamp
+- **What changed** — old value → new value per changed field, not just "row
+  updated" with no diff. A status transition (`DRAFT → POSTED`) must record
+  both states, not just the new one — this is specifically what RHODES's
+  past stuck-DRAFT-state issues needed and didn't have.
+
+Acceptable implementation patterns (any is fine, pick what's already
+established in this codebase via `pattern-finder` rather than inventing a
+new one):
+- Domain event + MediatR notification handler writing to an audit table
+  (the pattern already recommended for RHODES's journal-entry sync issue)
+- EF Core `SaveChangesAsync` override capturing `ChangeTracker` entries for
+  flagged entity types
+- Database-level temporal tables / triggers, if the provider supports them
+  and this is the established pattern for that project
+
+## What Gets Refused
+
+- A new command handler that mutates an audit-required entity with no
+  corresponding audit-write in the same transaction/unit of work
+- A direct `DbContext.Update()`/`Remove()` call on an audit-required entity
+  bypassing whatever audit mechanism is established for that project (direct
+  mutation skipping the handler layer is also a `02-dotnet-architecture-guard.mdc`
+  concern, but this rule blocks it specifically for the audit-trail reason
+  even if the architecture layering itself is otherwise fine)
+- A status-transition mutation that overwrites the previous status value
+  without recording it (loses the "what changed" requirement even if a
+  generic audit row gets written)
+
+## What's Warned, Not Blocked
+
+- Audit writes that happen in a separate transaction from the mutation
+  itself (risk of audit/data inconsistency on partial failure — flagged,
+  not refused, since some architectures intentionally use eventual-consistency
+  outbox patterns here and that's a valid choice if deliberate)
+- Audit-required entities where the audit mechanism exists but doesn't
+  capture field-level diffs, only "entity X was modified" — functional but
+  weaker than the bar above; flagged for follow-up via `technical-debt-tracker`
+
+---
+
+## Business Domain Invariant Protection (extended Phase 7)
+
+The audit-trail requirement above is a *recording* concern. This section
+covers a related but distinct concern: *correctness* when modifying business
+logic in this domain. Extended here (rather than as a new rule) because the
+same entities that require audit trails are the ones carrying the financial
+and accounting invariants most dangerous to break.
+
+**Before modifying any calculation, formula, or rounding behavior in an
+audit-required entity, this rule additionally requires:**
+
+- Tracing downstream effects. A change to how `JournalEntry` amounts are
+  calculated may affect the general ledger posting, the settlement report,
+  and the ZATCA invoice total — flag every downstream consumer before the
+  first line of code changes.
+- Preserving decimal precision. `decimal` in C# is correct for financial
+  math; `double`/`float` are not. Flag any modified financial calculation
+  that introduces a floating-point type, implicit conversion, or rounding
+  at an intermediate step rather than only at the final presentation layer.
+- Documenting assumptions when business rules are inferred rather than
+  explicitly documented. If `businessRules.md` doesn't cover the specific
+  case being modified, state that explicitly ("assuming X based on adjacent
+  rule Y — verify with domain owner") rather than silently applying a
+  plausible default.
+- Preserving transactional consistency. Financial mutations that span
+  multiple entities (debit one account, credit another) must either succeed
+  atomically or leave the system in a consistent, recoverable state — flag
+  any modification that removes a `using var transaction` scope or changes
+  a `SaveChangesAsync` call placement in a way that could leave a partial
+  write in place.
+
+**What gets refused:**
+- Introducing `double` or `float` arithmetic into any financial calculation
+  path, regardless of how the request is framed ("it's just for display"
+  is not a safe justification if the computed value feeds a stored total)
+- Removing a `BeginTransactionAsync` scope from a multi-entity financial
+  mutation without explicitly documenting why it's safe to do so and what
+  the rollback path is
+
+**What's warned:**
+- Rounding behavior changes even using `decimal` (MidpointRounding strategy
+  matters for financial totals that must reconcile across systems)
+
+---
+
+## Example Violation
+
+**Trigger:** Generated `PostJournalEntryCommandHandler` updates
+`JournalEntry.Status` from `DRAFT` to `POSTED` via `_context.Update(entry)`
+with no domain event raised and no audit table write.
+
+**What gets flagged:**
+> This handler mutates `JournalEntry.Status`, an audit-required field per
+> `businessRules.md`, with no audit trail capture. This is the exact failure
+> mode behind RHODES's prior stuck-DRAFT-state investigations — without a
+> recorded who/when/old-status/new-status, a stuck entry can't be
+> distinguished from one mid-transition during incident response. Generate
+> a `JournalEntryStatusChanged` domain event, raise it in this handler, and
+> add a `JournalEntryStatusChangedHandler` that writes the audit row before
+> refusing to proceed — see `pattern-finder` for the established pattern.

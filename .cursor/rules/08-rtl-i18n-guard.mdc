@@ -1,0 +1,93 @@
+---
+description: Enforce RTL-safe, bilingual-correct layout and content handling in React/TypeScript
+alwaysApply: true
+globs: ["**/*.tsx", "**/*.css", "!**/*.test.*", "!**/*.spec.*"]
+---
+
+## What This Rule Does
+
+`react-i18n-rtl-gen` already generates RTL-correct code when explicitly
+invoked for a component or feature, but nothing previously stopped
+*ordinary* component generation (`react-component-gen`, hand-written code, or
+ports from non-RTL examples) from introducing physical-direction CSS or
+LTR-only assumptions that silently break once `dir="rtl"` is applied. Given
+this workspace's GCC fintech context, Arabic-locale support isn't an edge
+case — it's a primary, professional-requirement use case, and a layout bug
+that only manifests in RTL mode is exactly the kind of thing that's easy to
+miss in development (where most engineers default to viewing the LTR
+locale) and embarrassing to ship.
+
+Note the naming disambiguation: elsewhere in this workspace, "RTL" inside
+`03-react-architecture-guard.mdc`'s testing table refers to React Testing
+Library. In this rule, "RTL" always means right-to-left layout direction.
+
+**Memory references:** `memory-bank/frontendConventions.md`,
+`memory-bank/glossary.md` (bilingual terminology consistency).
+
+---
+
+## What Gets Refused
+
+- Physical CSS direction properties on any new or modified component:
+  `margin-left`/`margin-right`, `padding-left`/`padding-right`,
+  `text-align: left`/`text-align: right`, `left`/`right` positioning,
+  `border-left`/`border-right` — the logical equivalents
+  (`margin-inline-start/end`, `padding-inline-start/end`, `text-align: start`,
+  `inset-inline-start/end`, `border-inline-start/end`) are required instead,
+  since these flip automatically with `dir`.
+- Hardcoded directional icons (a "next" chevron pointing right) with no
+  `dir`-aware mirroring — either use an icon component that respects
+  `dir` via CSS `transform: scaleX(-1)` under `[dir="rtl"]`, or a
+  direction-neutral icon.
+- String concatenation that assumes word order (`firstName + " " + lastName`,
+  or building a sentence from interpolated fragments) — Arabic sentence
+  structure doesn't always match English word order; use a single
+  translation key with placeholders (`t('greeting', { name })`) instead of
+  assembling translated fragments at the call site.
+- Number/currency/date formatting via manual string building instead of
+  `Intl.NumberFormat`/`Intl.DateTimeFormat` with the active locale — SAR
+  amounts and Hijri/Gregorian date display both depend on this being
+  locale-aware, not hardcoded to one format.
+
+## What's Warned, Not Blocked
+
+- A component with no RTL-specific styling at all because it has no
+  direction-sensitive layout (e.g. a perfectly square icon button) — flagged
+  only as a reminder to verify, not refused, since not every component
+  needs RTL handling.
+- Mixed-direction content (an English error code embedded in an Arabic
+  sentence) without explicit `dir="ltr"` wrapping on the embedded fragment —
+  common and often unavoidable (gateway error codes, reference numbers), but
+  worth a visual check since unwrapped mixed content can render with
+  unexpected character ordering.
+
+## Required for Any New Bilingual-Facing Component
+
+- Verify both locales render correctly, not just that the translation key
+  exists — a missing translation falling back to the key string itself
+  (`payment.refund.confirm`) instead of English text is a worse failure than
+  falling back to English, since it's both broken and harder to notice in a
+  quick visual check.
+- If the component includes user-generated or external content (gateway
+  response messages, broker-submitted text), don't assume it's pre-translated
+  — confirm whether it needs `dir="auto"` so the browser detects direction
+  per-paragraph based on content, since externally-sourced text may not
+  match the active UI locale's direction.
+
+---
+
+## Example Violation
+
+**Trigger:** Generated `TransactionSummaryCard` component uses
+`padding-left: 16px` and `text-align: right` for a price column, with a
+hardcoded `→` character for a "view details" affordance.
+
+**What gets flagged:**
+> This component uses physical CSS properties (`padding-left`,
+> `text-align: right`) that won't flip when `dir="rtl"` is applied — under
+> Arabic locale, the price column will stay left-padded and right-aligned
+> in the wrong direction relative to the rest of the RTL layout. Replace
+> with `padding-inline-start: 16px` and `text-align: end`. The `→`
+> character should be replaced with a `ChevronRight` icon component that
+> mirrors via `[dir="rtl"] & { transform: scaleX(-1) }`, or swapped for a
+> direction-neutral indicator.
