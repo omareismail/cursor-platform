@@ -1,6 +1,6 @@
 ---
 description: Enforce multi-provider database discipline (parameterization, dialect correctness, provider boundaries, transaction scope)
-alwaysApply: true
+alwaysApply: false
 globs: ["**/*.cs", "**/*.sql"]
 ---
 

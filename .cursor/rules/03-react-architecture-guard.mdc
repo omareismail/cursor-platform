@@ -1,6 +1,6 @@
 ---
 description: Enforce component architecture and separation of concerns in React/TypeScript
-alwaysApply: true
+alwaysApply: false
 globs: ["**/*.tsx", "**/*.ts", "!**/*.test.*", "!**/*.spec.*"]
 ---
 

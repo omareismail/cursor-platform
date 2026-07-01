@@ -1,6 +1,6 @@
 ---
 description: Enforce audit trail capture on financial/policy data mutations
-alwaysApply: true
+alwaysApply: false
 globs: ["**/*.cs"]
 ---
 

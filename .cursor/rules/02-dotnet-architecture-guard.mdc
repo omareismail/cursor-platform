@@ -1,6 +1,6 @@
 ---
 description: Enforce Clean Architecture layer boundaries in .NET projects
-alwaysApply: true
+alwaysApply: false
 globs: ["**/*.cs", "**/*.csproj"]
 ---
 

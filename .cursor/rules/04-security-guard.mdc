@@ -1,6 +1,6 @@
 ---
 description: Catch security anti-patterns in both .NET and React code
-alwaysApply: true
+alwaysApply: false
 globs: ["**/*.cs", "**/*.tsx", "**/*.ts", "**/*.json", "**/*.yml", "**/*.yaml"]
 ---
 

@@ -1,6 +1,6 @@
 ---
 description: Enforce RTL-safe, bilingual-correct layout and content handling in React/TypeScript
-alwaysApply: true
+alwaysApply: false
 globs: ["**/*.tsx", "**/*.css", "!**/*.test.*", "!**/*.spec.*"]
 ---
 
