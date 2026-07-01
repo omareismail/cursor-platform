@@ -73,3 +73,4 @@ changed and the next logical step.
 - [START-HERE.md](.cursor/docs/START-HERE.md) — task → skill map
 - [skill-catalog.md](.cursor/docs/skill-catalog.md) — all 66 skills
 - [NEW-PROJECT.md](.cursor/docs/NEW-PROJECT.md) — bootstrap a new repo with this platform
+- [APPLY-TO-PROJECT.md](.cursor/docs/APPLY-TO-PROJECT.md) — bootstrap an existing repo (agent-run playbook)

@@ -39,6 +39,7 @@ memory-bank/
 |-----|---------|
 | [AGENTS.md](AGENTS.md) | Agent instructions — copy to each app repo root |
 | [NEW-PROJECT.md](.cursor/docs/NEW-PROJECT.md) | Bootstrap checklist for a new application repo |
+| [APPLY-TO-PROJECT.md](.cursor/docs/APPLY-TO-PROJECT.md) | **Give to the model** — full bootstrap on an existing repo (e.g. MotorsReports) |
 | [START-HERE.md](.cursor/docs/START-HERE.md) | "I want to do X" → which skill to run |
 | [skill-catalog.md](.cursor/docs/skill-catalog.md) | Full 66-skill catalog and auto-routing |
 | [skill-graph.md](.cursor/docs/skill-graph.md) | Skill dependencies and wiring |

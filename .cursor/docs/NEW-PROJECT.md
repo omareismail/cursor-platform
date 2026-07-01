@@ -19,7 +19,8 @@ wiring in [cursor-platform](https://github.com/omareismail/cursor-platform).
 **Greenfield:** scaffold your solution and frontend per
 `memory-bank/architecture.md` (Clean Architecture + feature folders).
 
-**Existing codebase:** clone the repo and continue at Step 2.
+**Existing codebase:** clone the repo and continue at Step 2, or give the
+agent [APPLY-TO-PROJECT.md](APPLY-TO-PROJECT.md) to run the full bootstrap.
 
 ---
 

@@ -3,6 +3,7 @@
 66 skills, 11 rules. This card tells you which to use for common tasks.
 Full skill catalog: `.cursor/docs/skill-catalog.md`
 New app repo bootstrap: `.cursor/docs/NEW-PROJECT.md`
+Existing repo bootstrap (give to model): `.cursor/docs/APPLY-TO-PROJECT.md`
 Agent session brief: `AGENTS.md` (copy to each app repo)
 Full dependency model: `.cursor/docs/skill-graph.md`
 Full execution sequence: `.cursor/docs/shared-execution-pipeline.md`
