@@ -59,7 +59,7 @@ CLAUDE.md            # Claude Code entry point — imports AGENTS.md, adds Claud
   tools/             # feature-map, task-graph, ac-trace, delivery-metrics,
                      #   flag-debt, docs-lint, lifecycle, platform-metadata,
                      #   artifact-schema, change-request
-                     #   (11 validators + build-plugin)
+                     #   (12 validators + build-plugin)
   cache/             # repo-map.json (structure) + feature-map.json (behaviour)
                      #   both generated; gitignored except .gitkeep
   lifecycle/gates/   # 6 gate definitions - what each phase must satisfy
@@ -180,7 +180,7 @@ time, in the order listed there — then run `/repo-discovery full` and
 - **12 rules** — 5 global (`00`, `05`, `09`, `10`, `11-lifecycle-gate`) + 7 glob-scoped (architecture, security, DB, audit, RTL, specs)
 - **14 subagents** — `feature-analyst`, `ops-reviewer`, `pattern-scout`, `repo-cartographer`, `dotnet-auditor`, `react-auditor`, `security-auditor`, `db-auditor`, plus the lifecycle phase owners `lifecycle-controller`, `product-manager`, `business-analyst`, `solution-architect`, `ux-bridge`, `test-engineer` (all read-only, isolated context)
 - **2 cache layers** — `repo-map.json` (structure, from `/repo-discovery`) and `feature-map.json` (behaviour, from `/feature-trace`); freshness computed from file content hashes
-- **11 validators** — `feature-map.mjs` (is this trace still true?), `task-graph.mjs` (is this task small enough to finish?), `ac-trace.mjs` (is every acceptance criterion covered by a test that can fail?), `delivery-metrics.mjs` (is delivery improving?), `flag-debt.mjs` (which flags outlived their purpose?), `docs-lint.mjs` (is the documentation graph intact?), `lifecycle.mjs` (which phase are we in, and were its artifacts ever produced?), `platform-metadata.mjs` (does any document still claim a count that stopped being true?), `artifact-schema.mjs` (does every requirement reach a story, every story a use case, every use case an endpoint?), `change-request.mjs` (if this rule changes, what stops being true?), `release-evidence.mjs` (what shipped, what proved it, and who signed?)
+- **12 validators** — `feature-map.mjs` (is this trace still true?), `task-graph.mjs` (is this task small enough to finish?), `ac-trace.mjs` (is every acceptance criterion covered by a test that can fail?), `delivery-metrics.mjs` (is delivery improving?), `flag-debt.mjs` (which flags outlived their purpose?), `docs-lint.mjs` (is the documentation graph intact?), `lifecycle.mjs` (which phase are we in, and were its artifacts ever produced?), `platform-metadata.mjs` (does any document still claim a count that stopped being true?), `artifact-schema.mjs` (does every requirement reach a story, every story a use case, every use case an endpoint?), `change-request.mjs` (if this rule changes, what stops being true?), `release-evidence.mjs` (what shipped, what proved it, and who signed?), `risk-profile.mjs` (where is being wrong expensive, and do the tests know it?)
 - **7 hooks** — memory + lifecycle-phase injection at session start, write/bash/phase/MCP guards, post-edit tripwires, memory-update check at stop
 - **Build gates** — MSBuild layer guards, `BannedSymbols.txt`, Central Package Management, NetArchTest suites, ESLint boundaries, CI quality gates
 

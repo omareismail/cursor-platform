@@ -314,6 +314,30 @@ fails on: an AC no test claims, a test claiming an AC the spec dropped, an AC
 whose only test is skipped, a claiming test with no assertion, and assertions
 that cannot fail.
 
+That question is **flat**, though — it gives the same answer for "the header
+shows the broker's name" and "the settlement transfers 1,500 SAR to a mada
+account", so 100% AC coverage can be a real number over a suite that is adequate
+for one of them. `risk-profile.mjs` asks the other half:
+
+```bash
+node .cursor/tools/risk-profile.mjs profile     # every criterion ranked, and why
+node .cursor/tools/risk-profile.mjs check       # gate 5: is the depth where the cost is
+node .cursor/tools/risk-profile.mjs explain AC-12
+```
+
+Tiers come from explicit rules over the criterion's own words — money, identity,
+permission, a named regime, something that cannot be taken back — and from how
+many documents cite the ids it implements. T2 also needs a test asserting the
+**failure** path; T3 also needs two layers. Every tier prints the rule that
+produced it, because a reason can be argued with and a score cannot.
+
+**The ladder only ratchets up.** T1 is the existing rule, so nothing this tool
+decides can justify testing something *less* — a tier that looks too high costs
+some diligence; one that looks too low is the one worth arguing about. And it
+cannot see a criterion that is expensive for a reason nobody wrote down: that is
+a reason to reword the criterion, since a human tester would be misled the same
+way.
+
 **A task may only move to Done on a DONE verdict from `/task-verify`**, and the
 `progress.md` entry records the evidence. When an agent wrote both the code and
 the tests, a green suite proves the two agree — not that either is right. That

@@ -61,6 +61,38 @@ const SKIP_MARK = /\[(Fact|Theory)\s*\([^)]*\bSkip\s*=/i     // xUnit Skip="..."
   , IGNORE_CS = /\[Ignore(\s*\(|\])/i;
 
 /**
+ * A test that asserts the criterion's FAILURE path, not its happy path.
+ *
+ * Deliberately STRICT, and for the opposite reason to ASSERTION below. Reading a
+ * negative test that is not there makes `risk-profile.mjs` believe a criterion is
+ * better covered than it is, and under-testing is the direction that hurts. So
+ * only unambiguous evidence counts: an assertion that something throws or
+ * rejects, an assertion on a 4xx status, or a test whose own NAME says it is
+ * about the thing going wrong. A body that merely contains the word "error" does
+ * not qualify.
+ */
+const THROWS = /\.\s*(?:toThrow|toThrowError|rejects)\b|\bAssert\s*\.\s*Throws(?:Async)?\s*<|\.\s*Should\s*\(\s*\)\s*\.\s*Throw/;
+const STATUS_4XX = /\b(?:BadRequest|Unauthorized|Forbidden|NotFound|Conflict|UnprocessableEntity)\b|\.\s*(?:toBe|toEqual)\s*\(\s*4\d\d\s*\)|StatusCode\s*[=:]\s*4\d\d/;
+const NEGATIVE_NAME = /\b(should_?not|shall_?not|must_?not|cannot|can_?not|does_?not|throws?|rejects?|refuses?|denies|denied|invalid|unauthori[sz]ed|forbidden|fails?|failure|duplicate|missing|expired|insufficient|conflict|out_?of_?range|too_?(?:many|large|small))\b/i;
+
+/**
+ * A test's own name, and nothing else.
+ *
+ * Naively taking the first few lines of the slice reads the NEXT test's `// AC-N:`
+ * comment, because a slice runs from one declaration to the next. That made
+ * `it("settles a commission")` look like a negative test purely because the
+ * comment below it said "rejects". Skip comment lines; take the declaration, plus
+ * one more line when it is a bare xUnit attribute and the method name is under it.
+ */
+function nameOf(body) {
+  const code = body.split("\n").filter((l) => !/^\s*(\/\/|#|\*|\/\*)/.test(l) && l.trim());
+  if (!code.length) return "";
+  const first = code[0];
+  const want = /^\s*\[(Fact|Theory)\b/.test(first) ? 2 : 1;
+  return code.slice(0, want).join(" ").slice(0, 200);
+}
+
+/**
  * Assertion shapes we accept as real. Deliberately generous — the goal is to
  * catch tests with NO assertion, not to police assertion style.
  */
@@ -209,6 +241,7 @@ function testClaims(files) {
     parts.forEach((p, i) => {
       const skipped = SKIP_MARK.test(p.body) || SKIP_JS.test(p.body) || IGNORE_CS.test(p.body);
       const hasAssertion = ASSERTION.test(p.body);
+      const negative = THROWS.test(p.body) || STATUS_4XX.test(p.body) || NEGATIVE_NAME.test(nameOf(p.body));
       const weak = WEAK_ASSERTION.filter(([re]) => re.test(p.body)).map(([, why]) => why);
       const mine = claimsByTest.get(i) || [];
 
@@ -220,7 +253,7 @@ function testClaims(files) {
       for (const c of mine) {
         claims.push({
           ac: `AC-${c.num}`, file: rel, line: lineOf(text, c.at),
-          note: c.note, skipped, vacuous: !hasAssertion, weak,
+          note: c.note, skipped, vacuous: !hasAssertion, weak, negative,
         });
       }
     });
@@ -258,8 +291,16 @@ function analyse(acs, claims) {
   return { uncovered, skippedOnly, vacuousOnly, covered, orphans, vacuous, weak, byAc };
 }
 
+/* --------------------------------------------------------------------------
+ * Exported for `risk-profile.mjs`, which asks a different question of the same
+ * parse: not "is every criterion covered" but "is the coverage deep enough where
+ * being wrong is expensive". Copying the AC and test parsing into a second tool
+ * would give the two of them different answers inside a month.
+ * ------------------------------------------------------------------------- */
+export { specACs, testClaims, analyse, allFiles, ROOT };
+
 // ---------------------------------------------------------------- commands --
-function load(args) {
+export function load(args) {
   const specArg = args.find(a => !a.startsWith("--") && a.endsWith(".md"));
   let files = allFiles();
   const ti = args.indexOf("--tests");
@@ -420,10 +461,16 @@ const failures = (a) =>
   a.uncovered.length + a.orphans.length + a.skippedOnly.length +
   a.vacuousOnly.length + a.vacuous.length + a.weak.length;
 
-const [cmd, ...args] = process.argv.slice(2);
-if (!cmd || !CMDS[cmd]) {
-  out(readFileSync(new URL(import.meta.url)).toString()
-    .split("\n").slice(2, 42).join("\n").replace(/^\s*\*\/?\s?/gm, "").trim());
-  process.exit(cmd ? 2 : 0);
+// Only run the CLI when this file IS the program. Without the guard, importing
+// it from another tool executes a command chosen from that tool's argv and then
+// calls process.exit — a confusing way to discover coupling.
+const invokedDirectly = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].split("\\").join("/")}`).href;
+if (invokedDirectly) {
+  const [cmd, ...args] = process.argv.slice(2);
+  if (!cmd || !CMDS[cmd]) {
+    out(readFileSync(new URL(import.meta.url)).toString()
+      .split("\n").slice(2, 46).join("\n").replace(/^\s*\*\/?\s?/gm, "").trim());
+    process.exit(cmd ? 2 : 0);
+  }
+  process.exit(CMDS[cmd](args) ?? 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);

@@ -46,33 +46,65 @@ From the story map. These get E2E coverage; nothing else does. A team that
 E2E-tests everything has an E2E suite nobody trusts because it is always red for
 an unrelated reason.
 
-**Step 4 — Set targets that mean something.**
+**Step 4 — Find out where being wrong is expensive, before allocating effort.**
 
-Line coverage is a floor, not a goal. State it, then state the two that matter:
+```bash
+node .cursor/tools/risk-profile.mjs profile
+```
+
+Every acceptance criterion, ranked, with the rule that tiered it. Read the T3
+list first: those are the criteria where a mistake costs a regulator's attention
+or somebody's money, and where a single happy-path test is not evidence of
+anything. The tiers come from the criteria's own words — money, identity,
+permission, a named regime, something that cannot be taken back — and from how
+many documents depend on the ids they cite.
+
+Two things to hold onto while reading it:
+
+- **The ladder only ratchets up.** T1 is the existing rule, one test that can
+  fail. Nothing the tool says can justify testing something *less*, so a tier
+  that looks too high costs some diligence and a tier that looks too low is the
+  one worth arguing about.
+- **It cannot see what nobody wrote down.** A criterion that is expensive for a
+  reason absent from the spec reads as T1. That is a reason to reword the
+  criterion, not to add an exception list — a tester would have been misled by
+  the same words.
+
+Then let the tiers shape the plan: which criteria get a failure-path test, which
+get more than one layer, which files carry the mutation threshold, and which
+journeys the load test names.
+
+**Step 5 — Set targets that mean something.**
+
+Line coverage is a floor, not a goal. State it, then state the three that matter:
 
 - **AC coverage: 100%, non-negotiable.** Every acceptance criterion has a test
   asserting it, proven by `node .cursor/tools/ac-trace.mjs check`. This is the
   criterion that closes the loop back to phase 1.
+- **Risk-weighted depth**, proven by `node .cursor/tools/risk-profile.mjs check`.
+  Flat 100% AC coverage is a real number and an incomplete one: it counts a
+  criterion about a label the same as a criterion about a settlement.
 - **Mutation score** on domain and application layers, per `templates/mutation/`.
   High line coverage with a low mutation score is the signature of tests that run
   code without constraining it.
 
-**Step 5 — Decide environments and data.**
+**Step 6 — Decide environments and data.**
 
 Where each layer runs, how the database is provisioned, where test data comes
 from, and how PII is handled if production data is ever involved. In this domain,
 the answer to that last one is usually "it is not" — write that down.
 
-**Step 6 — Set the feedback budget.**
+**Step 7 — Set the feedback budget.**
 
 How long the pre-merge suite may take, what moves to nightly when it is exceeded,
 and what is allowed to be flaky (nothing) versus quarantined (named, with an
 owner and a date).
 
-**Step 7 — Write `docs/testing/strategy.md`.**
+**Step 8 — Write `docs/testing/strategy.md`.**
 
-Sections: layer responsibilities, critical journeys, targets, environments and
-data, feedback budget, and the trace from each NFR to the test that proves it.
+Sections: layer responsibilities, critical journeys, the risk tiers and what each
+one requires, targets, environments and data, feedback budget, and the trace from
+each NFR to the test that proves it.
 
 ---
 
@@ -112,4 +144,5 @@ endpoint serves. Those are gate criteria, computed rather than judged, and
 ## Output
 
 - `docs/testing/strategy.md`
-- Terminal: NFRs with no test that proves them, critical journeys with no E2E
+- Terminal: the risk profile with its T3 list, NFRs with no test that proves
+  them, critical journeys with no E2E

@@ -221,7 +221,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 11 validators
+### `.cursor/tools/` — 12 validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.
@@ -238,6 +238,7 @@ checkable rather than hopeful.
 | `artifact-schema.mjs` | *Does every requirement reach a story, every story a use case, every use case an endpoint?* The traceability graph, from the ids the skills already emit. | `check` · `trace <ID>` · `graph` · `ready` |
 | `change-request.mjs` | *If this rule changes, what stops being true?* Walks the citation graph for the blast radius, before the edit rather than after. | `impact <ID>` · `open` · `list` · `close` |
 | `release-evidence.mjs` | *What shipped, what proved it, and who said yes?* An immutable record per release, every line derived from git and the lifecycle state. | `cut --version` · `sign` · `list` · `show` · `verify` |
+| `risk-profile.mjs` | *Where is being wrong expensive, and do the tests know it?* Tiers every acceptance criterion from its own words and prints the rule that decided. T2 needs a failure-path test, T3 needs two layers. | `profile` · `check` · `explain AC-12` |
 | `platform-metadata.mjs` | *Does any document still claim a count that stopped being true?* | `show` · `write` · `check [--fix]` |
 | `build-plugin.mjs` | *Builds the distributable plugin.* Inlines full skill bodies and rewrites every path to `${CLAUDE_PLUGIN_ROOT}`, because a shim pointing at `.cursor/` breaks the moment the plugin is installed elsewhere. | `build` · `check` |
 

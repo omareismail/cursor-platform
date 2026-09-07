@@ -295,6 +295,11 @@ async function cmdCut(args) {
     },
     checks: [
       ranCheck("ac-trace.mjs", ["check"]),
+      // Flat AC coverage and risk-weighted depth are different claims, and a
+      // release record that carries only the first one overstates what was
+      // proved. Recording both is how "it was 100% covered" stops being the
+      // whole answer six months later.
+      ranCheck("risk-profile.mjs", ["check"]),
       ranCheck("flag-debt.mjs", ["scan"]),
       ranCheck("lifecycle.mjs", ["check", "TESTING"]),
     ],
