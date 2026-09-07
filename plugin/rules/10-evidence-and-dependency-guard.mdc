@@ -1,0 +1,117 @@
+---
+description: Enforce evidence-based development — verify existence before referencing, never introduce unrequested packages or invent project structure
+alwaysApply: true
+---
+
+## What This Rule Does
+
+Consolidates three related disciplines that were previously described in
+skill files but not enforced as an always-on rule:
+
+1. **Evidence-based recommendations** (never assert something about the
+   repository without a verifiable source)
+2. **Hallucination prevention** (never reference a class, interface,
+   service, method, table, column, or config key whose existence hasn't
+   been confirmed)
+3. **Dependency safety** (never introduce a new NuGet or npm package, new
+   infrastructure, or new framework unless it's already in use or
+   explicitly requested)
+
+These three are grouped because they share the same root failure mode:
+an agent generating plausible-sounding code that compiles in the abstract
+but won't build against the *actual* repository, because it referenced
+something that doesn't exist or added a package the team hasn't vetted.
+
+---
+
+## Evidence-Based Recommendations
+
+Every assertion about the repository must be traceable to one of:
+- A specific file path (confirmed via `repo-discovery`/`context-builder`)
+- A Tier 2 memory-bank document (`architecture.md`, `businessRules.md`, etc.)
+- The active spec
+- An explicit statement from the developer in the current session
+
+If none of these provide the basis for a claim, the claim must be marked
+as an **assumption**, not stated as fact:
+
+> ❌ "The `PaymentGatewayClient` is registered as a singleton."
+> ✓ "Assuming `PaymentGatewayClient` is registered as a singleton —
+>    verify in the DI registration file before relying on this."
+
+The distinction matters most for:
+- Lifetime of a DI registration (singleton vs. scoped vs. transient has
+  real correctness implications, not just style)
+- Existence of an interface (generating an implementation for an interface
+  that doesn't exist produces code that won't compile)
+- Database column existence (a Dapper query for a column added in a
+  recent migration that isn't in the cache yet)
+- Configuration key names (a missing `appsettings.json` key fails silently
+  or throws at runtime, not at compile time)
+
+## Hallucination Prevention
+
+Before referencing any of the following in generated code, confirm it
+exists in the actual repository via `repo-discovery`/`context-builder`
+or by direct inspection:
+
+- Class or record names
+- Interface names
+- Method signatures (name, parameters, return type)
+- Property names and types
+- NuGet package names (even common ones — confirm the exact package name
+  and version already present in `Directory.Packages.props` or `*.csproj`)
+- npm package names (confirm in `package.json`)
+- Database table and column names
+- `appsettings.json` key paths
+- Route paths
+- Enum values
+- Claim types / policy names
+
+**The specific failure mode this targets:** an agent generating a handler
+that injects `IPaymentGatewayService` when the actual interface in this
+repo is `IPaymentGatewayClient` — the difference is one word, the code
+won't compile, and a code reviewer who doesn't know the codebase by heart
+might not catch it in a diff. `pattern-finder`'s concrete-example matching
+is the primary defense against this; this rule is the backstop for cases
+`pattern-finder` doesn't cover.
+
+## Dependency Safety
+
+**Never introduce** the following unless they are already present in the
+repository or the developer has explicitly requested them in the current
+task:
+
+- A new NuGet package (including moving from one version to another of a
+  package not in `Directory.Packages.props` yet)
+- A new npm/yarn package
+- A new Docker base image
+- A new infrastructure service (Redis, RabbitMQ, a new database, etc.)
+- A new framework or library (even if widely used — the team's choice to
+  adopt it is a deliberate decision, not an implicit permission granted by
+  the fact that it exists)
+
+**When a missing dependency would genuinely improve the implementation:**
+flag it as a recommendation separate from the implementation, not bundled
+into generated code. The correct output is:
+
+> "This implementation would benefit from `FluentValidation` for the
+>  validator. It's not currently in `Directory.Packages.props` — add it
+>  explicitly if the team wants to adopt it, and I'll use it in the
+>  implementation. For now, generating with `DataAnnotations` which is
+>  already present."
+
+This pattern respects the team's dependency vetting process while still
+providing the information they need to make the call.
+
+## Relationship to Other Rules
+
+- `09-minimal-changes.mdc` governs *scope* of changes; this rule governs
+  *accuracy* of what's referenced and *safety* of what's introduced.
+- `pattern-finder` (skill) is the primary implementation of hallucination
+  prevention — it forces the agent to find a concrete real example before
+  generating. This rule is the always-on backstop that fires even when
+  `pattern-finder` hasn't been explicitly invoked.
+- `06-database-provider-guard.mdc` governs *correctness* of SQL per
+  provider; this rule governs whether the *tables and columns* referenced
+  in that SQL actually exist.

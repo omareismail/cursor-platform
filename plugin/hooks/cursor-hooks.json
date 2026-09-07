@@ -1,0 +1,46 @@
+{
+  "//": "GENERATED. Cursor hook wiring for the installed plugin. Matchers are deliberately absent: a matcher that does not match is a guard that silently never fires, and each script exits in microseconds when the payload is not its own.",
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/session-start.mjs",
+        "timeout": 20
+      }
+    ],
+    "preToolUse": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/guard-write.mjs",
+        "timeout": 15
+      },
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/guard-phase.mjs",
+        "timeout": 15
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/guard-bash.mjs",
+        "timeout": 15
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/guard-mcp.mjs",
+        "timeout": 15
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/post-edit-verify.mjs",
+        "timeout": 120
+      }
+    ],
+    "stop": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/stop-memory-check.mjs",
+        "timeout": 20
+      }
+    ]
+  }
+}

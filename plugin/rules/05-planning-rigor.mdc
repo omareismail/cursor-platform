@@ -1,0 +1,246 @@
+---
+description: Force rigorous, options-driven elicitation before any plan, spec, or constitution is produced
+alwaysApply: true
+---
+
+## What This Rule Does
+
+Whenever the agent is about to produce a plan, constitution, spec, migration
+plan, IaC layout, or any "here's what I'll build" output — whether triggered
+by a speckit skill or by an ad-hoc request — it must run a structured
+elicitation pass first. A plan produced without this pass is invalid and must
+be redone.
+
+This rule exists because the most expensive bugs in software are the ones
+baked into the architecture — wrong data model, wrong auth strategy, wrong
+caching tier — that are trivially cheap to get right during planning and
+catastrophically expensive to undo six months after launch.
+
+**MCP tools:** if the `sequential-thinking` MCP server is connected, use it
+for the elicitation pass on decisions with several interacting constraints
+(e.g. a multi-database architecture choice, a migration strategy with
+backfill coordination) — it gives the reasoning an explicit, revisable
+scratch space instead of leaving it implicit in prose.
+
+---
+
+## Triggers
+
+This rule activates automatically when any of the following occur:
+
+**Skill invocations:**
+- `/speckit-clarify`
+- `/speckit-plan`
+- `/speckit-constitution`
+- `/dotnet-migration`
+- `/dotnet-iac-gen`
+- `/dotnet-observability-gen`
+- `/dotnet-caching-gen`
+- `/dotnet-messaging-gen`
+- `/speckit-options`
+
+**Natural-language patterns** (partial match, case-insensitive):
+- "plan", "approach", "how should I", "design this", "architecture for",
+  "what's the best way to", "options for", "should I use", "which pattern"
+
+---
+
+## Mandatory Elicitation Protocol
+
+### Rule 1 — Scale Question Count to Complexity
+
+| Feature Scope | Minimum Questions |
+|---------------|-------------------|
+| Small, touches ≤ 3 files, no auth/payments | 5 |
+| Standard feature, any layer | 7 |
+| Full-stack feature (backend + frontend) | 10 |
+| Auth, payments, data migration, cross-service contract | 10 |
+| Multi-service change or breaking API change | 12 |
+
+Never ask fewer than 5 questions even for the smallest feature. More is better
+than fewer — a question answered in 30 seconds during planning saves hours of
+rework during implementation.
+
+---
+
+### Rule 2 — Every Question Must Be Options-Driven
+
+**Required format — no exceptions:**
+
+```
+Q[n]: [the decision to be made — phrased as a question]
+
+Option A — [short label]:
+  [1-2 sentence description of what this option means in practice]
+  Trade-off: [what you gain | what you give up]
+
+Option B — [short label]:
+  [1-2 sentence description]
+  Trade-off: [what you gain | what you give up]
+
+Option C — [short label]:
+  [1-2 sentence description]
+  Trade-off: [what you gain | what you give up]
+
+Recommended: Option [X] — [one-sentence reasoning, tied to
+memory-bank/systemPatterns.md if a precedent exists, otherwise tied to the
+project's stated constraints from memory-bank/techContext.md]
+
+(You can also specify your own approach instead of A/B/C.)
+```
+
+**Required trait of every option set:**
+- Options must be genuinely mutually exclusive — if A and B can both be done,
+  they are not alternatives, they are additive and belong in different questions
+- Each option must have a real trade-off — never present options where one is
+  obviously right and the others are strawmen
+- The recommended option must be justified — not just the most popular one,
+  but the one that best fits the project's existing patterns and constraints
+
+---
+
+### Rule 3 — Never Bundle Two Decisions Into One Question
+
+```
+❌ BAD: "Q3: Should we use Redis for caching and also add a rate limiter?"
+         (This is two questions — caching tier and rate-limiting strategy)
+
+✅ GOOD: Q3: Caching tier for the product query results?
+         Q4: Rate limiting strategy for the public API endpoints?
+```
+
+Every question covers exactly one decision. If a question requires the user
+to pick two things, split it.
+
+---
+
+### Rule 4 — Recap Before Advancing
+
+After all questions are answered, produce a decisions recap before moving to
+the next pipeline stage:
+
+```markdown
+## Decisions Recap — [Feature Name]
+
+| # | Question | Choice | Option |
+|---|----------|--------|--------|
+| Q1 | Auth strategy | JWT bearer with refresh tokens | Option B |
+| Q2 | Database migration approach | Additive + backfill + cleanup | Option A |
+| Q3 | Caching tier | In-process IMemoryCache (single-instance deployment) | Option B |
+...
+
+Ready to advance to: `speckit-constitution` / `speckit-plan` / [next stage]
+
+Please confirm with "yes" or "go ahead", or correct any decision above.
+```
+
+The agent must wait for explicit confirmation ("yes", "go ahead", "proceed",
+"looks good", or equivalent) before writing the constitution, plan, or spec.
+
+---
+
+### Rule 5 — `speckit-plan` Must Offer Named Variants
+
+After clarification is confirmed, `/speckit-plan` generates 2-3 named plan
+variants before writing any task board:
+
+```markdown
+## Plan Variants — [Feature Name]
+
+### Plan A — Minimal / Fast
+[2-3 sentence description of what is included and what is left out]
+| Metric | Rating |
+|--------|--------|
+| Delivery speed | ⚡⚡⚡ Fast |
+| Test coverage | 🧪 Basic |
+| Long-term maintainability | ⚠ Medium |
+| Infrastructure cost | 💰 Low |
+| Risk | 🔴 Medium |
+
+### Plan B — Balanced
+[description]
+| Delivery speed | ⚡⚡ Medium |
+| Test coverage | 🧪🧪 Good |
+| Long-term maintainability | ✅ High |
+| Infrastructure cost | 💰 Low |
+| Risk | 🟡 Low |
+
+### Plan C — Full Robustness
+[description — full test suite, observability, outbox pattern, E2E]
+| Delivery speed | ⚡ Slower |
+| Test coverage | 🧪🧪🧪 Comprehensive |
+| Long-term maintainability | ✅✅ Very High |
+| Infrastructure cost | 💰💰 Medium |
+| Risk | 🟢 Minimal |
+
+**Recommended: Plan B** — [one-sentence reasoning, tied to project context]
+
+Please select a plan (A/B/C) or describe a hybrid, then I'll write the
+full task board.
+```
+
+The task board is never written until the user selects a plan.
+
+---
+
+### Rule 6 — Record Everything
+
+Every answered question and every chosen option is saved to the relevant file:
+- `specs/clarifications/[feature-slug].md` — Q&A with chosen options recorded
+- `specs/plans/[feature-slug]-plan.md` — rejected variants and why they lost
+- `docs/adr/[NNNN]-[decision-slug].md` — significant architectural decisions
+
+The "why" behind every decision must survive the feature shipping.
+
+---
+
+## Violations
+
+### ❌ Violation 1 — Open-Ended Question With No Options
+
+**Trigger:** Agent asks: *"Q3: What authentication mechanism do you want?"*
+
+**What's wrong:**
+> The user now has to think through the option space from scratch — they asked
+> the agent for help precisely to avoid that. This violates the mandatory
+> options format.
+
+**Correct form:**
+```
+Q3: Authentication mechanism for the API endpoints?
+
+Option A — JWT Bearer (stateless):
+  Short-lived access token in Authorization header, refresh token in httpOnly
+  cookie. No server-side session storage needed.
+  Trade-off: Simple to scale horizontally | Revoking tokens requires a denylist
+
+Option B — Cookie-based session:
+  Server-managed session, no token in JS memory, works well for SSR.
+  Trade-off: Simpler revocation | Requires sticky sessions or distributed session store
+
+Option C — Azure AD B2C / external IdP:
+  Fully managed auth, supports MFA, social login, RBAC out of the box.
+  Trade-off: No code to write | External dependency, vendor lock-in, higher cost at scale
+
+Recommended: Option A — The project's existing services already use JWT bearer
+(per memory-bank/systemPatterns.md), keeping this consistent avoids a mixed
+auth model and reuses the existing token validation middleware.
+```
+
+---
+
+### ❌ Violation 2 — Jumping Straight to One Plan Without Offering Variants
+
+**Trigger:** After clarification, agent immediately produces a single 20-task
+implementation plan and starts implementing TASK-001.
+
+**What's wrong:**
+> `speckit-plan` must present at least 2 named variants with a trade-off
+> comparison before writing the task board. The user has not chosen a scope
+> yet — the agent chose it for them, which is the exact failure mode this
+> rule prevents.
+
+**Correct behavior:**
+> Present Plan A (minimal), Plan B (balanced), Plan C (full), with the
+> trade-off table. Recommend one. Wait for the user to select a plan.
+> Only then write the task board for the selected variant.

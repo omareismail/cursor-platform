@@ -1,0 +1,37 @@
+{
+  "//": "Project-scoped MCP servers for Claude Code. Committed - contains no secrets, only ${ENV_VAR} references. Rationale, security notes and the deliberately-omitted list live in .cursor/docs/mcp-ecosystem.md",
+
+  "mcpServers": {
+    "github": {
+      "//": "GitHub's OFFICIAL remote server. The old @modelcontextprotocol/server-github is archived and unmaintained (moved to modelcontextprotocol/servers-archived). X-MCP-Readonly stops an agent opening or merging PRs by accident - drop the header when you want write access.",
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_PAT}",
+        "X-MCP-Readonly": "true",
+        "X-MCP-Toolsets": "repos,issues,pull_requests,actions,code_security"
+      }
+    },
+
+    "postgres": {
+      "//": "Postgres MCP Pro. Replaces @modelcontextprotocol/server-postgres, which is archived AND shipped a SQL-injection flaw that bypassed its own read-only restriction. --access-mode=restricted keeps it read-only. POSTGRES_READONLY_URL must still point at a role with SELECT only - the access mode is defence in depth, not the boundary.",
+      "command": "uvx",
+      "args": ["postgres-mcp", "--access-mode=restricted"],
+      "env": {
+        "DATABASE_URI": "${POSTGRES_READONLY_URL}"
+      }
+    },
+
+    "context7": {
+      "//": "Version-accurate library docs. Highest-value server here: it is what stops the agent writing EF Core 6 or React Router v5 APIs against your pinned versions. Rule 00 requires *-gen skills to resolve the version from technologyStack.md and pull real docs before generating.",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+
+    "playwright": {
+      "//": "Browser automation for React E2E verification and RTL/visual checks. Heavy tool surface - turn it off for backend-only sessions.",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    }
+  }
+}
