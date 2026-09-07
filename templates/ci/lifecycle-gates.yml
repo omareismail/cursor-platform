@@ -158,6 +158,22 @@ jobs:
           [ -d lifecycle/changes ] || { echo "::notice::No change requests."; exit 0; }
           node .cursor/tools/change-request.mjs list
 
+  # Architecture fitness. The one job here that fails on a pull request rather
+  # than on a document: `check` compares against the committed baseline, so it
+  # fires on NEW decay only, which is what makes it survivable on a real codebase.
+  architecture-fitness:
+    name: the promoted architecture still holds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Layering, boundaries and cycles
+        run: |
+          [ -f memory-bank/architecture.md ] || { echo "::notice::No promoted architecture."; exit 0; }
+          node .cursor/tools/fitness.mjs check
+
   # Release records are evidence, and evidence that nobody re-checks is a claim.
   # This catches the two things that actually happen to them: a record edited
   # after it was cut, and a record naming a commit that history no longer has.

@@ -4,33 +4,9 @@
 development. This gate asks whether the MVP is actually built.
 **Mechanical check:** `node .cursor/tools/lifecycle.mjs check DEVELOPMENT`
 **Judgement:** `/lifecycle-gate`.
-**Authored by:** the implementers (the speckit pipeline)
-**Reviewed by:** `test-engineer` — never an author of the artifacts above.
 
 Phases 4 and 5 are a loop. Work moves between them continuously; this gate is
 evaluated once, when the MVP scope from phase 1 is claimed complete.
-
----
-
-## Who reviews this, and why
-
-`test-engineer` judges this gate. Not because it is senior, but because of what it
-loses if this gate passes on bad work:
-
-Phase 5 inherits this code and has to prove it works. A story that is three
-quarters built passes every guard and then fails the first test written against
-it — so the person who will write that test is the one who should say whether
-development is finished. Run `feature-analyst` (what does this code actually do),
-`dotnet-auditor` and `react-auditor` (is it any good) alongside; they answer
-different questions and none of them replaces this one.
-
-Launch it as a **fresh subagent**. It has to reach these criteria through the
-documents, not through the conversation that produced them — an author
-re-reading their own work still has all of the author's reasons in context,
-and never finds the thing they did not think of the first time.
-
-`record-gate` refuses a verdict filed under any other role, and `approve`
-refuses a signature from the same party that filed the verdict.
 
 ---
 
@@ -65,8 +41,16 @@ and its tests, green proves they agree — not that either is right.
 
 **5. Architecture guards report no blockers.**
 PASS: `/dotnet-clean-code-guard` and `/react-clean-code-guard` clean, or every
-finding has a recorded, accepted justification.
+finding has a recorded, accepted justification — **and**
+`node .cursor/tools/fitness.mjs check` reports no new violation of the layering
+promoted at gate 3.
 FAIL: findings deferred to "later". Later is phase 6, where they are incidents.
+
+> `check` compares against `lifecycle/fitness-baseline.json`, so on an existing
+> codebase it fails on *new* decay rather than on all of history. The baseline is
+> a dated record of accepted architectural debt, not a suppression file: its
+> count may fall and never rise, and swapping a fixed violation for a new one is
+> refused even though the count is unchanged.
 
 **6. The build is reproducible.**
 PASS: clean clone, documented commands, build and test pass with no local-only
@@ -101,6 +85,6 @@ Drift:       <features where spec and code disagree>
 Stranded:    <tasks In Progress, tasks Done without task-verify evidence>
 Blocking:    <criterion, file, what is wrong, what would fix it>
 Record:      node .cursor/tools/lifecycle.mjs record-gate DEVELOPMENT --verdict GO|NO-GO \
-                  --by "test-engineer" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve DEVELOPMENT --by "<a human, not test-engineer>"
+                  --by "lifecycle-gate" --criteria "<n>/<total>"
+Then:        node .cursor/tools/lifecycle.mjs approve DEVELOPMENT --by "<name>"
 ```

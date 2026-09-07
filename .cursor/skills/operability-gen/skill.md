@@ -166,7 +166,33 @@ financial systems — reconciliation mismatch and duplicate payment.
 Include the exact commands. A runbook that says "restart the service" and leaves
 the responder to work out how has failed at the only moment it exists for.
 
-**Step 6 — Flag what you could not determine.**
+**Step 6 — Take the inventory of what can fail without you.**
+
+```bash
+node .cursor/tools/failure-modes.mjs scan
+```
+
+Every dependency this system does not control, what protects it, whether the
+design says what happens when it fails, and whether any test has ever made it
+fail. An alert and a runbook for a dependency whose failure behaviour was never
+decided is a page that says "something is wrong" to somebody with no next step.
+
+Three findings are worth stopping for:
+
+- **No timeout.** The one that actually takes services down. A dependency that
+  fails returns an error you can handle; one that goes *slow* fills the pool and
+  takes you with it. `new HttpClient()` waits a hundred seconds by default.
+- **Retry without idempotency.** `AddStandardResilienceHandler` retries by
+  default. On a money path that pays twice, and the second payment is invisible
+  until reconciliation.
+- **Nothing makes it fail in a test.** Every test of that dependency has it
+  working, so nobody has seen the fallback run — including the runbook's author.
+
+Each one becomes a runbook entry, and the last one becomes the rehearsal gate 6
+asks for. Production chaos is out of scope: against regulated traffic that is a
+formal change with a named owner, not something this skill proposes.
+
+**Step 7 — Flag what you could not determine.**
 
 Do not invent an on-call rota, a paging target, a dependency SLA, or a business
 tolerance. List them as **must be answered by a human before this is real**, with

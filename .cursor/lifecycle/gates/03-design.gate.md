@@ -95,7 +95,21 @@ PASS: runtime target, scaling model, configuration and secret management,
 migration strategy for a live database.
 FAIL: leaving it to phase 6, when the architecture no longer permits the answer.
 
-**10. Decisions are recorded as ADRs.**
+**10. Every dependency you do not control has a decided failure behaviour.**
+PASS: for each external call, broker, cache and database, the design says what
+happens when it is slow, when it is down, and when it answers twice — and
+`node .cursor/tools/failure-modes.mjs check` finds a timeout on every one.
+FAIL: silence. A dependency that FAILS is survivable; one that goes SLOW takes
+the service with it, because requests pile up on a pool that never drains.
+`new HttpClient()` defaults to a hundred seconds, which under load is an outage
+of your own making — and it is the single most common cause of the incident.
+
+> Retry without idempotency on a money path is blocking here, not in phase 4.
+> `AddStandardResilienceHandler` retries by default; a retried transfer that is
+> not idempotent pays twice, and the second payment is invisible until
+> reconciliation. This is the last gate at which that costs a paragraph.
+
+**11. Decisions are recorded as ADRs.**
 PASS: every consequential fork is an ADR in `docs/design/adr/` with context,
 options, decision and consequences. `/speckit-adr` generates these.
 FAIL: decisions that live only in a chat log.
@@ -112,10 +126,23 @@ FAIL: decisions that live only in a chat log.
 | Token handling, data classification | `memory-bank/securityStandards.md` |
 | API conventions decided in criterion 3 | `memory-bank/apiConventions.md` |
 
-This promotion is what makes the design binding. Once the layering is in
-`architecture.md`, rule 02 enforces it on every `.cs` file for the rest of the
-project's life. Skip it and the design is a document; do it and the design is a
-compiler error.
+This promotion is what makes the design binding — and it is now literally true
+rather than aspirational:
+
+```bash
+node .cursor/tools/fitness.mjs rules     # what was derived, and from where
+node .cursor/tools/fitness.mjs all       # every violation of it, today
+```
+
+`fitness.mjs` reads the layering **out of** `memory-bank/architecture.md` and
+asserts it against `using` directives and `<ProjectReference>` elements. It is
+not configured anywhere: promote the design and the checks come into existence;
+leave the file as a template and it says so and checks nothing, because inventing
+rules nobody agreed to is worse than checking none.
+
+Before this, "rule 02 enforces it" meant an agent read a paragraph and chose to
+comply. That is probabilistic. Skip the promotion and the design is a document;
+do it and the design is an assertion that fails a build.
 
 ---
 
@@ -124,7 +151,7 @@ compiler error.
 ```
 GATE 3 — DESIGN: GO | NO-GO
 Mechanical:  <pass/fail>
-Criteria:    <n>/10 pass
+Criteria:    <n>/11 pass
 Threat model: <run / NOT RUN — automatic NO-GO if not run>
 Unmapped:    <use cases with no endpoint, entities with no table, screens with no endpoints>
 Promotion:   <which memory-bank files this will change>

@@ -300,6 +300,11 @@ async function cmdCut(args) {
       // proved. Recording both is how "it was 100% covered" stops being the
       // whole answer six months later.
       ranCheck("risk-profile.mjs", ["check"]),
+      // What the system does when something it does not control fails. A release
+      // record that says the tests passed and nothing about the payment gateway
+      // answers the easy question and skips the one incidents are made of.
+      ranCheck("failure-modes.mjs", ["check"]),
+      ranCheck("fitness.mjs", ["check"]),
       ranCheck("flag-debt.mjs", ["scan"]),
       ranCheck("lifecycle.mjs", ["check", "TESTING"]),
     ],

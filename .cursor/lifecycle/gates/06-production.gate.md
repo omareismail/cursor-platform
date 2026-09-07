@@ -77,7 +77,20 @@ FAIL: big-bang to all users.
 PASS: a named owner, a runbook they have read, an escalation path.
 FAIL: the team finds out from a customer.
 
-**10. Compliance evidence is filed.**
+**10. A failure was rehearsed, not diagrammed.**
+PASS: somebody broke a real dependency in a non-production environment — pulled
+the payment gateway, stopped the broker, failed the database over — with the
+runbook open, and the system behaved as the design said it would. The gap between
+what happened and what the runbook claimed is written down.
+FAIL: a resilience section in a document. Same rule as criterion 7: untested
+rollback is not rollback, and an untested fallback is a hypothesis.
+
+> **Not production chaos.** Fault injection against live SAMA-regulated traffic
+> is a formal change with a named owner and a regulator-facing record. Nothing in
+> this repository authorises one, and this criterion does not ask for it. Staging,
+> a stopwatch and somebody watching is what is being asked for.
+
+**11. Compliance evidence is filed.**
 PASS: SAMA/ZATCA/mada evidence produced and stored where an auditor will look,
 and a release record exists for the version being shipped:
 
@@ -117,7 +130,7 @@ throughput amplifier, which is exactly that configuration. Run
 ```
 GATE 6 — PRODUCTION: GO | NO-GO
 Mechanical:   <pass/fail>
-Criteria:     <n>/10 pass
+Criteria:     <n>/11 pass
 Readiness:    <GO/NO-GO from /production-readiness-review, verbatim>
 Rollback:     <tested on: date, environment, time-to-rollback>
 On call:      <named owner>

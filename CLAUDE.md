@@ -386,6 +386,67 @@ release shipping under an active override unless the signer names it with
 `--accept-override OV-XXXX`. Records live in `lifecycle/releases/`, are
 immutable, and are committed.
 
+**The architecture, as an assertion.** Gate 3 promises that promoting the design
+into `memory-bank/architecture.md` makes it "a compiler error rather than a
+document". Until now that meant an agent read rule 02 and chose to comply, which
+is probabilistic, plus a subagent sweep when someone remembered to ask.
+
+```bash
+node .cursor/tools/fitness.mjs rules            # what was derived, and from where
+node .cursor/tools/fitness.mjs check            # gate 4 / CI: NEW violations only
+node .cursor/tools/fitness.mjs baseline --accept
+```
+
+The rules are **read from** `memory-bank/architecture.md` — the layering block
+names each layer and what it may depend on; the frontend block says `shared/`
+cannot import from `features/`. Nothing is configured here, because a
+`fitness.json` would be a fourth source of architectural truth beside that file,
+rule 02 and the ADRs. If the file is still the template, the tool says so and
+checks nothing: an un-promoted architecture is a skipped gate, not a violation.
+
+It asserts layer direction over `using` directives and `<ProjectReference>`
+elements (with the transitive closure, so Infrastructure using Domain is not a
+false positive), domain purity against infrastructure packages, the frontend
+boundary, import cycles, and whether the architecture-test project the file
+claims as a build gate actually exists.
+
+**The baseline is a ratchet, and it is what makes this survivable.** Point a new
+checker at an existing codebase and it returns four hundred violations and is
+switched off that afternoon. `check` fails only on what is NEW since
+`lifecycle/fitness-baseline.json`. The count may fall and never rise, and
+swapping a fixed violation for a fresh one is refused even though the count is
+unchanged. It is a dated record of architectural debt, not a suppression file.
+
+**What happens when something you do not control fails.** Every test above is
+about *this* system's behaviour on bad input. Nothing was asking the other
+question — what the system does when the mada gateway stops answering, ZATCA
+returns 503 for four hours, or the queue redelivers a message that already moved
+money.
+
+```bash
+node .cursor/tools/failure-modes.mjs scan     # every dependency, and what protects it
+node .cursor/tools/failure-modes.mjs check    # gates 3 and 6
+```
+
+It reads the **registration site** — `AddHttpClient`, `AddDbContext`,
+`AddMassTransit`, `axios.create` — not the file, so a `Timeout` belonging to
+something else is not counted as protection. `AddStandardResilienceHandler` is
+understood. Three findings block:
+
+- **No timeout.** A dependency that fails returns an error you can handle; one
+  that goes *slow* fills the thread pool and takes the service with it.
+  `new HttpClient()` waits 100 seconds by default.
+- **Retry without idempotency on a money path.** `AddStandardResilienceHandler`
+  retries by default. A retried transfer that is not idempotent pays twice, and
+  the second payment is invisible until reconciliation.
+- **Nothing makes it fail in a test.** Every test has the dependency working, so
+  the fallback has never run — including for whoever wrote the runbook.
+
+Production chaos experiments are deliberately out of scope. Against live
+SAMA-regulated traffic that is a formal change with a named owner, not something
+a repository tool authorises. Gate 6 asks instead for a failure **rehearsed** in
+staging with the runbook open.
+
 ```bash
 node .cursor/tools/delivery-metrics.mjs report --days 90   # DORA + rework, MEASURED vs PROXY labelled
 node .cursor/tools/delivery-metrics.mjs trend  --days 180  # direction of travel
