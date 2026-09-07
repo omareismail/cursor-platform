@@ -134,6 +134,40 @@ Then schedule them properly:
 The task board makes them visible and sized; a bullet list at the end of a
 document does not.
 
+**Step 4b — Record the incident and the guard it bought.**
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/tools/incidents.mjs open \
+  --title "<what happened, in the business's words>" \
+  --detected alert|monitoring|customer|reconciliation|manual \
+  --guard "templates/dotnet/BannedSymbols.txt#<symbol>" \
+  --guard "tests/Arch/<Rule>.cs#<Test_Name>" \
+  --falsifies "NFR-3,AC-12" --postmortem "docs/postmortems/<file>.md" \
+  --by "<name>"
+```
+
+This is the step that makes step 6's warning survivable. Step 6 says teams
+delete useful defences during cleanups **because nobody recorded that they
+helped** — and until now nobody did. `incidents.mjs check` re-reads every guard
+named here and fails when one is gone, commented out, or sitting inside a test
+somebody marked `Skip`. That last state is the worst of the three: the record
+still says the guard is there.
+
+Three things it does at the moment you open it:
+
+- **Classifies the guard by rung**, from where it lives. If the strongest one is
+  rung 7 or 8, it says so — that is the "rung 8 wearing a hat" case, and it is
+  the moment to climb, not the moment to move on. If the finding genuinely
+  cannot be mechanised, `--unmechanisable "<why>"` records that in words, which
+  is a different thing from settling quietly.
+- **Checks for recurrence.** If another incident already named this guard or
+  falsified the same id, it names it. A guard that was supposed to prevent this
+  and did not was either never built, removed, or does not cover this case —
+  three different postmortems, and you have to find out which.
+- **Records what production falsified.** `--falsifies NFR-3` means the document
+  still asserts something reality settled. `incidents.mjs learned` puts that in
+  front of the gate 1 and gate 5 reviewers, who cannot know it from the document.
+
 **Step 5 — Write it back into the memory-bank.**
 
 - `memory-bank/commonMistakes.md` — the pattern, in one paragraph, with a link

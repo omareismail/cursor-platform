@@ -77,6 +77,14 @@ FAIL: big-bang to all users.
 PASS: a named owner, a runbook they have read, an escalation path.
 FAIL: the team finds out from a customer.
 
+**9b. Every guard a past incident bought is still standing.**
+PASS: `node .cursor/tools/incidents.mjs check` clean — each guard named in
+`lifecycle/incidents/` still exists, is not commented out, and is not inside a
+test the suite is skipping.
+FAIL: a defence removed in a cleanup by somebody who never knew what it was for.
+This is the cheapest check in the gate and it catches the most expensive class of
+regression: the incident you already paid for, happening again.
+
 **10. A failure was rehearsed, not diagrammed.**
 PASS: somebody broke a real dependency in a non-production environment — pulled
 the payment gateway, stopped the broker, failed the database over — with the

@@ -65,10 +65,15 @@ are excluded for now.
 FAIL: only an in-scope list. Scope without a boundary is not scope; it is a wish,
 and it will be relitigated in phase 4 at ten times the cost.
 
-**6. Non-functional requirements are quantified.**
+**6. Non-functional requirements are quantified — and not already disproved.**
 PASS: numbers with units and a measurement point — P99 latency at the API edge,
 availability over a stated window, retention in days, concurrent users at peak.
-FAIL: "highly available", "scalable", "secure".
+And `node .cursor/tools/incidents.mjs learned` names no id this document still
+asserts.
+FAIL: "highly available", "scalable", "secure". Or a target production has
+already contradicted: `nfr.md` says P99 under 400 ms, an incident recorded 1200
+for six hours, and the document was never updated. That NFR is not at risk — it
+is wrong, and nothing in the document itself can tell you so.
 
 **7. Regulatory surface is decided, not deferred.**
 PASS: `nfr.md` states whether SAMA, ZATCA, mada or PCI-DSS apply, and where data

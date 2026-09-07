@@ -15,6 +15,10 @@
 # local ./plugin source has to be able to fetch it, so it is deliberately not
 # ignored. Rebuild with: node .cursor/tools/build-plugin.mjs build
 
+# NOTE: lifecycle/incidents/ is COMMITTED. Each record names the guard an
+# incident bought, and `incidents.mjs check` re-reads them; ignoring the records
+# is how a defence gets deleted by someone who never knew why it was there.
+
 # NOTE: lifecycle/fitness-baseline.json is COMMITTED too. It is the dated record
 # of accepted architectural debt that lets `fitness.mjs check` fail on new decay
 # instead of on all of history. Ignoring it turns the ratchet off silently.

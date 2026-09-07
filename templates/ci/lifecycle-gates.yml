@@ -158,6 +158,22 @@ jobs:
           [ -d lifecycle/changes ] || { echo "::notice::No change requests."; exit 0; }
           node .cursor/tools/change-request.mjs list
 
+  # The cheapest job in this file, and the one that catches the most expensive
+  # regression: a defence bought by a past incident, removed in a cleanup by
+  # somebody who never knew what it was for.
+  incident-guards:
+    name: guards past incidents bought are still standing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Every incident guard still exists and is switched on
+        run: |
+          [ -d lifecycle/incidents ] || { echo "::notice::No incidents recorded."; exit 0; }
+          node .cursor/tools/incidents.mjs check
+
   # Architecture fitness. The one job here that fails on a pull request rather
   # than on a document: `check` compares against the committed baseline, so it
   # fires on NEW decay only, which is what makes it survivable on a real codebase.

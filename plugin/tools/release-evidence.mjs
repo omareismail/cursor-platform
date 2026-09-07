@@ -305,6 +305,7 @@ async function cmdCut(args) {
       // answers the easy question and skips the one incidents are made of.
       ranCheck("failure-modes.mjs", ["check"]),
       ranCheck("fitness.mjs", ["check"]),
+      ranCheck("incidents.mjs", ["check"]),
       ranCheck("flag-debt.mjs", ["scan"]),
       ranCheck("lifecycle.mjs", ["check", "TESTING"]),
     ],

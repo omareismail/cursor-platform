@@ -466,7 +466,29 @@ Two rules when using these:
   not a control.
 - **`/postmortem` output is a `BannedSymbols.txt` entry, an analyzer severity, a
   convention test or a hook tripwire** — not a document. Aim as high up that
-  ladder as the finding allows.
+  ladder as the finding allows, then **record which guard it was**:
+
+```bash
+node .cursor/tools/incidents.mjs open --title "..." --detected reconciliation \
+     --guard "templates/dotnet/BannedSymbols.txt#<symbol>" --falsifies NFR-3 --by "<name>"
+node .cursor/tools/incidents.mjs check      # gate 6 / CI: are those guards still there
+node .cursor/tools/incidents.mjs learned    # what production disproved
+```
+
+`/postmortem` step 6 already names the failure this closes: *"teams delete useful
+defences during cleanups because nobody recorded that they helped."* Nobody did.
+`check` re-reads every guard an incident bought and fails when it is gone,
+commented out, or inside a test somebody marked `Skip` — that last state being
+the worst, because the record still claims the guard is there.
+
+It also asks the question nobody asks later: opening an incident that names a
+guard another incident already named prints the recurrence. A guard that was
+meant to prevent this and did not was either never built, removed, or does not
+cover this case — three different postmortems.
+
+And `--falsifies NFR-3` records that a written id is now **wrong**, not at risk.
+Gate 1's NFR criterion reads `learned` for exactly this: a reviewer cannot tell
+from `nfr.md` that production already contradicted it.
 
 ---
 
