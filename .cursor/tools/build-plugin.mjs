@@ -240,6 +240,14 @@ ${rewritePaths(body)}
   const pol = join(ROOT, ".cursor", "mcp-policy.json");
   if (existsSync(pol)) emit("mcp-policy.json", read(pol));
 
+  // ---- the write policy guard-phase.mjs reads ---------------------------
+  // Emitted at lifecycle/ because the hook resolves it as ../lifecycle/ from
+  // hooks/. Without it an installed plugin falls back to the built-in rule -
+  // which still guards source, but leaves IaC, CI and deployment manifests
+  // ungoverned, silently.
+  const wpol = join(ROOT, ".cursor", "lifecycle", "write-policy.json");
+  if (existsSync(wpol)) emit("lifecycle/write-policy.json", read(wpol));
+
   // ---- MCP: same servers, no secrets ------------------------------------
   // Two names for one file: Claude Code reads .mcp.json, Cursor reads mcp.json
   // at the plugin root. Copying is cheaper than asking either host to be flexible.

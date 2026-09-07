@@ -168,10 +168,22 @@ promotion is explicit: show the diff, get the user's word, apply with
 
 ## The design gate
 
-The only gate with enforcement behind it. While the DESIGN phase derives to
-anything other than `APPROVED` or `INHERITED` — `STALE` included —
-`guard-phase.mjs` returns exit code 2 on any write under `src/`, `backend/` or
-`frontend/`.
+`guard-phase.mjs` returns exit code 2 on any write the current phase does not
+permit. The design gate is the most consequential of those rules, but no longer
+the only one — the policy is data, in `.cursor/lifecycle/write-policy.json`:
+
+| Artifact | Earliest phase | Needs cleared |
+|---|---|---|
+| `src/`, `backend/`, `frontend/` source | DEVELOPMENT | DESIGN |
+| Database migrations | DEVELOPMENT | DESIGN |
+| IaC — `*.tf`, `*.bicep`, `infra/` | DESIGN | ANALYSIS |
+| CI pipelines — `.github/workflows/` | TESTING | DEVELOPMENT |
+| Deployment manifests — `k8s/`, `helm/` | PRODUCTION | TESTING |
+
+`earliest: X` means the phase **before** X must be `APPROVED` or `INHERITED`, so
+the original source rule is a special case of a general one rather than
+something that got replaced. `STALE` counts as not cleared: edit an approved
+design document and source writes block again on the next call.
 
 Not blocked: `tests/`, `specs/`, `docs/`, `memory-bank/`, `.cursor/`, `.claude/`,
 `.github/`. Writing a test or a spec before the design gate is good practice.

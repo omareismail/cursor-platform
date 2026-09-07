@@ -96,9 +96,24 @@ gate was built to prevent.
 **Never soften a gate failure.** Same rule as `/production-readiness-review`:
 a gate that has never blocked anything is a form, not a control.
 
-**The design gate is enforced, not requested.** `guard-phase.mjs` returns exit
-code 2 on any write under `src/`, `backend/`, `frontend/` while the DESIGN phase
-derives to anything other than `APPROVED` or `INHERITED` — `STALE` included. If it blocks you,
+**The write policy is enforced, not requested.** `guard-phase.mjs` returns exit
+code 2 on any write the current phase does not permit. The policy is data, in
+`.cursor/lifecycle/write-policy.json`:
+
+| Artifact | Earliest phase | Needs cleared |
+|---|---|---|
+| `src/`, `backend/`, `frontend/` source | DEVELOPMENT | DESIGN |
+| Database migrations | DEVELOPMENT | DESIGN |
+| IaC — `*.tf`, `*.bicep`, `infra/` | DESIGN | ANALYSIS |
+| CI pipelines — `.github/workflows/` | TESTING | DEVELOPMENT |
+| Deployment manifests — `k8s/`, `helm/` | PRODUCTION | TESTING |
+
+`earliest: X` means the phase **before** X must be `APPROVED` or `INHERITED` —
+`STALE` included, so an edited design document re-blocks source on the next call.
+
+Never blocked: `tests/`, `specs/`, `docs/`, `memory-bank/`, `.cursor/`,
+`.claude/`, `*.md`. Writing a test or a spec early is good practice, not a
+violation. If it blocks you,
 stop and tell the user why. Do not route around it with `Bash`.
 
 Tests, specs, docs and `memory-bank/` are never blocked — writing a test or a

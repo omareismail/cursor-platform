@@ -236,7 +236,22 @@ node .cursor/tools/artifact-schema.mjs graph      # everything, and where the ch
 ```
 
 Chain: `FR -> S -> UC -> EP, SC` and `NFR -> ADR, EP`, declared in
-`schemas/id-grammar.json`. The Markdown stays Markdown — this reads the ids the
+`schemas/id-grammar.json`.
+
+**Definition of Ready.** `/task-verify` already refuses to mark a task done
+without evidence; nothing asked the question at the other end, where the cheaper
+mistake lives:
+
+```bash
+node .cursor/tools/artifact-schema.mjs ready S-7    # may this story enter DEVELOPMENT
+node .cursor/tools/artifact-schema.mjs ready        # every story
+```
+
+It computes eight of the ten items from the graph - requirement, acceptance
+criteria, use case, business rules, endpoint, screen, security design, data
+design - and reports the two it cannot (dependency order and task sizing, both
+`task-graph.mjs`) as manual rather than dropping them. `/feature-pipeline`
+refuses to start an unready story. The Markdown stays Markdown — this reads the ids the
 skills already emit plus a small YAML front-matter block, exactly the way
 `// AC-N:` comments work. **`lifecycle.mjs check` fails on a broken chain**, so
 gate criteria like "every story traces to a use case" are now part of the

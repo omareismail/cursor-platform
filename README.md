@@ -53,8 +53,6 @@ CLAUDE.md            # Claude Code entry point — imports AGENTS.md, adds Claud
 .cursor/
   hooks.json         # Cursor hook wiring -> the same scripts as .claude/settings.json
   mcp-policy.json    # what an agent may do THROUGH an MCP server
-
-schemas/             # front-matter contract + the id grammar (FR -> S -> UC -> EP)
   skills/            # 97 slash-command skills — SINGLE SOURCE OF TRUTH
   rules/             # 12 .mdc guard rules (5 global + 7 glob-scoped)
   docs/              # skill-graph, execution pipeline, governance, START-HERE
@@ -65,16 +63,19 @@ schemas/             # front-matter contract + the id grammar (FR -> S -> UC -> 
   cache/             # repo-map.json (structure) + feature-map.json (behaviour)
                      #   both generated; gitignored except .gitkeep
   lifecycle/gates/   # 6 gate definitions - what each phase must satisfy
+  lifecycle/write-policy.json  # which artifacts may be written in which phase
+
+schemas/             # front-matter contract + the id grammar (FR -> S -> UC -> EP)
 
 lifecycle/           # per-project state.json (committed, machine-owned)
                      #   evidence/ gate verdicts · overrides/ · changes/ CRs
 
 .claude/
-  skills/            # 96 generated shims → .cursor/skills/ (never edit by hand)
+  skills/            # 97 generated shims → .cursor/skills/ (never edit by hand)
   skills/_descriptions.json  # hand-written description overrides
   agents/            # 14 read-only subagents (context isolation)
   hooks/             # 7 enforcement hooks + sync-skills.mjs (plain Node, no deps)
-                     #   incl. guard-phase.mjs - blocks src/ writes before the design gate
+                     #   incl. guard-phase.mjs - enforces the phase write policy
   settings.json      # hook wiring + permission deny/ask lists (committed)
 
 memory-bank/

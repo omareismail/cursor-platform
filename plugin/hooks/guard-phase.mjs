@@ -1,25 +1,26 @@
 #!/usr/bin/env node
-// PreToolUse: Write | Edit | MultiEdit | NotebookEdit
-// Turns the design gate from prose into a block.
+// Claude Code: PreToolUse (Write/Edit)   |   Cursor: preToolUse
 //
-// The most expensive failure mode of an agent platform is not bad code — it is
-// code written before anyone decided what the product was. `01-specify-rules`
-// already says implementation may not start without a spec; that is advisory
-// text the model is asked to honour. This is the same claim with an exit code.
+// Enforces the lifecycle's write policy: which artifacts may be written in which
+// phase.
 //
-// Deliberately narrow. It asks exactly one question: is the DESIGN phase
-// cleared? Everything else — which phase, which artifacts, whether they are any
-// good — belongs to lifecycle.mjs and /lifecycle-gate, which have room to
-// explain themselves.
+// The first version of this hook asked one question - is the DESIGN gate
+// cleared? - and gated `src/` on the answer. That was the expensive case, and it
+// left everything else open: nothing stopped an agent writing production
+// Terraform during REQUIREMENTS, or a Kubernetes manifest before a single test
+// existed. Both are artifacts that outrun the decisions they depend on, which is
+// what this layer exists to prevent.
 //
-// "Cleared" is COMPUTED, not read. Since v2 the state file stores evidence
-// (mechanical hashes, the /lifecycle-gate verdict, the human approval) and
-// lifecycle.mjs derives the status from it. So editing an approved design
-// document re-blocks source writes on the very next tool call, with no sweeper
-// and nothing to invalidate — which is the entire point of hashing the
-// artifacts at approval time.
+// So the question is now general and the answer is data, in
+// .cursor/lifecycle/write-policy.json. `earliest: X` means the phase BEFORE X
+// must be cleared, which makes the original rule a special case rather than a
+// thing that got replaced: source still needs DESIGN cleared, and still goes
+// back to blocked the moment an approved design document changes.
+//
+// Deliberately narrow. Tests, specs, docs and memory-bank are never blocked -
+// writing a test or a spec early is good practice, not a violation.
 
-import { existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { readPayload, projectDir, relPath, targetPath, block, ok } from "./_lib.mjs";
 
@@ -37,14 +38,71 @@ if (!existsSync(join(root, "lifecycle", "state.json"))) ok();
 // is doing it silently, so the variable has to be set on purpose.
 if (process.env.LIFECYCLE_OVERRIDE) ok();
 
-// What counts as production source. Tests, specs, docs and platform config are
-// all fine before design — writing a test or a spec early is good practice, and
-// blocking `.cursor/` would make the platform unable to configure itself.
-const lower = file.toLowerCase();
-const SOURCE_ROOT = /^(src|backend|frontend|client|server|app|api|web)\//;
-const SOURCE_EXT = /\.(cs|csproj|sln|fs|vb|tsx?|jsx?|vue|svelte|razor|cshtml|sql)$/;
-const EXEMPT = /^(tests?|e2e|specs|docs|memory-bank|lifecycle|templates|scripts|\.cursor|\.claude|\.github)\//;
-if (!(SOURCE_ROOT.test(lower) && SOURCE_EXT.test(lower) && !EXEMPT.test(lower))) ok();
+/* ------------------------------------------------------------------- policy */
+
+// The project's own policy wins; the copy shipped beside this hook is the
+// fallback for a plugin install. Without the second, a plugin wires a guard that
+// then finds no policy and governs nothing — a silent no-op this repo has been
+// bitten by more than once.
+const POLICY_PATHS = [
+  join(root, ".cursor", "lifecycle", "write-policy.json"),
+  new URL("../lifecycle/write-policy.json", import.meta.url).pathname,
+];
+
+/**
+ * If no policy file is reachable, fall back to the original built-in rule rather
+ * than allowing everything. An upgraded hook with a missing policy must not be
+ * weaker than the hook it replaced.
+ */
+const BUILTIN = {
+  version: 0,
+  alwaysAllow: ["docs/**", "specs/**", "memory-bank/**", "lifecycle/**", "templates/**",
+                "scripts/**", "tests/**", "test/**", "e2e/**", ".cursor/**", ".claude/**", ".github/**", "*.md"],
+  rules: [{
+    id: "application-source",
+    match: ["src/**", "backend/**", "frontend/**", "client/**", "server/**", "app/**", "api/**", "web/**"],
+    extensions: [".cs", ".csproj", ".sln", ".fs", ".vb", ".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte", ".razor", ".cshtml", ".sql"],
+    earliest: "DEVELOPMENT",
+    why: "Code written before the design gate implements a design nobody approved.",
+  }],
+};
+
+let policy = BUILTIN, policySource = "built-in fallback";
+for (const c of POLICY_PATHS) {
+  try {
+    if (!existsSync(c)) continue;
+    policy = JSON.parse(readFileSync(c, "utf8"));
+    policySource = relPath(c) || c;
+    break;
+  } catch { /* malformed policy: keep the built-in rather than opening the gate */ }
+}
+
+/* -------------------------------------------------------------------- match */
+
+/** Minimal glob: `**` spans separators, `*` does not, `?` is one character. */
+function glob(pattern, s) {
+  const rx = pattern
+    .split(/(\*\*\/|\*\*|\*|\?)/)
+    .map((part) => {
+      if (part === "**/") return "(?:.*/)?";
+      if (part === "**") return ".*";
+      if (part === "*") return "[^/]*";
+      if (part === "?") return "[^/]";
+      return part.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("");
+  return new RegExp(`^${rx}$`, "i").test(s);
+}
+const anyGlob = (patterns, s) => (patterns || []).some((g) => glob(g, s));
+
+if (anyGlob(policy.alwaysAllow, file)) ok();
+
+const rule = (policy.rules || []).find((r) =>
+  anyGlob(r.match, file) &&
+  (!r.extensions?.length || r.extensions.some((e) => file.toLowerCase().endsWith(e.toLowerCase()))));
+if (!rule) ok();
+
+/* ------------------------------------------------------------------ verdict */
 
 // The status logic lives in lifecycle.mjs and is imported rather than copied —
 // two implementations of "is this still approved?" would eventually disagree,
@@ -53,23 +111,25 @@ if (!(SOURCE_ROOT.test(lower) && SOURCE_EXT.test(lower) && !EXEMPT.test(lower)))
 // The relative path differs between the two layouts this file ships in:
 //   repo    .claude/hooks/  ->  ../../.cursor/tools/lifecycle.mjs
 //   plugin  plugin/hooks/   ->  ../tools/lifecycle.mjs
-// so both are tried. build-plugin.mjs copies tools/ and hooks/ side by side.
 let lc = null;
 for (const rel of ["../../.cursor/tools/lifecycle.mjs", "../tools/lifecycle.mjs"]) {
-  try { lc = await import(new URL(rel, import.meta.url).href); break; } catch { /* try the other layout */ }
+  try { lc = await import(new URL(rel, import.meta.url).href); break; } catch { /* other layout */ }
 }
 
-let cleared, phase = "UNKNOWN", product = "unnamed", detail = "";
+let phase = "UNKNOWN", product = "unnamed", detail = "", required = null, cleared;
+
 if (lc) {
-  // The tool resolves its own root from CLAUDE_PROJECT_DIR, which Cursor does
-  // not set. Hand it the root our host actually gave us, or it reads a
-  // different repo's state file, finds none, and opens the gate silently.
   lc.setRoot(root);
   const state = lc.readState();
   if (!state) ok();
   phase = state.phase || "UNKNOWN";
   product = state.product || "unnamed";
-  const d = lc.derivePhase(state, "DESIGN");
+
+  const i = lc.PHASES.indexOf(rule.earliest);
+  required = i > 0 ? lc.PHASES[i - 1] : null;
+  if (!required) ok();                       // earliest is the first phase: no prerequisite
+
+  const d = lc.derivePhase(state, required);
   cleared = lc.CLEARED.has(d.status);
   detail = `${d.status}${d.reasons.length ? " — " + d.reasons[0] : ""}`;
 } else {
@@ -78,10 +138,13 @@ if (lc) {
   // on an infrastructure problem, and say so.
   process.stderr.write("guard-phase: could not load lifecycle.mjs; staleness not checked.\n");
   try {
-    const { readFileSync } = await import("node:fs");
+    const ORDER = ["REQUIREMENTS", "ANALYSIS", "DESIGN", "DEVELOPMENT", "TESTING", "PRODUCTION"];
     const s = JSON.parse(readFileSync(join(root, "lifecycle", "state.json"), "utf8"));
-    const dp = s.phases?.DESIGN || {};
-    cleared = dp.inherited === true || dp.human?.status === "APPROVED" || dp.status === "APPROVED" || dp.status === "INHERITED";
+    const i = ORDER.indexOf(rule.earliest);
+    required = i > 0 ? ORDER[i - 1] : null;
+    if (!required) ok();
+    const ph = s.phases?.[required] || {};
+    cleared = ph.inherited === true || ph.human?.status === "APPROVED";
     phase = s.phase || "UNKNOWN";
     product = s.product || "unnamed";
     detail = "unverified (degraded mode)";
@@ -90,25 +153,26 @@ if (lc) {
 
 if (cleared) ok();
 
-block(`BLOCKED: ${file} is production source and the DESIGN gate is not cleared.
+block(`BLOCKED: ${file} may not be written yet.
 
   Product:      ${product}
   Phase now:    ${phase}
-  DESIGN gate:  ${detail}
+  Rule:         ${rule.id} — earliest phase ${rule.earliest}
+  Waiting on:   ${required} is ${detail}
+  Policy:       ${policySource}
 
-Nothing under src/, backend/ or frontend/ may be written until the design gate
-holds. This is .cursor/rules/11-lifecycle-gate.mdc, enforced.
+${rule.why}
 
 A gate needs three consents, and 'approve' refuses without all three:
-  node .cursor/tools/lifecycle.mjs check DESIGN                    # 1 artifacts exist
-  /lifecycle-gate DESIGN                                           # 2 they are any good
-  node .cursor/tools/lifecycle.mjs record-gate DESIGN --verdict GO --by "lifecycle-gate"
-  node .cursor/tools/lifecycle.mjs approve DESIGN --by "<name>"    # 3 a human
+  node .cursor/tools/lifecycle.mjs check ${required}
+  /lifecycle-gate ${required}
+  node .cursor/tools/lifecycle.mjs record-gate ${required} --verdict GO --by "lifecycle-gate"
+  node .cursor/tools/lifecycle.mjs approve ${required} --by "<name>"
 
-If the gate says STALE, an approved design document changed after it was
-approved. Re-review it — do not re-approve without looking.
+If ${required} says STALE, an approved document changed after it was approved.
+Re-review it — do not re-approve without looking.
 
-Tests, specs, docs and memory-bank are NOT blocked — write those now if it helps.
+Tests, specs, docs and memory-bank are never blocked. Write those now if it helps.
 
 If this is a deliberate spike, set LIFECYCLE_OVERRIDE=1 for the command and say
 so to the user. Do not route around this block with a different tool.`);
