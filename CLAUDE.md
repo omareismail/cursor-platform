@@ -449,10 +449,25 @@ staging with the runbook open.
 
 ```bash
 node .cursor/tools/delivery-metrics.mjs report --days 90   # DORA + rework, MEASURED vs PROXY labelled
+node .cursor/tools/delivery-intel.mjs questions            # is the process working, or being performed
 node .cursor/tools/delivery-metrics.mjs trend  --days 180  # direction of travel
 node .cursor/tools/flag-debt.mjs scan                      # expired flags exit 1
 node .cursor/tools/docs-lint.mjs check                     # broken links, ghost skills, stale counts
 ```
+
+**DORA is half the picture.** It measures the codebase. `delivery-intel.mjs`
+reads the other half — the lifecycle's own records, which have been accumulating
+gate verdicts and their attempt counts, overrides and whether they lapsed,
+release signatures, incidents and how they were found, and the architectural-debt
+baseline, every one of them read alone until now.
+
+Its `questions` output is the point: each observation with **both** readings it
+permits and the evidence that separates them. Eight verdicts and no NO-GO is
+either unusually good work or a review that has never been in a position to say
+no; the tool prints both and refuses to pick. **Nothing there is scored**, because
+a number reported as good becomes a number to hit, and the cheapest way to hit
+"no failed gates" is to stop looking. It also states its own n and will not use
+the word "trend" below five data points.
 
 **Why this matters in this repo specifically.** DORA's 2025/2026 research found
 AI adoption raises throughput 2–18% while stability degrades — change failure

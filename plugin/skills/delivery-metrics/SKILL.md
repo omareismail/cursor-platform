@@ -98,6 +98,35 @@ Equally, do not over-claim causation. Team size, release cadence, a migration, o
 one bad quarter all move these numbers. Correlate with `progress.md` and
 `decisionLog.md` before attributing anything.
 
+**Step 3b — Read the governance records, not only git.**
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/tools/delivery-intel.mjs report
+node ${CLAUDE_PLUGIN_ROOT}/tools/delivery-intel.mjs questions
+```
+
+DORA measures the codebase. That is half the picture, and it is the half that
+cannot tell you whether the *process* is working or merely being performed. The
+lifecycle has been accumulating the other half all along — gate verdicts and
+their attempt counts, overrides and whether they lapsed, release records and who
+signed them, incidents and how they were found, the architectural-debt baseline
+and whether it ever moved — and until now every one of those was read alone.
+
+`questions` is the part to bring into the report. It prints observations with
+**both** readings each permits and the evidence that separates them: eight
+verdicts and no NO-GO is either unusually good work or a review that has never
+been in a position to say no, and the tool refuses to decide which. Nothing there
+is scored, because a number reported as good becomes a number to hit — and the
+cheapest way to hit "no failed gates" is to stop looking.
+
+Two of its findings pair directly with DORA:
+
+- **Incidents found by a customer or by reconciliation** — the monitoring did not
+  fire. That is a finding about the alerts, and it inflates MTTR in a way the
+  DORA number alone attributes to the fix.
+- **Releases that shipped under an override** — where change failure rate has an
+  explanation that is written down, dated, and has an owner's name on it.
+
 **Step 4 — Recommend at most three actions.**
 
 Tie each to the specific metric that motivated it, and prefer actions that change

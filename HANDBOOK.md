@@ -221,7 +221,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 15 validators
+### `.cursor/tools/` — 16 validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.
@@ -242,6 +242,7 @@ checkable rather than hopeful.
 | `failure-modes.mjs` | *What happens when something you do not control fails?* Reads every dependency registration for timeout, retry, circuit breaker and idempotency, and whether any test has ever made it fail. | `scan` · `check` · `explain <name>` |
 | `fitness.mjs` | *Does the promoted architecture still hold?* Derives the layering from `memory-bank/architecture.md` and asserts it against `using` directives and project references. Ratchets against a committed baseline. | `rules` · `check` · `all` · `baseline --accept` |
 | `incidents.mjs` | *Is the guard that incident bought still standing?* Records the incident-to-guard link `/postmortem` never had, and fails when a guard is deleted, commented out, or sitting in a skipped test. | `open` · `check` · `learned` · `show` |
+| `delivery-intel.mjs` | *Is the process producing anything, or being performed?* Cross-references gate verdicts, overrides, releases, incidents and the debt baseline. Scores nothing — each observation gets both readings and the evidence that separates them. | `report` · `questions` |
 | `platform-metadata.mjs` | *Does any document still claim a count that stopped being true?* | `show` · `write` · `check [--fix]` |
 | `build-plugin.mjs` | *Builds the distributable plugin.* Inlines full skill bodies and rewrites every path to `${CLAUDE_PLUGIN_ROOT}`, because a shim pointing at `.cursor/` breaks the moment the plugin is installed elsewhere. | `build` · `check` |
 
