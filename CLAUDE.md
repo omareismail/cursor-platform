@@ -386,6 +386,11 @@ release shipping under an active override unless the signer names it with
 `--accept-override OV-XXXX`. Records live in `lifecycle/releases/`, are
 immutable, and are committed.
 
+Every record the lifecycle keeps — state, gate evidence, releases, incidents,
+change requests, the fitness baseline — is described in
+[lifecycle/README.md](lifecycle/README.md), including which are committed and
+why. All of them are, because a record nobody can read back is a note to self.
+
 **The architecture, as an assertion.** Gate 3 promises that promoting the design
 into `memory-bank/architecture.md` makes it "a compiler error rather than a
 document". Until now that meant an agent read rule 02 and chose to comply, which

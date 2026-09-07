@@ -164,7 +164,13 @@ function scan() {
   for (const rel of docs) {
     let raw; try { raw = readFileSync(join(ROOT, rel), "utf8"); } catch { continue; }
     const clean = stripCode(raw);
-    const lines = raw.split("\n");
+    // `\r?\n`, not `\n`. On a Windows checkout every line keeps a trailing
+    // carriage return, so `lines[0] === "---"` was false for every file in the
+    // repo and the frontmatter skip below never engaged — which is why 48
+    // `description:` lines, each of which MUST be one line for YAML to parse,
+    // were reported as too long. The check was right; the line endings defeated
+    // it, silently, for every developer on Windows.
+    const lines = raw.split(/\r?\n/);
     const lineOf = lineIndex(raw);
 
     // --- H1, for duplicate detection -------------------------------------
@@ -219,10 +225,11 @@ function scan() {
     }
 
     // --- long lines -------------------------------------------------------
-    let inFence = false, inFrontmatter = lines[0] === "---";
+    const DELIM = /^---\s*$/;
+    let inFence = false, inFrontmatter = DELIM.test(lines[0] || "");
     lines.forEach((l, i) => {
       // YAML frontmatter must hold `description:` on one line - not a finding.
-      if (inFrontmatter) { if (i > 0 && l === "---") inFrontmatter = false; return; }
+      if (inFrontmatter) { if (i > 0 && DELIM.test(l)) inFrontmatter = false; return; }
       if (/^\s*```/.test(l)) { inFence = !inFence; return; }
       if (inFence) return;
       if (l.length > 120 && !/^\s*\|/.test(l) && !/https?:\/\//.test(l)) {
