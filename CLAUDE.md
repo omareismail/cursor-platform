@@ -342,6 +342,26 @@ improving?*
 | Is delivery getting better or worse? | `/delivery-metrics` — DORA + rework rate |
 | Something broke — how do we make it impossible? | `/postmortem` — findings become compile-time guards |
 
+**Every release, not just the first.** Gate 6 is approved once; releases happen
+forever. A release is the phase 4-5 loop closing again — merging a feature moves
+`specs/features/`, so DEVELOPMENT goes `STALE` on its own and the next release is
+blocked until it is re-reviewed. Re-approve the stale phase **in place**; never
+`rollback DEVELOPMENT` for a release, because that also resets TESTING and
+PRODUCTION and discards two approvals that are still true.
+
+```bash
+node .cursor/tools/release-evidence.mjs cut --version v1.2.0   # derived: commits, gates, overrides, open CRs
+node .cursor/tools/release-evidence.mjs sign v1.2.0 --by "<name>"
+node .cursor/tools/release-evidence.mjs verify                 # do the records still stand up
+```
+
+`cut` refuses on a dirty tree, an uncleared DEVELOPMENT or TESTING gate, or a
+TESTING approval *older* than the DEVELOPMENT one — two green gates in the wrong
+order, which is how a feature ships with no test. `sign` refuses to authorise a
+release shipping under an active override unless the signer names it with
+`--accept-override OV-XXXX`. Records live in `lifecycle/releases/`, are
+immutable, and are committed.
+
 ```bash
 node .cursor/tools/delivery-metrics.mjs report --days 90   # DORA + rework, MEASURED vs PROXY labelled
 node .cursor/tools/delivery-metrics.mjs trend  --days 180  # direction of travel

@@ -158,6 +158,25 @@ jobs:
           [ -d lifecycle/changes ] || { echo "::notice::No change requests."; exit 0; }
           node .cursor/tools/change-request.mjs list
 
+  # Release records are evidence, and evidence that nobody re-checks is a claim.
+  # This catches the two things that actually happen to them: a record edited
+  # after it was cut, and a record naming a commit that history no longer has.
+  # `verify` needs full history, hence fetch-depth: 0.
+  release-records:
+    name: release records still stand up
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Verify every release record
+        run: |
+          [ -d lifecycle/releases ] || { echo "::notice::No releases cut yet."; exit 0; }
+          node .cursor/tools/release-evidence.mjs verify
+
   # Platform integrity. Cheap, and it catches the drift that makes the agent
   # quietly wrong: a renamed skill still referenced, a stale count, a dead link.
   platform-integrity:

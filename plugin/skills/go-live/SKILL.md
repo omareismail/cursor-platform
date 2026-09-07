@@ -96,25 +96,55 @@ Watch for the first full business cycle, not the first ten minutes. Most
 cutover failures in this domain appear at the first scheduled job or the first
 end-of-day reconciliation.
 
-**Step 5 — Close the phase.**
+**Step 5 — Cut the release record before anything ships.**
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/tools/release-evidence.mjs cut --version <v1.2.0>
+```
+
+Every line of it is derived — the commits from git, the gate verdicts from
+`lifecycle/state.json`, the open change requests and active overrides from their
+own files. It refuses on a dirty working tree, on an uncleared DEVELOPMENT or
+TESTING gate, and when TESTING was approved earlier than DEVELOPMENT, which means
+the tests were signed off against code that has since changed.
+
+This is gate 6's criterion 10. Cut it *before* the cutover — it is the thing the
+signature authorises, not a summary written afterwards.
+
+**Step 6 — Close the phase, then sign the release.**
 
 Record the actual timings against the estimates — that is what makes the next
 cutover plan realistic. Then:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs approve PRODUCTION --by "<name>"
+node ${CLAUDE_PLUGIN_ROOT}/tools/release-evidence.mjs sign <v1.2.0> --by "<name>"
 ```
 
-Say plainly that the lifecycle is now complete and what happens next:
+`sign` refuses while any of DEVELOPMENT, TESTING or PRODUCTION is uncleared, and
+refuses to sign a release shipping under an active override unless the signer
+names it: `--accept-override OV-XXXX`. A signature that did not have to mention
+the bypass is how a fortnight's bypass becomes permanent.
+
+Commit `lifecycle/releases/`. The hash inside each record catches an accidental
+edit; git history is what makes it evidence.
+
+**Step 7 — Say what happens next.**
+
 `/postmortem` for anything that broke, `/delivery-metrics` to find out whether
-any of this is working, and a `rollback DEVELOPMENT --reason "..."` when the next
-release starts.
+any of this is working. And when the next release starts, **do not**
+`rollback DEVELOPMENT` — that resets TESTING and PRODUCTION too and throws away
+two approvals that are still true. Merging a feature moves `specs/features/`,
+which makes DEVELOPMENT `STALE` on its own; re-review it and approve it again in
+place. `lifecycle.mjs` allows re-approving an earlier phase that has gone stale
+precisely so the release loop does not need a hammer.
 
 ---
 
 ## Output
 
 - `docs/design/cutover-<version>.md`
+- `lifecycle/releases/<version>.json` — the release record, signed
 - Terminal: the sequence with actual timings, verification results, and the
   post-live watch list
 

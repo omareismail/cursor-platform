@@ -22,6 +22,20 @@ node .cursor/tools/lifecycle.mjs init --name "<product>" --existing  # brownfiel
 derived state: `repo-map.json` and `feature-map.json` can be regenerated from
 the code, but no tool can reconstruct who approved the design gate and when.
 
+## `releases/`
+
+One immutable JSON per release, cut by `.cursor/tools/release-evidence.mjs`:
+what was in it (from git), which gates were standing (from `state.json`), what
+was still owed (open change requests, active overrides), and who signed it.
+Committed deliberately — the hash inside each record catches an accidental edit,
+git history is what makes it evidence.
+
+```bash
+node .cursor/tools/release-evidence.mjs cut --version v1.2.0
+node .cursor/tools/release-evidence.mjs sign v1.2.0 --by "<name>"
+node .cursor/tools/release-evidence.mjs verify
+```
+
 ## Do not hand-edit `state.json`
 
 `guard-write.mjs` blocks it. Editing it by hand lets a phase be marked approved

@@ -223,6 +223,35 @@ with `CLAUDE_ALLOW_TIER2_EDIT=1`. Never promote silently.
 
 ---
 
+## Releases — After The Sixth Gate
+
+Gate 6 is approved once. Releases happen forever, and the second one used to ship
+through a lifecycle that was already, permanently, `APPROVED`.
+
+A release is the phase 4-5 loop closing once more. Merging a feature moves
+`specs/features/`, so `DEVELOPMENT` derives to `STALE` on its own and the next
+release is blocked until somebody re-reviews it. **Do not `rollback DEVELOPMENT`
+to clear that** — rollback also resets `TESTING` and `PRODUCTION`, discarding two
+approvals that are still true. Approve the stale phase again in place; that is
+allowed for an earlier phase that has been approved before.
+
+```bash
+node .cursor/tools/release-evidence.mjs cut --version v1.2.0
+node .cursor/tools/release-evidence.mjs sign v1.2.0 --by "<name>"
+node .cursor/tools/release-evidence.mjs verify
+```
+
+`cut` derives the record and refuses on a dirty tree, an uncleared DEVELOPMENT or
+TESTING gate, or a `TESTING` approval older than the `DEVELOPMENT` one — two
+green gates whose *order* is wrong, which is how a feature ships with no test.
+`sign` refuses while any of the three gates a release rests on is uncleared, and
+refuses to sign under an active override unless the signer names it.
+
+Records live in `lifecycle/releases/` and are committed. They are immutable: to
+change what a version contains, cut a different version.
+
+---
+
 ## Brownfield Repos
 
 A codebase that already exists did not skip phases 1-3; it did them informally,

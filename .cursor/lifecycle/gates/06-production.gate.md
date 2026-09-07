@@ -78,8 +78,18 @@ PASS: a named owner, a runbook they have read, an escalation path.
 FAIL: the team finds out from a customer.
 
 **10. Compliance evidence is filed.**
-PASS: SAMA/ZATCA/mada evidence produced and stored where an auditor will look.
-FAIL: reconstructing it after the fact.
+PASS: SAMA/ZATCA/mada evidence produced and stored where an auditor will look,
+and a release record exists for the version being shipped:
+
+```bash
+node .cursor/tools/release-evidence.mjs cut --version <v>
+node .cursor/tools/release-evidence.mjs show <v>
+```
+
+FAIL: reconstructing it after the fact. Six weeks later nobody can reassemble
+which commits were in a build, which gates were standing when it went out, or
+which override it shipped under — and that is precisely the question an auditor
+asks first.
 
 ---
 

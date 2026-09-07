@@ -15,6 +15,11 @@
 # local ./plugin source has to be able to fetch it, so it is deliberately not
 # ignored. Rebuild with: node .cursor/tools/build-plugin.mjs build
 
+# NOTE: lifecycle/releases/ and lifecycle/evidence/ are COMMITTED. They are the
+# audit trail — which gates were standing when a version shipped, and who signed
+# it. The hash inside each record catches an accidental edit; git history is what
+# makes it evidence. Ignoring them would delete the point of writing them.
+
 # Archives / local backups
 *.rar
 *.zip

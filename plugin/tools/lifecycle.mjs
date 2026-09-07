@@ -576,8 +576,17 @@ function cmdApprove(args) {
 
   const refusals = [];
 
-  // --- order. A phase approved out of turn is a gate that gates nothing. -----
-  if (phase !== s.phase) {
+  // --- order. A phase approved out of turn is a gate that gates nothing.
+  //
+  // With one exception, and it is the case that actually happens: release 2. A
+  // feature lands, `specs/features/` moves, DEVELOPMENT derives to STALE while
+  // the product sits in PRODUCTION. Re-approving it is not skipping ahead — it
+  // is refreshing an approval that already exists, and it is the whole loop
+  // between phases 4 and 5. The alternative was `rollback DEVELOPMENT`, which
+  // also resets TESTING and PRODUCTION and throws away two approvals that are
+  // still true. Nobody does that twice; they route around the lifecycle instead.
+  const reapproval = PHASES.indexOf(phase) < PHASES.indexOf(s.phase) && !!s.phases[phase]?.human;
+  if (phase !== s.phase && !reapproval) {
     refusals.push(`${phase} is not the current phase (${s.phase}). Approving out of order defeats the sequence.`);
   }
   const prev = PHASES[PHASES.indexOf(phase) - 1];
@@ -669,11 +678,16 @@ function cmdApprove(args) {
   s.history.push({ at, event: "approve", detail: `${phase} by ${by}${refusals.length ? " (UNDER OVERRIDE)" : ""}` });
   writeState(s);
 
-  console.log(`${phase} approved by ${by}.`);
+  console.log(`${phase} ${reapproval ? "re-approved" : "approved"} by ${by}.`);
   console.log(`${Object.keys(artifacts).length} artifact(s) hashed — editing any of them makes this phase STALE.`);
   if (phase === "DESIGN") console.log(`Design gate cleared — writes under src/** are now allowed.`);
-  const nxt = PHASES[PHASES.indexOf(phase) + 1];
-  if (nxt) console.log(`Next: node .cursor/tools/lifecycle.mjs advance   (-> ${nxt})`);
+  if (reapproval) {
+    console.log(`The product stays in ${s.phase}; this refreshed an approval that had gone stale.`);
+    console.log(`Next: node .cursor/tools/release-evidence.mjs cut --version <v>`);
+  } else {
+    const nxt = PHASES[PHASES.indexOf(phase) + 1];
+    if (nxt) console.log(`Next: node .cursor/tools/lifecycle.mjs advance   (-> ${nxt})`);
+  }
 }
 
 const countMissing = (s, phase, mech) =>
@@ -788,7 +802,7 @@ function readDoc(rel) {
   } catch { return null; }
 }
 
-function governance() {
+export function governance() {
   const sources = ["docs/product/prd.md", "docs/product/nfr.md", "docs/product/brief.md",
                    "docs/product/story-map.md", "docs/analysis/business-rules.md"];
   const found = { money: [], pii: [], auth: [], regimes: new Map(), read: [] };

@@ -221,7 +221,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 10 validators
+### `.cursor/tools/` — 11 validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.
@@ -234,6 +234,11 @@ checkable rather than hopeful.
 | `delivery-metrics.mjs` | *Is delivery improving?* DORA four keys + rework rate from git. Labels every number **MEASURED** or **PROXY**. | `report --days 90` · `trend` |
 | `flag-debt.mjs` | *Which feature flags outlived their purpose?* | `scan` · `scan --strict` |
 | `docs-lint.mjs` | *Is the documentation graph intact?* Broken links, ghost skill references, stale counts, orphan docs. | `check` · `check --strict` · `graph` |
+| `lifecycle.mjs` | *Which phase is this product in, and are its approvals still true?* Six phases, three consents each, status derived from evidence on every read. | `product` · `status` · `check` · `record-gate` · `approve` · `gate` |
+| `artifact-schema.mjs` | *Does every requirement reach a story, every story a use case, every use case an endpoint?* The traceability graph, from the ids the skills already emit. | `check` · `trace <ID>` · `graph` · `ready` |
+| `change-request.mjs` | *If this rule changes, what stops being true?* Walks the citation graph for the blast radius, before the edit rather than after. | `impact <ID>` · `open` · `list` · `close` |
+| `release-evidence.mjs` | *What shipped, what proved it, and who said yes?* An immutable record per release, every line derived from git and the lifecycle state. | `cut --version` · `sign` · `list` · `show` · `verify` |
+| `platform-metadata.mjs` | *Does any document still claim a count that stopped being true?* | `show` · `write` · `check [--fix]` |
 | `build-plugin.mjs` | *Builds the distributable plugin.* Inlines full skill bodies and rewrites every path to `${CLAUDE_PLUGIN_ROOT}`, because a shim pointing at `.cursor/` breaks the moment the plugin is installed elsewhere. | `build` · `check` |
 
 All exit non-zero on failure, so CI can gate on them.
