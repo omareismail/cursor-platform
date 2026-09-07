@@ -1,0 +1,156 @@
+---
+description: Enforce the six-phase product lifecycle — no phase work before the previous phase is approved
+alwaysApply: true
+---
+
+## What This Rule Does
+
+`01-specify-rules.mdc` gates one **feature**. This rule gates the whole
+**product**. It ensures nobody designs a system nobody specified, and nobody
+builds a system nobody designed.
+
+The two are nested, not competing:
+
+```
+PRODUCT LIFECYCLE  (this rule)      once per product
+  1 REQUIREMENTS -> 2 ANALYSIS -> 3 DESIGN -> 4 DEVELOPMENT <-> 5 TESTING -> 6 PRODUCTION
+                                                 |
+                            FEATURE PIPELINE (01-specify-rules), once per feature
+                            analyze -> clarify -> constitution -> plan -> specify
+                                    -> implement -> checklist -> commit
+```
+
+Phases 4 and 5 are a loop, not two steps. A failing test returns work to
+development; the lifecycle stays in `TESTING`.
+
+---
+
+## The State File Is The Truth
+
+`lifecycle/state.json` records which phase the product is in and which gates a
+human approved. It is machine-owned — `guard-write.mjs` blocks hand-edits.
+
+```bash
+node .cursor/tools/lifecycle.mjs status                    # where are we, and is it still true
+node .cursor/tools/lifecycle.mjs check [PHASE]             # consent 1: artifacts exist
+node .cursor/tools/lifecycle.mjs record-gate PHASE --verdict GO --by "lifecycle-gate"
+                                                           # consent 2: the review verdict
+node .cursor/tools/lifecycle.mjs approve PHASE --by "name"  # consent 3: the human
+node .cursor/tools/lifecycle.mjs advance
+node .cursor/tools/lifecycle.mjs rollback PHASE --reason "..."
+```
+
+## Three Consents, All Required
+
+`approve` refuses unless all three are present, the phase is the current one,
+and the previous phase is cleared:
+
+| Consent | Recorded by | Proves |
+|---|---|---|
+| mechanical | `approve`, recomputed live | the artifacts exist and are not templates |
+| judgement | `/lifecycle-gate` via `record-gate` | they are worth building on |
+| human | `approve --by "<name>"` | someone is accountable |
+
+## Status Is Derived, Not Stored
+
+The state file holds evidence; the status is computed on every read.
+
+| Status | Means |
+|---|---|
+| `NOT_STARTED` / `IN_PROGRESS` | no approval yet |
+| `APPROVED` | all three consents, all still valid |
+| `INHERITED` | brownfield; done informally before the lifecycle was adopted |
+| `STALE` | **was** approved, and something it was approved against changed |
+| `BLOCKED` | an earlier phase is not cleared |
+
+`STALE` is the one that matters. Approval hashes every required artifact and
+stamps the gate definition's version. Edit an approved design document, or
+tighten a gate criterion, and the phase is `STALE` on the very next command —
+and `guard-phase.mjs` starts blocking source writes again.
+
+When a phase reads `STALE`, do not offer to re-approve it. Offer to re-review it:
+the approval that lapsed was granted against text that no longer exists.
+
+The `SessionStart` hook injects the current phase automatically. If a repo has
+no `lifecycle/state.json` it never adopted the lifecycle, and this rule is
+inert — that is a valid configuration, not a violation.
+
+---
+
+## Binding Behaviour
+
+**Do not run a skill that belongs to a later phase than the current one.**
+When asked to, say which phase the work belongs to, which phase the product is
+in, and what would have to be approved first. Then offer to do the current
+phase's work instead.
+
+**Never mark a gate approved on the user's behalf.** `approve` requires
+`--by "name"`. A gate a machine can clear is not a gate. Recording a review
+verdict with `record-gate` is the agent's job; granting approval is not.
+
+**Never propose an override.** There is no `--force`. A bypass is an `override`
+record with an owner, a risk level and an expiry, and it exists for a human who
+has decided to accept a specific risk. An agent suggesting one is the failure the
+gate was built to prevent.
+
+**Never soften a gate failure.** Same rule as `/production-readiness-review`:
+a gate that has never blocked anything is a form, not a control.
+
+**The design gate is enforced, not requested.** `guard-phase.mjs` returns exit
+code 2 on any write under `src/`, `backend/`, `frontend/` while the DESIGN phase
+derives to anything other than `APPROVED` or `INHERITED` — `STALE` included. If it blocks you,
+stop and tell the user why. Do not route around it with `Bash`.
+
+Tests, specs, docs and `memory-bank/` are never blocked — writing a test or a
+spec before the design gate is good practice, not a violation.
+
+---
+
+## Phase Ownership
+
+| Phase | Subagent | Primary skills |
+|---|---|---|
+| 1 Requirements | `product-manager` | `/product-brief` `/product-requirements` `/persona-gen` `/user-story-map` |
+| 2 Analysis | `business-analyst` | `/domain-model-gen` `/use-case-gen` `/business-rules-gen` `/risk-register` |
+| 3 Design | `solution-architect`, `ux-bridge` | `/solution-architecture` `/api-contract-design` `/data-model-design` `/ux-design-bridge` `/threat-model` |
+| 4 Development | main thread | `/feature-pipeline`, then the `speckit-*` and `*-gen` families |
+| 5 Testing | `test-engineer` | `/test-strategy` `/e2e-test-gen` `/dotnet-test-gen` `/react-test-gen` `/load-test-gen` |
+| 6 Production | `release-manager` | `/deployment-pipeline-gen` `/go-live` `/production-readiness-review` |
+
+Phase owners are **read-only** subagents, like every other agent in
+`.claude/agents/`. They analyse and report; the writing happens in the main
+thread where the guard rules and hooks apply.
+
+---
+
+## Promotion, Not Duplication
+
+Phases 1-3 must not create a second home for truth that `memory-bank/` already
+holds. Each gate **promotes** its decisions into the Tier 2 files the guard
+rules already read:
+
+| Phase | Promotes into |
+|---|---|
+| 1 Requirements | `projectbrief.md`, `productContext.md`, `businessRules.md` |
+| 2 Analysis | `businessRules.md`, `glossary.md` (EN/AR terms) |
+| 3 Design | `architecture.md`, `technologyStack.md`, `databaseConventions.md`, `securityStandards.md` |
+
+This is what makes a design decision binding on the code rather than merely
+adjacent to it — once it is in `memory-bank/architecture.md`, rule 02 enforces it.
+
+Tier 2 files are human-authored: `guard-write.mjs` blocks agent writes to them.
+So promotion is an explicit step — show the diff, get the user's word, then apply
+with `CLAUDE_ALLOW_TIER2_EDIT=1`. Never promote silently.
+
+---
+
+## Brownfield Repos
+
+A codebase that already exists did not skip phases 1-3; it did them informally,
+years ago, in people's heads. `lifecycle.mjs init --existing` records that
+honestly as `INHERITED` rather than either pretending they were approved or
+blocking all work on a live system.
+
+`INHERITED` clears the design gate. To upgrade a phase from `INHERITED` to
+`APPROVED`, produce its artifacts — `/feature-inventory` and `/context-sync`
+reconstruct most of phases 1-2 from the code — then run `check` and `approve`.

@@ -1,0 +1,59 @@
+{
+  "version": 1,
+
+  "//": "Cursor's project hook wiring. The Claude Code equivalent is .claude/settings.json; both point at the SAME scripts in .claude/hooks/, which are host-agnostic since _lib.mjs normalises the payload and output shapes. Two copies of a guard, one per editor, is how one of them silently stops being enforced.",
+
+  "//scripts-location": "The scripts still live under .claude/hooks/ even though they are no longer Claude-only. Renaming that folder means touching settings.json, build-plugin.mjs, every doc and the generated plugin tree - and then moving them a second time when the core/ + adapters/ split happens. It is deliberately left for that change.",
+
+  "//matchers": "Deliberately absent on preToolUse. A matcher that does not match is a guard that silently never fires, and the scripts already exit 0 in microseconds when the payload is not theirs. Fail-safe beats fail-silent for a security guard.",
+
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .claude/hooks/session-start.mjs",
+        "timeout": 20
+      }
+    ],
+
+    "preToolUse": [
+      {
+        "command": "node .claude/hooks/guard-write.mjs",
+        "timeout": 15
+      },
+      {
+        "command": "node .claude/hooks/guard-phase.mjs",
+        "timeout": 15
+      }
+    ],
+
+    "beforeShellExecution": [
+      {
+        "//": "Cursor's purpose-built shell hook. Better than routing shell through preToolUse: it fires only for commands, carries the command at the top level, and can answer 'ask' as well as 'deny'.",
+        "command": "node .claude/hooks/guard-bash.mjs",
+        "timeout": 15
+      }
+    ],
+
+    "beforeMCPExecution": [
+      {
+        "//": "The database and the GitHub account are reachable through MCP, and until now nothing in this repo had an opinion about that. Policy lives in .cursor/mcp-policy.json.",
+        "command": "node .claude/hooks/guard-mcp.mjs",
+        "timeout": 15
+      }
+    ],
+
+    "afterFileEdit": [
+      {
+        "command": "node .claude/hooks/post-edit-verify.mjs",
+        "timeout": 120
+      }
+    ],
+
+    "stop": [
+      {
+        "command": "node .claude/hooks/stop-memory-check.mjs",
+        "timeout": 20
+      }
+    ]
+  }
+}

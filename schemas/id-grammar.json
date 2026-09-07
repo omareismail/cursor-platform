@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "//": "The traceability chain, as data. artifact-schema.mjs reads this; it hardcodes nothing about the domain.",
+
+  "//provenance": "These prefixes were NOT invented here. They are what the lifecycle skills already emit - UC, INV, AC, BR, S, EP, SC, R, FR - and what ac-trace.mjs already parses. Codifying the existing convention costs nothing; inventing REQ-001/UC-001 would have meant rewriting every skill and every example for no gain.",
+
+  "prefixes": {
+    "FR": {
+      "name": "Functional requirement",
+      "definedIn": "docs/product/prd.md",
+      "phase": "REQUIREMENTS",
+      "tracesTo": ["S"],
+      "//": "A requirement no story implements is a promise nobody scheduled."
+    },
+    "NFR": {
+      "name": "Non-functional requirement",
+      "definedIn": "docs/product/nfr.md",
+      "phase": "REQUIREMENTS",
+      "tracesTo": ["ADR", "EP"],
+      "//": "Gate 3 criterion 8: every NFR traces to the design element that delivers it."
+    },
+    "S": {
+      "name": "Story",
+      "definedIn": "docs/product/story-map.md",
+      "phase": "REQUIREMENTS",
+      "tracesTo": ["UC"]
+    },
+    "AC": {
+      "name": "Acceptance criterion",
+      "definedIn": "docs/product/story-map.md",
+      "phase": "REQUIREMENTS",
+      "scopedBy": "S",
+      "//": "AC-1 exists inside every story, so it is never a global id. ac-trace.mjs owns the AC-to-test half of this chain; this tool does not duplicate it."
+    },
+    "UC": {
+      "name": "Use case",
+      "definedIn": "docs/analysis/use-cases.md",
+      "phase": "ANALYSIS",
+      "tracesTo": ["EP", "SC"]
+    },
+    "INV": {
+      "name": "Domain invariant",
+      "definedIn": "docs/analysis/domain-model.md",
+      "phase": "ANALYSIS"
+    },
+    "BR": {
+      "name": "Business rule",
+      "definedIn": "docs/analysis/business-rules.md",
+      "phase": "ANALYSIS"
+    },
+    "R": {
+      "name": "Risk",
+      "definedIn": "docs/analysis/risks.md",
+      "phase": "ANALYSIS"
+    },
+    "EP": {
+      "name": "API endpoint",
+      "definedIn": "docs/design/api-design.md",
+      "phase": "DESIGN"
+    },
+    "SC": {
+      "name": "Screen",
+      "definedIn": "docs/design/ux/screen-inventory.md",
+      "phase": "DESIGN"
+    },
+    "ADR": {
+      "name": "Architecture decision",
+      "definedIn": "docs/design/adr/",
+      "phase": "DESIGN"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lifecycle document front-matter",
+
+  "//": "The machine-readable half of a human-written document. The prose stays prose - that is the whole point. This block only declares what the document IS and what it descends from, which is the minimum a traceability graph needs and the maximum that can be kept honest by hand.",
+
+  "type": "object",
+  "required": ["type", "phase"],
+  "additionalProperties": false,
+
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "Which lifecycle artifact this is.",
+      "enum": [
+        "product-brief", "personas", "product-requirements", "nfr", "scope", "story-map",
+        "domain-model", "use-cases", "workflows", "business-rules", "risks",
+        "architecture", "api-design", "database-design", "security-design",
+        "screen-inventory", "design-tokens", "adr",
+        "test-strategy", "cutover"
+      ]
+    },
+    "phase": {
+      "type": "string",
+      "enum": ["REQUIREMENTS", "ANALYSIS", "DESIGN", "DEVELOPMENT", "TESTING", "PRODUCTION"]
+    },
+    "defines": {
+      "type": "array",
+      "description": "ID prefixes this document owns. A definition found elsewhere is a finding.",
+      "items": { "type": "string", "pattern": "^[A-Z]{1,4}$" }
+    },
+    "traces": {
+      "type": "array",
+      "description": "Upstream documents this one was derived from. Repo-relative paths.",
+      "items": { "type": "string" }
+    },
+    "owner": {
+      "type": "string",
+      "description": "The phase-owner subagent responsible for it.",
+      "enum": ["product-manager", "business-analyst", "solution-architect", "ux-bridge", "test-engineer", "ops-reviewer"]
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "version": 1,
+
+  "//": "Policy for what an agent may do THROUGH an MCP server. Enforced by .claude/hooks/guard-mcp.mjs on Cursor's beforeMCPExecution and Claude Code's PreToolUse. Hand-edited on purpose - this is a policy, not a generated artifact.",
+
+  "//why": "Two locks already exist and both are somebody else's to keep: the github server's X-MCP-Readonly header, and postgres-mcp's --access-mode=restricted. .mcp.json says it plainly - the access mode is defence in depth, not the boundary. Drop a header, point at a role with more grants, add a server on a Friday, and the lock is gone with nothing in this repo objecting. This is the lock that lives with the code and fails the build.",
+
+  "//unlisted": "A server nobody wrote a policy for is allowed, and reported. Denying by default sounds stricter and is worse: the first unlisted server breaks the workspace, someone disables the hook, and every server becomes unlisted.",
+  "unlisted": "allow",
+
+  "servers": {
+    "github": {
+      "trust": "high",
+      "write": false,
+      "//write": "Mirrors X-MCP-Readonly on the server. Reads, searches and listings pass; anything that changes a repo does not.",
+      "deny": [
+        "merge_*",
+        "delete_*",
+        "*force*",
+        "create_or_update_file",
+        "push_files",
+        "create_release",
+        "update_release"
+      ],
+      "//deny": "Denied even if someone sets write:true. Merging a PR and force-pushing are not 'writes' in the ordinary sense - they are the two operations no review can undo.",
+      "phases": {
+        "create_pull_request": ["DEVELOPMENT", "TESTING", "PRODUCTION"]
+      },
+      "//phases": "Opening a PR during REQUIREMENTS or DESIGN means code exists that the design gate never approved. NOTE: dormant while write is false - create_pull_request is denied as a write before the phase is ever consulted. That is the strictest rule winning, which is correct, but do not read this line as active governance until someone sets write:true."
+    },
+
+    "postgres": {
+      "trust": "high",
+      "write": false,
+      "sqlAllow": ["SELECT", "WITH", "EXPLAIN", "ANALYZE", "SHOW", "TABLE", "VALUES"],
+      "//sqlAllow": "The leading keyword of any sql/query/statement argument must be one of these. postgres-mcp's own read-only mode was bypassed once by a SQL-injection flaw in its predecessor; this checks the statement the agent actually sent."
+    },
+
+    "context7": {
+      "trust": "medium",
+      "write": false,
+      "//": "Documentation lookups. Nothing it returns should ever be executed unread, but nothing it does can change state either."
+    },
+
+    "playwright": {
+      "trust": "medium",
+      "write": true,
+      "//write": "It drives a browser; that is the whole point. The risk here is not mutation but reach - a browser can log into things. Keep it off for backend-only sessions, as .mcp.json already advises."
+    }
+  }
+}

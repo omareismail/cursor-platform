@@ -1,0 +1,173 @@
+# Copy to .github/workflows/lifecycle-gates.yml in the TARGET APPLICATION repo.
+#
+# Companion to quality-gates.yml. That one asks "is this code any good?"; this one
+# asks "was this code allowed to exist yet?"
+#
+# WHY IT IS NEEDED AT ALL
+#
+# `guard-phase.mjs` blocks source writes before the design gate — but only inside
+# an agent session. A human commit, or an agent run with LIFECYCLE_OVERRIDE=1,
+# bypasses it entirely. A rule enforced only at generation time protects you from
+# the agent; a rule enforced in CI protects you from everyone.
+#
+# It is deliberately narrow. CI checks the MECHANICAL half of a gate: does the
+# state file agree with what is in the tree. The judgement half (/lifecycle-gate)
+# and the human approval cannot and should not be automated.
+#
+# A repo with no lifecycle/state.json never adopted the lifecycle. Every job here
+# skips cleanly rather than failing — do not "fix" that by making it required.
+
+name: lifecycle-gates
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # Source code in the tree while the design gate is unapproved is the one thing
+  # this workflow exists to catch. It means someone overrode the hook, or committed
+  # without an agent, and either way the design nobody approved is now being built.
+  design-gate:
+    name: design gate cleared before source exists
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Adopted the lifecycle?
+        id: adopted
+        run: |
+          if [ -f lifecycle/state.json ]; then
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "yes=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No lifecycle/state.json - this repo has not adopted the lifecycle. Skipping."
+          fi
+
+      - name: Design gate vs source tree
+        if: steps.adopted.outputs.yes == 'true'
+        run: |
+          STATUS=$(node .cursor/tools/lifecycle.mjs status --json | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).derived.DESIGN.status))")
+          echo "DESIGN gate: $STATUS"
+          if [ "$STATUS" = "APPROVED" ] || [ "$STATUS" = "INHERITED" ]; then
+            echo "Cleared. Source is allowed."
+            exit 0
+          fi
+          FOUND=$(find src backend frontend client server app api web \
+                    -type f \( -name '*.cs' -o -name '*.ts' -o -name '*.tsx' \
+                               -o -name '*.js' -o -name '*.jsx' -o -name '*.csproj' \) \
+                    2>/dev/null | head -20)
+          if [ -n "$FOUND" ]; then
+            echo "::error::Source files exist while the DESIGN gate is $STATUS."
+            echo "$FOUND"
+            echo ""
+            echo "Either the design gate was never approved, or someone used"
+            echo "LIFECYCLE_OVERRIDE=1 and did not come back. Run:"
+            echo "  node .cursor/tools/lifecycle.mjs check DESIGN"
+            exit 1
+          fi
+          echo "No source yet. Consistent with an unapproved design gate."
+
+  # The current phase's own artifacts. Presence and non-templateness only —
+  # exactly what lifecycle.mjs check proves, and nothing it cannot.
+  phase-artifacts:
+    name: current phase artifacts present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Check the current phase
+        run: |
+          [ -f lifecycle/state.json ] || { echo "::notice::Lifecycle not adopted. Skipping."; exit 0; }
+          node .cursor/tools/lifecycle.mjs check
+
+  # An approval recorded for a phase whose artifacts have since been deleted is
+  # worse than no approval: it reads as a decision somebody made.
+  approval-integrity:
+    name: approvals still match the tree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Every APPROVED phase still has its artifacts
+        run: |
+          [ -f lifecycle/state.json ] || { echo "::notice::Lifecycle not adopted. Skipping."; exit 0; }
+          FAIL=0
+          for P in REQUIREMENTS ANALYSIS DESIGN DEVELOPMENT TESTING PRODUCTION; do
+            S=$(node .cursor/tools/lifecycle.mjs status --json | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).derived['$P'].status))")
+            [ "$S" = "APPROVED" ] || continue
+            if ! node .cursor/tools/lifecycle.mjs check "$P" >/dev/null 2>&1; then
+              echo "::error::$P is APPROVED but its artifacts no longer satisfy the gate."
+              node .cursor/tools/lifecycle.mjs check "$P" || true
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      # An override is a deliberate, expiring bypass. It is not an error - but it
+      # must never be invisible, and it must not quietly outlive its expiry.
+      - name: Report active overrides
+        if: always()
+        run: |
+          [ -f lifecycle/state.json ] || exit 0
+          node -e "
+            const s=require('./lifecycle/state.json');
+            const ov=Object.entries(s.phases||{}).filter(([,v])=>v.override).map(([p,v])=>({p,...v.override}));
+            if(!ov.length) return;
+            const now=Date.now();
+            for(const o of ov){
+              const expired=Date.parse(o.expiresAt)<now;
+              const lvl=expired?'error':(o.risk==='HIGH'?'warning':'notice');
+              console.log(\`::\${lvl}::\${o.id} \${o.p} risk=\${o.risk} by \${o.by} \${expired?'EXPIRED':'expires'} \${o.expiresAt.slice(0,10)} - \${o.reason}\`);
+            }
+            if(ov.some(o=>Date.parse(o.expiresAt)<now)) process.exit(1);
+          "
+
+  # An open change request is fine. One whose forecast said a phase needed
+  # re-approval, where that phase is still not approved, is unfinished work that
+  # looks finished.
+  open-change-requests:
+    name: open change requests are still consistent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Report open change requests
+        run: |
+          [ -d lifecycle/changes ] || { echo "::notice::No change requests."; exit 0; }
+          node .cursor/tools/change-request.mjs list
+
+  # Platform integrity. Cheap, and it catches the drift that makes the agent
+  # quietly wrong: a renamed skill still referenced, a stale count, a dead link.
+  platform-integrity:
+    name: docs, shims and plugin in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node .cursor/tools/docs-lint.mjs check
+      - run: node .cursor/tools/flag-debt.mjs scan
+      - run: node .cursor/tools/platform-metadata.mjs check
