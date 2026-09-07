@@ -285,3 +285,149 @@ use entries since they're official/stable. `context7` is added but commented
 with the optional API key note. Oracle, SQL Server, Docker, and OpenAPI are
 documented here rather than hardcoded, for the reasons given above (separate
 install path, or a deliberate caveat on maturity).
+
+---
+
+# ⚠ 2026 corrections — read this before trusting the sections above
+
+Two servers recommended earlier in this document have since been **archived by
+the MCP project and are no longer maintained or security-patched**. They now
+live in `modelcontextprotocol/servers-archived`, which states plainly that *no
+security guarantees are provided*.
+
+| Server in old config | Status | Replace with |
+|---|---|---|
+| `@modelcontextprotocol/server-github` | Archived | GitHub's official server — remote `https://api.githubcopilot.com/mcp/`, or self-host `ghcr.io/github/github-mcp-server` |
+| `@modelcontextprotocol/server-postgres` | Archived **+ known CVE-class flaw** | `postgres-mcp` (Postgres MCP Pro) with `--access-mode=restricted` |
+
+**The Postgres one matters more than "unmaintained" suggests.** Datadog Security
+Labs found a SQL-injection vulnerability in that reference server that **bypassed
+its own read-only restriction** and allowed writes. If you pointed it at anything
+but a genuinely SELECT-only role, the "read-only" label was not protecting you.
+Rotate that credential and verify the role's grants.
+
+`@modelcontextprotocol/server-filesystem` remains maintained, but see the
+"deliberately omitted" table below before adding it to Claude Code.
+
+## Canonical config
+
+The corrected, committed configuration now lives in **`.mcp.json`** at the repo
+root (Claude Code, project-scoped, no secrets — only `${ENV_VAR}` references).
+`.cursor/settings.local.json` mirrors it for Cursor and stays gitignored.
+
+Required environment variables:
+
+| Variable | Used by | Notes |
+|---|---|---|
+| `GITHUB_PAT` | github | Fine-grained PAT. Read-only scopes unless you actually want the agent opening PRs. |
+| `POSTGRES_READONLY_URL` | postgres | **A role with SELECT only.** `--access-mode=restricted` is defence in depth, not the boundary. |
+| `CONTEXT7_API_KEY` | context7 | Optional; raises rate limits. |
+
+## Deliberately omitted — and why
+
+More MCP servers is not better. Every connected server injects its full tool
+schema into the context window on **every** turn, and a crowded tool namespace
+measurably degrades routing. These were dropped on purpose:
+
+| Server | Why not |
+|---|---|
+| `server-filesystem` | Claude Code has native Read/Write/Edit/Glob/Grep that are faster and respect `.gitignore`. In Cursor it is redundant with the editor's own indexing. Pure context tax. |
+| `server-memory` | It creates a **second, competing memory store** alongside `memory-bank/`. Two sources of truth about the project is strictly worse than one. `memory-bank/` is git-tracked, reviewable, and diffable; the MCP knowledge graph is none of those. |
+| `server-sequential-thinking` | Both Cursor and Claude Code have native extended reasoning. This duplicates it and burns tokens re-implementing it as tool calls. |
+| `mcp-server-git` | `git` via Bash is faster, more flexible, and already available. The MCP wrapper only narrows what you can do. |
+| Oracle / SQL Server | **This entry is outdated — see § Correction below.** |
+
+## Rule of thumb
+
+Connect an MCP server only when it gives the agent information it **cannot
+otherwise obtain**:
+
+- `context7` → docs for the *exact pinned version* in `technologyStack.md` (not
+  the version the model was trained on). This is the highest-value server here.
+- `github` → PR/issue/CI state that is not in the working tree.
+- `postgres` → real schema, real statistics, real query plans.
+- `playwright` → what the rendered UI actually does, including RTL.
+
+Everything else, the agent can already do with Bash and its file tools.
+
+## Sources
+
+- <https://github.com/modelcontextprotocol/servers-archived>
+- <https://securitylabs.datadoghq.com/articles/mcp-vulnerability-case-study-SQL-injection-in-the-postgresql-mcp-server/>
+- <https://github.com/github/github-mcp-server>
+- <https://github.com/crystaldba/postgres-mcp>
+
+
+---
+
+# Correction — SQL Server and Oracle now have first-party options
+
+An earlier revision of this document said "SQL Server — no mature official
+option yet". **That is no longer true**, and leaving it uncorrected would have
+kept a real capability off the table.
+
+| Server | Status | Notes |
+|---|---|---|
+| **SQL MCP Server** (Microsoft, via Data API Builder 1.7+) | First-party | Entity abstraction, RBAC at the API layer, Key Vault integration, Entra auth, Redis caching, full telemetry. The most complete option for SQL Server / Azure SQL. |
+| **Azure MCP Server** (Microsoft) | First-party | Covers Azure SQL plus the rest of the Azure surface — resource management, App Insights, Key Vault. Relevant here because `dotnet-iac-gen` targets Bicep and `operability-gen` reads App Insights. |
+| **SQLcl MCP Server** (Oracle) | First-party | Ships with SQLcl, not an npm package — install separately and point the config at the binary. |
+
+## Before you add any of them
+
+The Postgres entry's discipline applies unchanged, and it matters more here
+because these servers are more capable:
+
+1. **A read-only role, always.** An access-mode flag is defence in depth, not the
+   boundary. The boundary is what the credential is permitted to do. If the role
+   can write, assume something eventually will.
+2. **Never the application's own credentials.** A separate principal, so an
+   agent's queries are distinguishable from the app's in an audit log — which for
+   SAMA-scope data is not optional.
+3. **Verify the version before adopting.** SQL MCP Server needs Data API Builder
+   **1.7 or later**; earlier versions do not expose an MCP endpoint at all.
+4. **Weigh the tool-surface cost.** Azure MCP Server is broad. Every connected
+   server injects its full tool schema on every turn, and a crowded namespace
+   measurably degrades routing. Connect it when you are doing Azure work, not
+   permanently.
+
+## Example configuration
+
+Add to `.mcp.json` only what a given project actually uses.
+
+```jsonc
+{
+  "mcpServers": {
+    // SQL Server / Azure SQL via Data API Builder 1.7+.
+    // MSSQL_READONLY_CONNECTION must be a login with SELECT only.
+    "sqlserver": {
+      "command": "dab",
+      "args": ["start", "--config", "./dab-config.json"],
+      "env": { "MSSQL_CONNECTION_STRING": "${MSSQL_READONLY_CONNECTION}" }
+    },
+
+    // Azure control plane. Enable per-project, not globally - large tool surface.
+    "azure": {
+      "command": "npx",
+      "args": ["-y", "@azure/mcp@latest", "server", "start"]
+    },
+
+    // Oracle SQLcl. Installed separately; point at the binary on this machine.
+    "oracle": {
+      "command": "sql",
+      "args": ["-mcp"],
+      "env": { "ORACLE_CONNECTION": "${ORACLE_READONLY_CONNECTION}" }
+    }
+  }
+}
+```
+
+Required environment variables, all pointing at **read-only** principals:
+`MSSQL_READONLY_CONNECTION`, `ORACLE_READONLY_CONNECTION`. Azure MCP uses your
+existing `az login` credentials — which means it inherits whatever your account
+can do. Sign in with a least-privilege account before connecting it.
+
+## Sources
+
+- <https://devblogs.microsoft.com/azure-sql/introducing-sql-mcp-server/>
+- <https://learn.microsoft.com/en-us/azure/data-api-builder/mcp/overview>
+- <https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/tools/azure-sql>

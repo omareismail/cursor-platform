@@ -1,0 +1,98 @@
+---
+description: Enforce evidence-based development — verify existence before referencing, never introduce unrequested pub.dev packages or invent project structure
+alwaysApply: true
+---
+
+## What This Rule Does
+
+Consolidates three related disciplines:
+
+1. **Evidence-based recommendations** — never assert something about the
+   repository without a verifiable source.
+2. **Hallucination prevention** — never reference a class, provider, widget,
+   route name, or config key whose existence hasn't been confirmed.
+3. **Dependency safety** — never introduce a new pub.dev package, platform
+   plugin, or native dependency unless it's already in use or explicitly
+   requested.
+
+These share the same root failure mode: an agent generating plausible-
+sounding Dart that doesn't compile against the *actual* repository, because
+it referenced something that doesn't exist or added a package the team
+hasn't vetted.
+
+---
+
+## Evidence-Based Recommendations
+
+Every assertion about the repository must be traceable to one of:
+- A specific file path (confirmed via `repo-discovery` or direct inspection)
+- A Tier 2 memory-bank document (`architecture.md`, `domainRules.md`,
+  `securityStandards.md`)
+- The active spec or task
+- An explicit statement from the developer in the current session
+
+If none of these support a claim, mark it as an **assumption**, not fact:
+
+> ❌ "`AuthRepository` is provided as a singleton for the whole app."
+> ✓ "Assuming `AuthRepository` is provided at the app root — verify in
+>    the provider scope before relying on this."
+
+The distinction matters most for:
+- Provider scope (app-root `ProviderScope` vs a feature-local override —
+  wrong scope means state resets unexpectedly or leaks across features)
+- Existence of a repository/service class (generating a `Notifier` that
+  calls a repository method that doesn't exist won't compile)
+- `pubspec.yaml` dependency versions (an API used in generated code may not
+  exist in the pinned version)
+- Route names (`go_router` route paths/names that don't match the actual
+  `GoRouter` configuration fail at navigation time, not compile time)
+
+## Hallucination Prevention
+
+Before referencing any of the following, confirm it exists in the actual
+repository via `repo-discovery`/direct inspection:
+
+- Class, widget, provider, and Notifier names
+- Method signatures (name, parameters, return type)
+- pub.dev package names (even common ones — confirm the exact package and
+  version already present in `pubspec.yaml`)
+- Route names/paths in the `go_router` configuration
+- `.arb` localization keys
+- Freezed/json_serializable field names on generated model classes
+- Environment/config keys (`.env`, `--dart-define` keys, `flavor` names)
+
+**The specific failure mode this targets:** an agent generating a widget
+that calls `ref.watch(authProvider)` when the actual provider in this repo
+is `ref.watch(authNotifierProvider)` — the difference is one word, the code
+won't compile, and it's easy to miss in a diff. `pattern-scout`'s
+concrete-example matching is the primary defense; this rule is the backstop
+for cases it doesn't cover.
+
+## Dependency Safety
+
+**Never introduce** the following unless already present in `pubspec.yaml`
+or explicitly requested in the current task:
+
+- A new pub.dev package (including switching an existing package to a
+  different one that does the same job, e.g. `dio` vs `http`)
+- A new native/platform plugin (camera, biometrics, push notification SDKs)
+- A new backend/BaaS dependency (Firebase, Supabase, etc.)
+- A new state-management approach alongside Riverpod
+
+**When a missing dependency would genuinely improve the implementation:**
+flag it as a recommendation separate from the implementation:
+
+> "This implementation would benefit from `connectivity_plus` to detect
+> offline state. It's not currently in `pubspec.yaml` — add it explicitly
+> if the team wants to adopt it, and I'll wire it in. For now, generating
+> without offline detection."
+
+## Relationship to Other Rules
+
+- `09-minimal-changes.mdc` governs *scope*; this rule governs *accuracy* of
+  what's referenced and *safety* of what's introduced.
+- `pattern-scout` (subagent) is the primary implementation of hallucination
+  prevention — it forces the agent to find a concrete real example before
+  generating. This rule is the always-on backstop.
+- `01-flutter-architecture-guard.mdc` governs layering; this rule governs
+  whether the specific symbols referenced across those layers actually exist.

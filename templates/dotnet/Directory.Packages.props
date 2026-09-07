@@ -1,0 +1,76 @@
+<Project>
+
+  <!--
+    Central Package Management (CPM). Drop at the repo root next to the .sln.
+
+    THIS IS THE ENFORCEMENT MECHANISM FOR RULE 10 ("no new packages").
+
+    With ManagePackageVersionsCentrally, a .csproj may only say
+    <PackageReference Include="X" /> — no Version attribute. If X has no
+    <PackageVersion> entry here, the build fails with NU1010. So an agent (or a
+    human) cannot quietly introduce a dependency: adding one requires an edit to
+    this file, which shows up as a one-line diff in code review.
+
+    Combined with the PreToolUse Bash hook that blocks `dotnet add package`,
+    unrequested dependencies stop being possible rather than merely discouraged.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- ==================== Analyzers (every project) ==================== -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="4.14.0" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.7.0.110445" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.13.1" />
+  </ItemGroup>
+
+  <!-- ==================== Architecture tests ==================== -->
+  <ItemGroup>
+    <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
+  </ItemGroup>
+
+  <!-- ==================== Test stack ==================== -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.0" />
+    <PackageVersion Include="FluentAssertions" Version="7.2.0" />
+    <PackageVersion Include="NSubstitute" Version="5.3.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.7" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.6.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.6.0" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+  </ItemGroup>
+
+  <!--
+    ==================== Application packages ====================
+
+    Add the versions your repo actually uses. Run this once on the target repo
+    to migrate existing projects and generate the entries:
+
+        dotnet tool install -g dotnet-outdated-tool   # optional, for auditing
+        # then, per project, move Version="..." out of the .csproj to here
+
+    IMPORTANT: these version numbers are a starting point captured in mid-2026.
+    Verify them against your actual solution before committing — a wrong pin is
+    worse than no pin. `dotnet list package --outdated` and
+    `dotnet list package --vulnerable --include-transitive` after migrating.
+  -->
+  <ItemGroup Label="Example — replace with your real stack">
+    <!--
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.7" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.7" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <PackageVersion Include="Oracle.EntityFrameworkCore" Version="9.23.90" />
+    <PackageVersion Include="Dapper" Version="2.1.66" />
+    <PackageVersion Include="MediatR" Version="12.5.0" />
+    <PackageVersion Include="FluentValidation.AspNetCore" Version="11.3.1" />
+    <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
+    -->
+  </ItemGroup>
+
+</Project>

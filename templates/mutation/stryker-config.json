@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-net/master/src/Stryker.Core/Stryker.Core/Schemas/stryker-config.json",
+
+  "//": "Stryker.NET. Copy to the test project root, or the solution root and use --project. Run scoped: dotnet stryker --mutate \"src/Co.Domain/Pricing/**\"",
+
+  "stryker-config": {
+    "project": "Co.Domain.csproj",
+    "test-projects": ["../../tests/Co.UnitTests/Co.UnitTests.csproj"],
+
+    "//thresholds": "break is the only one that fails CI. Set it to what you actually achieve on a critical module, minus a small margin — an aspirational number just gets lowered.",
+    "thresholds": { "high": 80, "low": 60, "break": 0 },
+
+    "//mutate": "Scope every run. Whole-solution mutation takes hours and gets disabled.",
+    "mutate": [
+      "src/**/Pricing/**",
+      "src/**/Authorization/**",
+      "!**/Migrations/**",
+      "!**/*.Designer.cs",
+      "!**/Program.cs",
+      "!**/*Dto.cs",
+      "!**/*Request.cs",
+      "!**/*Response.cs"
+    ],
+
+    "//ignore-mutations": "Mutations that produce noise rather than signal in this codebase.",
+    "ignore-mutations": ["string"],
+
+    "//ignore-methods": "Guard clauses and logging: mutating these produces survivors nobody will ever act on.",
+    "ignore-methods": [
+      "*Log*",
+      "ArgumentNullException.ThrowIfNull",
+      "ArgumentException.*"
+    ],
+
+    "reporters": ["html", "progress", "cleartext"],
+    "concurrency": 4,
+
+    "//since": "On a PR, mutate only what changed against the base branch.",
+    "since": { "target": "origin/main", "enabled": false }
+  }
+}

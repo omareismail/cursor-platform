@@ -68,7 +68,7 @@ rules are *cheap static checks* (layer boundaries, security anti-patterns,
 SQL dialect); skill-based audits are *deeper analysis* invoked deliberately
 when the situation calls for them.
 
-## The full rule inventory (11 rules as of Phase 7)
+## The full rule inventory (12 rules as of Phase 7)
 
 | Rule | Scope | Governs |
 |---|---|---|

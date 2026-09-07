@@ -236,7 +236,7 @@ actual GCC fintech context were identified and closed:
   `react-i18n-rtl-gen` generates correctly when explicitly invoked, but
   nothing prevented ordinary component generation from regressing it.
 - **`compliance-audit`** — SAMA/ZATCA/mada-specific checks, intentionally
-  separate from the generic `04-security-guard.mdc`/`security-perf-report`
+  separate from the generic `04-security-guard.mdc`/`enterprise-report-gen security-perf`
   (OWASP-scope) skills, and intentionally refuses to invent regulatory
   detail not already documented in `businessRules.md`.
 

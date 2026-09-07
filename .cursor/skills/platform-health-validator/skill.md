@@ -117,7 +117,7 @@ targets:
 
 | Dimension | Scoring guide |
 |---|---|
-| Naming consistency | Start at 100, deduct 5 per non-conforming skill/rule name |
+| Naming consistency | Start at 100, deduct 5 per non-conforming skill/rule name | <!-- count-ok: 5 is a scoring weight, not a count of skills -->
 | Format consistency | Start at 100, deduct 3 per missing required section, 2 per formatting issue |
 | Skill graph accuracy | Start at 100, deduct 10 per false claim in skill-graph.md |
 | Documentation health | Start at 100, deduct 8 per genuine orphan, 5 per dead template |
@@ -176,8 +176,8 @@ where all skills are individually well-formed can still have a misleading
 **Context:** Post-Phase-6 pass, before marking the workspace done.
 
 Actual findings from the pre-build health check run during Phase 6:
-- All 66 skills: correctly kebab-cased ✓
-- All 11 rules: consistent `description`/`alwaysApply` frontmatter ✓
+- All 97 skills: correctly kebab-cased ✓
+- All 12 rules: consistent `description`/`alwaysApply` frontmatter ✓
 - Skill headers: `Overview / Steps / Example Invocation / Output` consistent ✓
 - `MIGRATION_NOTES_PASS1.md` in `.cursor/docs/`: orphaned (0 inbound
   references) — flagged for linking from `skill-graph.md`'s changelog

@@ -70,6 +70,71 @@ Column order in composite indexes follows equality-predicates-first, then
 range/sort columns — explain the specific query's predicate shape that drove the
 chosen order, not a generic rule restated.
 
+**Step 4b — Compiled queries, when the cost is translation rather than execution.**
+
+If the SQL is already optimal and the plan is good but throughput is still short,
+the time may be going on **LINQ-to-SQL translation**, which EF Core repeats on
+every call. On a hot path executed thousands of times a minute this is real.
+
+```csharp
+private static readonly Func<PolicyDbContext, Guid, CancellationToken, Task<Policy?>> GetByIdQuery =
+    EF.CompileAsyncQuery((PolicyDbContext db, Guid id, CancellationToken ct) =>
+        db.Policies.AsNoTracking().FirstOrDefault(p => p.Id == id));
+
+public Task<Policy?> GetByIdAsync(Guid id, CancellationToken ct) => GetByIdQuery(_db, id, ct);
+```
+
+**Recommend a compiled query only when all three hold**, otherwise it is
+complexity with no return:
+
+1. The query shape is **fixed** — no conditional `Where`, no optional includes.
+   A compiled query cannot vary its shape, and forcing it to produces worse code
+   than you started with.
+2. It is genuinely **hot** — thousands of executions per minute, not per hour.
+3. Execution time is already good. **Compiling a slow query gives you a slow
+   query that translates faster**, which is almost always the wrong problem.
+
+Cost to state plainly: compiled queries are static, so they hold a delegate for
+the lifetime of the process and are markedly harder to read and to change. Never
+recommend one as a first move.
+
+**Step 4c — Set-based operations instead of load-modify-save.**
+
+The most common avoidable cost in an EF codebase is loading entities purely in
+order to change or delete them. EF Core 7+ gives you the set-based form:
+
+```csharp
+// Before: N round trips + change tracking for rows you never read
+var expired = await _db.Quotes.Where(q => q.ExpiresAt < now).ToListAsync(ct);
+foreach (var q in expired) q.Status = QuoteStatus.Expired;
+await _db.SaveChangesAsync(ct);
+
+// After: one statement, no materialisation, no tracking
+await _db.Quotes.Where(q => q.ExpiresAt < now)
+    .ExecuteUpdateAsync(s => s.SetProperty(q => q.Status, QuoteStatus.Expired), ct);
+```
+
+**Four consequences to flag every time you recommend this**, because they are
+where the bugs come from:
+
+1. **It bypasses the change tracker**, so any in-memory entity for those rows is
+   now stale. Do not mix `ExecuteUpdate` and `SaveChanges` on the same entities
+   in one unit of work.
+2. **It bypasses `SaveChanges` interceptors** — which is where most audit-trail
+   implementations live. If the entity is auditable under
+   `.cursor/rules/07-audit-trail-guard.mdc`, a bulk update **silently skips the
+   audit record**. Either write the audit rows explicitly or do not use it here.
+   This is the single most important caveat on the whole technique.
+3. **No domain events fire.** Anything downstream that expects them will not run.
+4. **It is its own transaction** unless you opened one. For a multi-statement
+   change, wrap it explicitly.
+
+For large inserts, recommend the provider's bulk path — `SqlBulkCopy` for SQL
+Server, `COPY` / `Npgsql` binary import for PostgreSQL, array binding for Oracle
+— rather than `AddRange` + `SaveChanges`, which builds one parameterised
+statement per batch and is orders of magnitude slower at volume. Check the
+provider from `databaseConventions.md`; do not assume.
+
 **Step 5 — Flag if a fix requires a schema change.**
 
 Index recommendations go through `dotnet-migration` (system-of-record provider)

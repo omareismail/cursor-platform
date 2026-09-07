@@ -1,0 +1,95 @@
+---
+description: Widget/unit test conventions — pumpWidget with ProviderScope overrides, golden tests where applicable, test behavior not implementation
+globs: ["**/*_test.dart"]
+alwaysApply: false
+---
+
+## What This Rule Does
+
+Applies to `_test.dart` files. Keeps tests asserting observable behavior
+(rendered output, navigation, provider state as seen by consumers) rather
+than internal implementation details that break on harmless refactors.
+
+## Widget Tests: `pumpWidget` + `ProviderScope` Overrides
+
+Every widget test that touches a Riverpod-consuming widget wraps it in a
+`ProviderScope` with explicit `overrides` for the providers it depends on —
+never lets the real repository/API-backed provider run in a widget test.
+
+```dart
+testWidgets('shows cart total for two items', (tester) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        cartProvider.overrideWith(() => FakeCart([item1, item2])),
+      ],
+      child: const MaterialApp(home: CartScreen()),
+    ),
+  );
+
+  await tester.pumpAndSettle();
+
+  expect(find.text('\$24.00'), findsOneWidget);
+});
+```
+
+- Use a fake `Notifier` subclass or `overrideWith`/`overrideWithValue` for
+  deterministic test data — do not hit a real repository or make a real
+  network call from a widget test.
+- `pumpAndSettle()` after actions that trigger animations or async state
+  changes; plain `pump()` when asserting an intermediate (e.g. loading)
+  state before it resolves.
+
+## Golden Tests
+
+Where the repo already has golden tests set up (a `goldens/` directory and
+`matchesGoldenFile` usage present), add a golden test for new visually
+significant widgets that have no existing coverage — a card, a custom
+button variant, an empty/error state illustration. Do not introduce golden
+testing to a repo that doesn't already have it without asking; it's a
+noticeably different CI/tooling commitment (font loading, platform-specific
+rendering) that the team should opt into deliberately.
+
+## Test Behavior, Not Implementation
+
+- Assert what the user sees or what the app does (`find.text(...)`,
+  `find.byIcon(...)`, navigation to a new route, a repository method being
+  called with the right arguments) — not a provider's private field or an
+  internal method's call count beyond what proves the behavior.
+- For `Notifier`/`AsyncNotifier` unit tests, assert on the emitted `state`
+  sequence via `container.read`/`listen` on a `ProviderContainer`, not on
+  internal helper methods.
+
+```dart
+test('addItem appends to cart and persists', () async {
+  final container = ProviderContainer(
+    overrides: [cartRepositoryProvider.overrideWithValue(fakeRepo)],
+  );
+  addTearDown(container.dispose);
+
+  await container.read(cartProvider.notifier).addItem(item1);
+
+  expect(container.read(cartProvider).value, [item1]);
+  expect(fakeRepo.savedItems, [item1]);
+});
+```
+
+## Mocking
+
+Use `mocktail` or `mockito` (whichever is already in `pubspec.yaml` under
+`dev_dependencies` — confirm before generating, per
+`10-evidence-and-dependency-guard.mdc`) for repository/API-client fakes in
+unit tests. Prefer a small hand-written fake over a mock when the interface
+is small and the test benefits from readable, explicit behavior.
+
+## Integration Tests
+
+End-to-end flows (login, checkout) that need a real device/simulator use
+the `integration_test` package, kept separate from `test/` (typically
+`integration_test/`) so they don't run as part of the fast unit/widget
+suite by default.
+
+## Relationship to Other Rules
+
+`02-flutter-state-guard.mdc` governs how state is structured; this rule
+governs how that state is faked and asserted on in tests.

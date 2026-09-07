@@ -99,7 +99,23 @@ Test stubs include: class/function name, test method names matching acceptance
 criteria, comment `// AC-N: [criterion text]` for traceability, and all
 `Arrange / Act / Assert` sections marked but empty.
 
-**Step 4 — Post-generation update.**
+**Step 4 — Verify before claiming anything (mandatory).**
+
+Generating code and a test stub is not the same as finishing a task. Run:
+
+```bash
+/task-verify <TASK-ID>
+```
+
+It runs the task's `Verify` command, checks that every acceptance criterion in
+scope is covered by a test that *can fail*, and reads those tests for the
+failure modes a tool cannot catch. **A task may only move to Done on a DONE
+verdict**, and the progress entry records the evidence.
+
+This matters more than usual when an agent wrote both the code and the tests: a
+green suite then proves the two agree, not that either is right.
+
+**Step 5 — Post-generation update.**
 
 - Update `memory-bank/progress.md`: move TASK-ID to 🔄 In Progress
 - Output a summary:
@@ -136,4 +152,5 @@ in `src/Application/BrokerClients/Export/`. Also generates
 - Source files written to the correct project folder (inferred from layer + project structure)
 - Test file stubs written to the correct test project
 - `memory-bank/progress.md` updated: TASK-ID → 🔄 In Progress
+  (only `/task-verify` may move it to ✅ Done, and only with recorded evidence)
 - Terminal summary: files created, tests to implement, next task suggestion

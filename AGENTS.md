@@ -1,6 +1,6 @@
 # Agent instructions
 
-You work in a **cursor-platform** workspace: 66 skills, guard rules, and a
+You work in a **cursor-platform** workspace: 97 skills, guard rules, and a
 memory-bank. Follow this file before generating or changing code.
 
 ## Session start (mandatory)
@@ -17,6 +17,15 @@ memory-bank. Follow this file before generating or changing code.
 
 | Situation | Action |
 |-----------|--------|
+| Working on a product repo, any request | `/lifecycle` first — the phase decides what is allowed. No `lifecycle/state.json` means the repo never adopted it; carry on |
+| Asked to implement before the design gate | Refuse and say which phase the work belongs to. `guard-phase.mjs` blocks the write anyway |
+| User asks how existing code works | `/feature-trace` — never answer from a guess about a codebase you have not read |
+| User is about to change existing code | `/impact-analysis` **before** editing |
+| Work is too big for one sitting | `/work-breakdown` — never hand-wave a multi-file change into one task |
+| A task looks finished | `/task-verify` — never mark Done from a green suite alone |
+| User asks if something is ready to ship | `/production-readiness-review` — and do not soften a NO-GO |
+| Designing anything touching money, PII, or auth | `/threat-model` **before** `/speckit-plan` |
+| Something broke in production | `/postmortem` — the output is a compile-time guard, not a document |
 | User asks to build or generate | Match a skill in `skill-catalog.md`; announce; wait if Category A or E |
 | User asks to audit or review | Category B skill → announce, then proceed |
 | Multi-file or cross-cutting task | `/context-builder [task description]` before editing |
@@ -35,7 +44,7 @@ proceed. Category D (`repo-discovery`, `context-builder`, `context-sync`,
 ## Rules (`.cursor/rules/` — you do not invoke these)
 
 **Always active (every session):** `00-memory-think`, `05-planning-rigor`,
-`09-minimal-changes`, `10-evidence-and-dependency-guard`.
+`09-minimal-changes`, `10-evidence-and-dependency-guard`, `11-lifecycle-gate`.
 
 **Active when matching files are in context (globs):** `01-specify-rules`,
 `02-dotnet-architecture-guard`, `03-react-architecture-guard`,
@@ -48,6 +57,8 @@ Non-negotiables:
   referencing them. No new NuGet/npm packages unless already in the repo or
   explicitly requested.
 - Only change what the task requires — no unrelated reformatting or scope creep.
+- **Lifecycle:** never run a skill belonging to a later phase than `lifecycle/state.json`
+  says the product is in; never approve a gate on the user's behalf.
 - **.NET:** Clean Architecture — handlers never use `DbContext` directly.
 - **React:** No `fetch` in components; API layer + React Query.
 - **Security:** No secrets in source; no JWT in `localStorage`; parameterized SQL.
@@ -59,7 +70,8 @@ Non-negotiables:
 
 | Layer | Location | Owner |
 |-------|----------|-------|
-| Machine | `.cursor/cache/repo-map.json` | `/repo-discovery` — never hand-edit |
+| Machine (structure) | `.cursor/cache/repo-map.json` | `/repo-discovery` — never hand-edit |
+| Machine (behaviour) | `.cursor/cache/feature-map.json` | `/feature-trace`, `/feature-inventory` — write only via `.cursor/tools/feature-map.mjs` |
 | Tier 1 (dynamic) | `memory-bank/techContext.md`, `progress.md`, … | `/context-sync` |
 | Tier 2 (standards) | `architecture.md`, `businessRules.md`, … | Team — ask if undocumented |
 
@@ -71,6 +83,8 @@ changed and the next logical step.
 ## More detail
 
 - [START-HERE.md](.cursor/docs/START-HERE.md) — task → skill map
-- [skill-catalog.md](.cursor/docs/skill-catalog.md) — all 66 skills
+- [skill-catalog.md](.cursor/docs/skill-catalog.md) — all 97 skills
+- [LIFECYCLE.md](.cursor/docs/LIFECYCLE.md) — the six phases, their gates and owners
+- [IDEA-TO-PRODUCTION.md](.cursor/docs/IDEA-TO-PRODUCTION.md) — one idea, every command in order
 - [NEW-PROJECT.md](.cursor/docs/NEW-PROJECT.md) — bootstrap a new repo with this platform
 - [APPLY-TO-PROJECT.md](.cursor/docs/APPLY-TO-PROJECT.md) — bootstrap an existing repo (agent-run playbook)

@@ -1,0 +1,22 @@
+{
+  "name": "cursor-platform",
+  "version": "1.0.0",
+  "description": "Agent platform for .NET + React in regulated/fintech contexts. 97 skills, 14 read-only subagents, 7 enforcement hooks and 10 validators covering the whole loop: understand existing code, plan and size the work, generate it against local convention, prove it is done, and ship it safely.",
+  "author": {
+    "name": "Mahmoud",
+    "email": "mahmo12ab@gmail.com"
+  },
+  "homepage": "https://github.com/omareismail/cursor-platform",
+  "license": "SEE LICENSE IN README.md",
+  "keywords": [
+    "dotnet", "csharp", "react", "typescript", "clean-architecture",
+    "fintech", "rtl", "arabic", "ef-core", "cqrs",
+    "code-review", "security", "compliance", "sama", "zatca",
+    "spec-driven", "verification", "dora", "slo", "production-readiness"
+  ],
+
+  "//skills": "Directory is auto-discovered at .claude/skills/. Listed explicitly so the manifest documents what ships.",
+  "//hooks": "Not declared here. This repo wires its hooks in .claude/settings.json; the distributable plugin gets its own generated ./hooks/hooks.json from build-plugin.mjs, which sets this key itself.",
+  "agents": "./.claude/agents",
+  "mcpServers": "./.mcp.json"
+}

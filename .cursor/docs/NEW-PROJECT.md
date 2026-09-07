@@ -48,7 +48,7 @@ Copy-Item $env:TEMP\cursor-platform\AGENTS.md .
 
 Verify:
 
-- [ ] `.cursor/skills/` — 66 skill folders
+- [ ] `.cursor/skills/` — 97 skill folders
 - [ ] `.cursor/rules/` — 11 `.mdc` rule files
 - [ ] `memory-bank/` — 24 files
 - [ ] `AGENTS.md` at project root (agent session instructions)

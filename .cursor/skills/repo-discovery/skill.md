@@ -66,7 +66,7 @@ the dependency-checked precondition), but almost always as a no-op cache hit.
 Walk `*.sln` and every `*.csproj`:
 - Solution → project membership
 - Project → project references (build the dependency graph; flag cycles —
-  feeds `architecture-guard` and the future `refactor-assistant`)
+  feeds `architecture-guard` and the future `enterprise-report-gen refactor`)
 - Project → target framework, `<OutputType>`, package references
 - `Directory.Build.props` / `Directory.Packages.props` → centrally managed
   versions, analyzers, nullable/implicit-usings settings inherited repo-wide

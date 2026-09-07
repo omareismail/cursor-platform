@@ -1,0 +1,11 @@
+{
+  "//": "Project-scoped MCP servers for flutter-platform. Deliberately minimal: as of this platform's knowledge cutoff there is no mature, widely-adopted Flutter/Dart-specific MCP server (no equivalent of a 'pub.dev MCP' or 'DevTools MCP' comparable to context7 or the Postgres/GitHub servers the sibling cursor-platform wires up). Rather than invent one, this file ships empty and documents what's generically useful instead.",
+
+  "mcpServers": {},
+
+  "//notes": [
+    "Generically useful, not Flutter-specific: a filesystem MCP server and a git MCP server (both maintained under the official modelcontextprotocol/servers org) are safe additions if your Claude Code/Cursor setup doesn't already provide equivalent built-in tools.",
+    "If a GitHub MCP server is useful for this project, copy the 'github' entry from the root cursor-platform .mcp.json (read-only by default via X-MCP-Readonly) rather than reinventing it here.",
+    "If pub.dev or Flutter DevTools ship an official MCP server in the future, add it here with the same rationale-comment convention used above and in the root .mcp.json - never add an unverified/unofficial one without checking who maintains it first (the root platform's postgres entry exists specifically because the unofficial predecessor had a SQL-injection flaw)."
+  ]
+}

@@ -5,14 +5,27 @@ Example: `/enterprise-report-gen production-readiness Tamkeen.Payments` · `/ent
 
 Report types: `architecture` | `security` | `performance` | `database` |
 `repository-health` | `technical-debt` | `production-readiness` |
-`release-readiness` | `dependency-health` | `code-quality`
+`release-readiness` | `dependency-health` | `code-quality` | `refactor` |
+`security-perf`
+
+> **Absorbed skills.** `refactor-assistant` and `security-perf-report` were
+> merged into this skill. Both described themselves as pure aggregators that
+> "detect nothing new", and both produced report types this skill already
+> declared. Three separate aggregation skills meant three near-identical
+> descriptions competing for the same request, which degrades routing without
+> adding capability.
+>
+> | Old invocation | Now |
+> |---|---|
+> | `/refactor-assistant [scope]` (removed) | `/enterprise-report-gen refactor [scope]` |
+> | `/security-perf-report [scope]` (removed) | `/enterprise-report-gen security-perf [scope]` |
 
 ---
 
 ## Overview
 
 **Memory references:** none directly — same pure-aggregation model as
-`refactor-assistant` and `security-perf-report`. This skill detects nothing
+the `refactor` mode and the `security-perf` mode. This skill detects nothing
 new; it assembles a standardized executive-facing report from existing audit
 skills' output, in one consistent template, so "give me a production
 readiness report" doesn't require manually running 6 different skills and
@@ -23,13 +36,15 @@ reconciling their formats by hand.
 | `architecture` | `02-dotnet-architecture-guard.mdc` findings, `03-react-architecture-guard.mdc` findings, `architecture-map-gen` (dependency-graph cycles) |
 | `security` | `04-security-guard.mdc` (audit mode), `compliance-audit` |
 | `performance` | `dotnet-perf-profile`, `react-perf-audit` |
+| `refactor` | `dotnet-clean-code-guard`, `react-clean-code-guard`, `technical-debt-tracker` (scan mode) - consolidated into one prioritized refactor plan. Pair with `/refactor-apply` to execute. |
+| `security-perf` | `04-security-guard` (audit mode), `dotnet-perf-profile`, `react-perf-audit`, `react-accessibility-audit` - one prioritized document across security, performance and accessibility. |
 | `database` | `database-audit`, `dotnet-schema-diff` (latest run if available) |
 | `repository-health` | `repo-discovery` (project/cycle counts), `technical-debt-tracker` (report mode), `dotnet-dependency-audit` |
 | `technical-debt` | `technical-debt-tracker` (report mode) directly — effectively a passthrough with the standard template applied |
 | `production-readiness` | `security`, `performance`, `database`, `devops-audit`, `compliance-audit` — the composite readiness gate |
 | `release-readiness` | `production-readiness` sources + `release-notes-gen` + `dotnet-test-gen`/`react-test-gen` coverage signal if available |
 | `dependency-health` | `dotnet-dependency-audit`, `dependency-upgrade-guard` |
-| `code-quality` | `refactor-assistant` (already a consolidated view — passthrough with template applied) |
+| `code-quality` | the `refactor` mode's sources (already a consolidated view — passthrough with template applied) |
 
 ---
 
@@ -37,7 +52,7 @@ reconciling their formats by hand.
 
 **Step 1 — Resolve scope to concrete paths via `repo-map.json`.**
 
-Same resolution pattern as `refactor-assistant`/`security-perf-report` —
+Same resolution pattern as the `refactor` and `security-perf` modes —
 don't ask for literal folder paths.
 
 **Step 2 — Run or reuse the source skills for the requested report type.**
@@ -101,7 +116,7 @@ re-rank findings to produce a more favorable composite status.
 
 **Context:** Go/no-go decision before a new gateway integration ships.
 
-Agent runs/reuses `security-perf-report`, `database-audit`, `devops-audit`,
+Agent runs/reuses the `security-perf` sources, `database-audit`, `devops-audit`,
 and `compliance-audit` for the scope, finds one Compliance-blocking ZATCA
 QR-code field-order finding and one Risk-level database finding, applies the
 standard template, and reports **No-Go** — the compliance finding alone is

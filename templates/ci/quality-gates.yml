@@ -1,0 +1,312 @@
+# Copy to .github/workflows/quality-gates.yml in the TARGET APPLICATION repo.
+#
+# This is the layer that makes the guard rules real. Everything here fails the
+# build — none of it is informational. The point is that a rule enforced only at
+# generation time protects you from the agent, while a rule enforced in CI
+# protects you from everyone, including the agent on a bad day.
+#
+# Jobs are independent so one failure does not mask the others.
+
+name: quality-gates
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: "9.0.x"
+  NODE_VERSION: "22"
+  DOTNET_NOLOGO: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  # ==========================================================================
+  #  .NET — analyzers, format, architecture, tests
+  # ==========================================================================
+  dotnet:
+    name: .NET build gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+
+      - name: Restore
+        run: dotnet restore --locked-mode || dotnet restore
+
+      # Fails if any file deviates from .editorconfig. IDE0055 is already an
+      # error in-build; this catches whitespace the compiler ignores.
+      - name: Format check
+        run: dotnet format --verify-no-changes --verbosity diagnostic
+
+      # TreatWarningsAsErrors + EnforceCodeStyleInBuild in Directory.Build.props
+      # means the analyzer rules escalated in .editorconfig fail here.
+      - name: Build (warnings are errors)
+        run: dotnet build --no-restore --configuration Release
+
+      # The executable form of .cursor/rules/02 and /07. Run separately so a
+      # boundary violation is unmistakable in the job list.
+      - name: Architecture boundary tests
+        run: |
+          dotnet test tests/Company.ArchitectureTests/Company.ArchitectureTests.csproj \
+            --no-build --configuration Release \
+            --logger "console;verbosity=detailed"
+
+      - name: Unit + integration tests
+        run: |
+          dotnet test --no-build --configuration Release \
+            --filter "FullyQualifiedName!~ArchitectureTests" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage
+
+      - name: Coverage gate
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator -reports:'coverage/**/coverage.cobertura.xml' \
+                          -targetdir:coverage/report -reporttypes:'TextSummary;Cobertura'
+          cat coverage/report/Summary.txt
+          LINE=$(grep -oP 'Line coverage:\s*\K[0-9.]+' coverage/report/Summary.txt || echo 0)
+          echo "Line coverage: $LINE%"
+          # Raise this as the suite matures. A threshold you never raise is decoration.
+          awk -v c="$LINE" 'BEGIN { exit (c+0 >= 60) ? 0 : 1 }' \
+            || { echo "::error::Line coverage $LINE% is below the 60% gate"; exit 1; }
+
+  # ==========================================================================
+  #  React / TypeScript
+  # ==========================================================================
+  frontend:
+    name: Frontend build gates
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend # adjust to your path
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `npm ci` (not `install`) — fails if package.json and the lockfile
+      # disagree, which is exactly what an unrequested dependency looks like.
+      - name: Install (lockfile-exact)
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      # Executable form of .cursor/rules/03, /04 and /08.
+      - name: Lint (zero warnings)
+        run: npx eslint . --max-warnings=0
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test -- --run --coverage
+
+      # RTL correctness in stylesheets, which ESLint cannot see.
+      - name: Stylelint (logical properties)
+        run: npx stylelint "src/**/*.{css,scss}" --max-warnings=0
+        continue-on-error: true # flip to false once the existing violations are cleared
+
+  # ==========================================================================
+  #  Security
+  # ==========================================================================
+  security:
+    name: Security gates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "${{ env.DOTNET_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+
+      - name: NuGet vulnerabilities (including transitive)
+        run: |
+          dotnet restore
+          OUT=$(dotnet list package --vulnerable --include-transitive 2>&1)
+          echo "$OUT"
+          echo "$OUT" | grep -qiE '\b(High|Critical)\b' \
+            && { echo "::error::High or Critical NuGet vulnerability found"; exit 1; } || true
+
+      - name: Deprecated NuGet packages
+        run: dotnet list package --deprecated
+
+      - name: npm audit
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm audit --audit-level=high --omit=dev
+
+      # Catches the credential that the PreToolUse hook would have blocked but a
+      # human pasted in anyway.
+      - name: Secret scan (full history)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: CodeQL init
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp, javascript-typescript
+          queries: security-extended
+      - name: CodeQL autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: CodeQL analyze
+        uses: github/codeql-action/analyze@v3
+
+  # ==========================================================================
+  #  Agent-platform integrity — the gate people forget to build
+  # ==========================================================================
+  platform:
+    name: Agent platform integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+
+      # If someone adds a skill under .cursor/skills/ and forgets the Claude
+      # shim, Claude Code silently cannot see it — and nobody notices for weeks.
+      - name: .claude/skills shims are in sync with .cursor/skills
+        run: |
+          node .claude/hooks/sync-skills.mjs
+          if ! git diff --quiet -- .claude/skills; then
+            echo "::error::.claude/skills is stale. Run: node .claude/hooks/sync-skills.mjs"
+            git --no-pager diff --stat -- .claude/skills
+            exit 1
+          fi
+
+      # The plugin tree is generated and committed. If someone edits a skill and
+      # does not rebuild, everyone who installs the plugin gets the old one - and
+      # nothing else would ever tell them.
+      - name: plugin/ is in sync with the source
+        run: node .cursor/tools/build-plugin.mjs check
+
+      - name: Hook scripts and tools parse
+        run: |
+          for f in .claude/hooks/*.mjs .cursor/tools/*.mjs; do node --check "$f"; done
+
+      # A task board that the project's own validator rejects is not a plan.
+      # This one DOES fail: an oversized task is a change that will land
+      # half-applied, and that is worth blocking a merge over.
+      - name: Task boards are valid
+        run: |
+          shopt -s nullglob
+          FAILED=0
+          for f in specs/plans/*.md; do
+            node .cursor/tools/task-graph.mjs validate "$f" || FAILED=1
+          done
+          exit $FAILED
+
+      # Broken links and ghost skill references send the next reader - human or
+      # agent - somewhere that does not exist. Nothing else in the repo catches it.
+      - name: Documentation graph is intact
+        run: node .cursor/tools/docs-lint.mjs check
+
+      # docs-lint only reads markdown. The plugin manifest is JSON, which is how
+      # it kept advertising "77 skills, 8 subagents, 5 enforcement hooks" long
+      # after none of those were true. This reads both.
+      - name: Stated counts match reality
+        run: node .cursor/tools/platform-metadata.mjs check
+
+      # A chain that stops is a decision nobody carried forward: a requirement no
+      # story implements, a story no use case covers, a use case no endpoint
+      # serves. ac-trace covers the other half of the chain, AC -> test.
+      - name: Lifecycle traceability
+        run: |
+          if [ -d docs/product ] || [ -d docs/analysis ]; then
+            node .cursor/tools/artifact-schema.mjs validate
+            node .cursor/tools/artifact-schema.mjs check
+          else
+            echo "::notice::No lifecycle documents - traceability check skipped."
+          fi
+
+      # An acceptance criterion with no test that can fail is not implemented -
+      # it is untested code that happens to compile. This fails the build.
+      - name: Acceptance criteria are covered
+        run: |
+          if [ -d specs ]; then
+            node .cursor/tools/ac-trace.mjs check
+          else
+            echo "No specs/ directory - nothing to trace."
+          fi
+
+      # Catches vacuous and always-passing tests repo-wide, including in test
+      # files that carry no AC comment at all.
+      - name: Tests can actually fail
+        run: node .cursor/tools/ac-trace.mjs lint
+
+      # An expired flag is permanent dead branching. This fails: the drift into
+      # permanence happens through inattention, never through a decision anyone
+      # would defend out loud.
+      - name: Feature-flag debt
+        run: node .cursor/tools/flag-debt.mjs scan
+
+      # Informational. The number that matters is the trend, which a single PR
+      # cannot move - so this reports and never blocks.
+      - name: Delivery metrics snapshot
+        run: |
+          git fetch --unshallow 2>/dev/null || true
+          node .cursor/tools/delivery-metrics.mjs report --days 90 || true
+
+      # A trace whose files moved underneath it is worse than no trace - it reads
+      # as authoritative. Warn rather than fail: staleness is normal on an active
+      # branch, and a hard failure here would just get disabled.
+      - name: Feature-map freshness
+        run: |
+          if [ -f .cursor/cache/feature-map.json ]; then
+            node .cursor/tools/feature-map.mjs verify \
+              || echo "::warning::Traced features are stale - re-run /feature-trace on the listed ids"
+          else
+            echo "No feature-map.json yet - run /feature-inventory to seed it."
+          fi
+
+      - name: Agent config is valid JSON
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('.claude/settings.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('.mcp.json','utf8'))"
+
+      # Rule 00 is worthless if memory-bank rots. Fail the PR, not the next sprint.
+      - name: Memory-bank freshness
+        run: |
+          STALE=0
+          for f in memory-bank/activeContext.md memory-bank/progress.md memory-bank/techContext.md; do
+            [ -f "$f" ] || { echo "::error::$f is missing"; STALE=1; continue; }
+            LAST=$(git log -1 --format=%ct -- "$f")
+            AGE=$(( ( $(date +%s) - LAST ) / 86400 ))
+            echo "$f: ${AGE}d since last commit"
+            [ "$AGE" -gt 30 ] && { echo "::warning::$f has not been updated in ${AGE} days — run /context-sync"; }
+          done
+          exit $STALE
+
+      # Cheap belt-and-braces alongside gitleaks. The hook scripts are excluded
+      # because they CONTAIN these patterns — they are the detectors.
+      - name: No secrets in committed agent config
+        run: |
+          if grep -rInE '(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY)' \
+               .mcp.json .claude/ .cursor/rules/ .cursor/skills/ \
+               --exclude-dir=hooks 2>/dev/null; then
+            echo "::error::Credential-shaped string found in committed agent config"
+            exit 1
+          fi

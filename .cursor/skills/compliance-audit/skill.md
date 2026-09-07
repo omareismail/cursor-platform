@@ -14,7 +14,7 @@ Framework can be `sama` | `zatca` | `mada` | `all` (default: `all`).
 (for audit-trail/retention requirements), `.cursor/cache/repo-map.json`
 
 `compliance-audit` is deliberately separate from `04-security-guard.mdc` and
-`security-perf-report`. Those cover generic security posture (OWASP Top 10,
+`enterprise-report-gen security-perf`. Those cover generic security posture (OWASP Top 10,
 secrets, injection) — this skill checks specific **regulatory** requirements
 from SAMA (Saudi Central Bank), ZATCA (e-invoicing), and mada (the domestic
 card scheme) that have no equivalent in a generic security checklist and
@@ -94,6 +94,43 @@ Typically covering:
 - mada-specific response/error code handling isn't silently collapsed into
   generic gateway error handling if `businessRules.md` documents scheme-specific
   codes requiring distinct handling
+
+**Step 4b — OWASP Top 10 coverage map.**
+
+Every control below is **already enforced somewhere in this platform**. What was
+missing is the *mapping* — when an auditor, a SAMA reviewer or a customer's
+security questionnaire asks "show me your OWASP coverage", the honest answer
+without this table is a manual walk through three rule files.
+
+Produce the map from evidence, not from this template. For each row, cite the
+actual guard, test or finding in **this** codebase. A cell you cannot evidence is
+a **gap**, and gaps are the output that matters.
+
+| OWASP 2021 | Enforced by | Evidence to cite |
+|---|---|---|
+| **A01 Broken Access Control** | `04-security-guard`, `security-auditor` | The per-resource ownership check on each endpoint. **IDOR is the highest-frequency real finding in multi-tenant fintech** — check it per endpoint, never assume the policy covers it |
+| **A02 Cryptographic Failures** | `04-security-guard`, `.editorconfig` CA5350/CA5351/CA5364 | Analyzer severities as `error`; TLS config; whether PII is encrypted at rest |
+| **A03 Injection** | `06-database-provider-guard`, CA2100/CA3001 as `error`, `post-edit-verify` tripwire | Every raw SQL site parameterised; the tripwire that fires on an interpolated `FromSqlRaw` |
+| **A04 Insecure Design** | `/threat-model` | The STRIDE model for this feature, and its accepted risks with owners |
+| **A05 Security Misconfiguration** | `devops-audit`, `guard-write.mjs` | CORS, HSTS, headers; the hook that blocks committing a credential |
+| **A06 Vulnerable Components** | `dotnet-dependency-audit`, `NuGetAudit` in `Directory.Build.props` | `dotnet list package --vulnerable --include-transitive` output; the CI gate |
+| **A07 Identification & Auth Failures** | `04-security-guard` | Token lifetime, signature validation, `HttpOnly`/`Secure`/`SameSite`, no token in web storage |
+| **A08 Software & Data Integrity** | `10-evidence-and-dependency-guard`, `guard-bash.mjs` | CPM pinning; the hook that blocks unrequested package installs; **`BinaryFormatter` banned in `BannedSymbols.txt`** |
+| **A09 Logging & Monitoring Failures** | `dotnet-observability-gen`, `operability-gen`, `07-audit-trail-guard` | Alerts linked to runbooks; audit trail on money and policy mutations; no PII in logs |
+| **A10 SSRF** | `04-security-guard` | Outbound URL validation where user input reaches an HTTP client |
+
+Two rules that keep this map honest:
+
+- **Do not mark a row covered because a rule exists.** The rule constrains what
+  the agent generates. Cite a file, a test, or an analyzer severity that would
+  fail the build. "We have a security guard" is not evidence.
+- **A05, A09 and A10 are where the gaps usually are** — they are configuration
+  and operational concerns rather than code patterns, so no generator produces
+  them and no analyzer catches them.
+
+Cross-reference rather than duplicate: the depth belongs to `security-auditor`.
+This step produces the map an external reviewer can read, and names what it
+cannot evidence.
 
 **Step 5 — Classify and report.**
 

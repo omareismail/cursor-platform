@@ -1,0 +1,117 @@
+<Project>
+
+  <!--
+    Drop at the ROOT of a target application repo (next to the .sln).
+    Every .csproj below it inherits these settings automatically.
+
+    Why this file exists: .cursor/rules/*.mdc are prose an agent can drift from.
+    This turns the same intent into compiler errors that hold whether the code
+    was written by Claude, Cursor, or a human at 2am.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework Condition="'$(TargetFramework)' == ''">net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Nullability is only useful if it is enforced. Warnings that can be
+         ignored will be ignored. -->
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>
+      $(WarningsAsErrors);
+      CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8625;CS8629;CS8714
+    </WarningsAsErrors>
+
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Escape hatch for third-party generated code only. Never widen this
+         to silence your own warnings. -->
+    <NoWarn>$(NoWarn);NU1901;NU1902</NoWarn>
+
+    <!-- Roslyn analyzers run on build, not just in the IDE. Without
+         EnforceCodeStyleInBuild the .editorconfig severities are advisory. -->
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+
+    <!-- Fail the build on a vulnerable transitive package rather than
+         discovering it in a quarterly audit. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1903;NU1904</WarningsNotAsErrors>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn><!-- missing XML doc: too noisy to enforce -->
+
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <EnablePackageValidation>true</EnablePackageValidation>
+  </PropertyGroup>
+
+  <!-- ============================================================ -->
+  <!--  Layer-specific enforcement. Rename the conditions to match  -->
+  <!--  your actual project naming (see memory-bank/architecture.md) -->
+  <!-- ============================================================ -->
+
+  <!-- Domain must stay dependency-free. This makes rule 02's top arrow a
+       build error instead of a code-review comment. -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('.Domain'))">
+    <NoWarn>$(NoWarn)</NoWarn>
+    <RestrictedDependencies>true</RestrictedDependencies>
+  </PropertyGroup>
+
+  <Target Name="GuardDomainPurity"
+          AfterTargets="ResolveReferences"
+          Condition="$(MSBuildProjectName.EndsWith('.Domain'))">
+    <ItemGroup>
+      <ForbiddenDomainRefs Include="@(PackageReference)"
+        Condition="$([System.String]::Copy('%(Identity)').StartsWith('Microsoft.EntityFrameworkCore'))
+                or $([System.String]::Copy('%(Identity)').StartsWith('Microsoft.AspNetCore'))
+                or $([System.String]::Copy('%(Identity)').StartsWith('Dapper'))
+                or $([System.String]::Copy('%(Identity)').StartsWith('Microsoft.Extensions.DependencyInjection'))" />
+    </ItemGroup>
+    <Error Condition="'@(ForbiddenDomainRefs)' != ''"
+           Text="Clean Architecture violation (.cursor/rules/02): $(MSBuildProjectName) is a Domain project and must not reference infrastructure packages. Found: @(ForbiddenDomainRefs). Move this dependency to Infrastructure and depend on an abstraction." />
+  </Target>
+
+  <!-- Application must never reach into Infrastructure or the API. -->
+  <Target Name="GuardApplicationBoundary"
+          AfterTargets="ResolveReferences"
+          Condition="$(MSBuildProjectName.EndsWith('.Application'))">
+    <ItemGroup>
+      <ForbiddenAppRefs Include="@(ProjectReference)"
+        Condition="$([System.String]::Copy('%(Filename)').EndsWith('.Infrastructure'))
+                or $([System.String]::Copy('%(Filename)').EndsWith('.API'))
+                or $([System.String]::Copy('%(Filename)').EndsWith('.Web'))" />
+    </ItemGroup>
+    <Error Condition="'@(ForbiddenAppRefs)' != ''"
+           Text="Clean Architecture violation (.cursor/rules/02): $(MSBuildProjectName) may depend on Domain only. Found: @(ForbiddenAppRefs)." />
+  </Target>
+
+  <!-- API depends on Application only. -->
+  <Target Name="GuardApiBoundary"
+          AfterTargets="ResolveReferences"
+          Condition="$(MSBuildProjectName.EndsWith('.API')) or $(MSBuildProjectName.EndsWith('.Web'))">
+    <ItemGroup>
+      <ForbiddenApiRefs Include="@(ProjectReference)"
+        Condition="$([System.String]::Copy('%(Filename)').EndsWith('.Domain'))" />
+    </ItemGroup>
+    <Error Condition="'@(ForbiddenApiRefs)' != ''"
+           Text="Clean Architecture violation (.cursor/rules/02): $(MSBuildProjectName) must not reference Domain directly - go through Application. Found: @(ForbiddenApiRefs)." />
+  </Target>
+
+  <!-- Analyzers everyone gets. Versions are pinned in Directory.Packages.props. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+  </ItemGroup>
+
+  <!-- Test projects: relax the rules that only make sense for shipping code. -->
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('Test'))">
+    <NoWarn>$(NoWarn);CA1707;CA2007;CS1591;CA1861</NoWarn>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

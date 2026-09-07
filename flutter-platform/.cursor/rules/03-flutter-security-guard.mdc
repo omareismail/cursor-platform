@@ -1,0 +1,71 @@
+---
+description: Standard mobile app security hygiene — no secrets in source, secure storage for tokens, platform channel input validation
+globs: ["**/*"]
+alwaysApply: false
+---
+
+## What This Rule Does
+
+Applies to any source or config file. Covers standard mobile-app security
+hygiene — not a compliance framework, just the baseline every shipped app
+needs. This is general-purpose guidance, not fintech/regulated-industry
+specific: no audit-trail or dual-control requirements here, just "don't ship
+a leaked API key" and "don't store a session token in plaintext."
+
+## No Secrets in Source
+
+- No API keys, client secrets, or backend URLs with embedded credentials
+  committed to `.dart` files, `pubspec.yaml`, or any file tracked by git.
+- Build-time secrets go through `--dart-define`/`--dart-define-from-file`
+  or a platform-native mechanism (`local.properties` for Android,
+  `.xcconfig` for iOS) that is git-ignored — never a checked-in
+  `ApiKeys` class with a literal string.
+- If a secret is found already committed, flag it explicitly; do not
+  silently "fix" it by moving it to another equally-committed file.
+
+## Secure Storage for Sensitive Data
+
+- Auth tokens (access token, refresh token), biometric-unlock flags, and any
+  PII the app caches locally go through `flutter_secure_storage` (backed by
+  Keychain on iOS, EncryptedSharedPreferences/Keystore on Android) — never
+  plain `SharedPreferences`, never a plaintext file under app documents.
+- `SharedPreferences` remains fine for genuinely non-sensitive local state
+  (theme preference, onboarding-seen flag, last-selected tab).
+- Do not log tokens, passwords, or full PII payloads — check that a debug
+  `print`/`log` statement generated alongside an auth flow doesn't dump the
+  token for "debugging convenience."
+
+## Certificate Pinning (where applicable)
+
+- If the repo already pins certificates for its API client (check
+  `memory-bank/securityStandards.md` and the HTTP client setup), any new
+  network call goes through that same pinned client — do not add a second,
+  unpinned `http`/`Dio` instance that bypasses it.
+- If the repo has not adopted pinning, this rule does not require adding
+  it unilaterally — flag it as a recommendation per the dependency-safety
+  rule (`10-evidence-and-dependency-guard.mdc`) rather than introducing a
+  pinning package unasked.
+
+## Platform Channel Input Validation
+
+- Any `MethodChannel`/`EventChannel` call that crosses to native code
+  validates its arguments before invoking — a malformed or attacker-
+  influenced argument reaching native code (e.g. a file path, a URL passed
+  to a native browser intent) is a different trust boundary than pure Dart.
+- Treat the return value from a platform channel as untrusted input too —
+  a compromised or mocked native side should not be able to crash the Dart
+  side or bypass a check the Dart side is responsible for.
+
+## Deep Links / URL Handling
+
+- Validate the scheme and host of an incoming deep link before acting on it
+  (navigating, pre-filling a form, triggering an auth flow) — do not treat
+  the full URL as trusted just because it arrived through the app's own
+  registered scheme.
+
+## Relationship to Other Rules
+
+This rule is deliberately scoped to standard mobile hygiene, not a
+compliance framework — if a target project needs SOC2/PCI/HIPAA-specific
+controls, that's a project-level addition on top of this platform, not
+something this rule assumes by default.

@@ -1,0 +1,132 @@
+# .editorconfig — drop at the repo root.
+#
+# With <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild> in
+# Directory.Build.props, every `severity = error` line below is a BUILD FAILURE,
+# not an IDE squiggle. That is the whole point: it applies identically to the
+# agent, to CI, and to a human who never read .cursor/rules/.
+#
+# Each escalated rule below names the guard rule it mechanises.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{yml,yaml,json,jsonc}]
+indent_size = 2
+
+[*.{ts,tsx,js,jsx,css,scss,html}]
+indent_size = 2
+
+[*.{cs,csx}]
+indent_size = 4
+
+# =============================================================================
+#  C#
+# =============================================================================
+[*.cs]
+
+# ---- Language conventions ----------------------------------------------------
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_prefer_braces = true:error
+csharp_style_namespace_declarations = file_scoped:error
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:error
+dotnet_style_readonly_field = true:warning
+csharp_prefer_static_local_function = true:warning
+dotnet_style_prefer_conditional_expression_over_assignment = true:suggestion
+
+# ---- Naming ------------------------------------------------------------------
+dotnet_naming_rule.interfaces_start_with_i.severity = error
+dotnet_naming_rule.interfaces_start_with_i.symbols = interface_symbols
+dotnet_naming_rule.interfaces_start_with_i.style = prefix_i_pascal
+dotnet_naming_symbols.interface_symbols.applicable_kinds = interface
+dotnet_naming_style.prefix_i_pascal.required_prefix = I
+dotnet_naming_style.prefix_i_pascal.capitalization = pascal_case
+
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+dotnet_naming_rule.async_methods_end_in_async.severity = warning
+dotnet_naming_rule.async_methods_end_in_async.symbols = async_methods
+dotnet_naming_rule.async_methods_end_in_async.style = end_async
+dotnet_naming_symbols.async_methods.applicable_kinds = method
+dotnet_naming_symbols.async_methods.required_modifiers = async
+dotnet_naming_style.end_async.required_suffix = Async
+dotnet_naming_style.end_async.capitalization = pascal_case
+
+# =============================================================================
+#  ESCALATED ANALYZER RULES — each maps to a .cursor/rules/ guard
+# =============================================================================
+
+# --- 04-security-guard --------------------------------------------------------
+dotnet_diagnostic.CA2100.severity = error   # SQL command built from user input
+dotnet_diagnostic.CA3001.severity = error   # SQL injection
+dotnet_diagnostic.CA3003.severity = error   # file path injection
+dotnet_diagnostic.CA3006.severity = error   # process command injection
+dotnet_diagnostic.CA3075.severity = error   # insecure DTD processing (XXE)
+dotnet_diagnostic.CA5350.severity = error   # weak crypto (SHA1/MD5-era)
+dotnet_diagnostic.CA5351.severity = error   # broken crypto
+dotnet_diagnostic.CA5359.severity = error   # certificate validation disabled
+dotnet_diagnostic.CA5364.severity = error   # deprecated TLS
+dotnet_diagnostic.CA5391.severity = error   # missing antiforgery token
+dotnet_diagnostic.CA5394.severity = error   # insecure randomness
+
+# --- 08-rtl-i18n-guard: locale-less formatting is a real bug in ar-EN UIs ------
+dotnet_diagnostic.CA1304.severity = error   # specify CultureInfo
+dotnet_diagnostic.CA1305.severity = error   # specify IFormatProvider
+dotnet_diagnostic.CA1307.severity = error   # specify StringComparison for clarity
+dotnet_diagnostic.CA1310.severity = error   # StringComparison for correctness
+
+# --- Async correctness --------------------------------------------------------
+dotnet_diagnostic.CA2007.severity = none    # ConfigureAwait: N/A in ASP.NET Core
+dotnet_diagnostic.CA1849.severity = error   # sync call in async method
+dotnet_diagnostic.CA2016.severity = error   # forward CancellationToken
+dotnet_diagnostic.CA2012.severity = error   # ValueTask misuse
+dotnet_diagnostic.VSTHRD002.severity = error # synchronous wait — if you add the VS threading analyzers
+
+# --- Correctness --------------------------------------------------------------
+dotnet_diagnostic.CA1001.severity = error   # disposable field, type not disposable
+dotnet_diagnostic.CA2000.severity = warning # dispose before losing scope
+dotnet_diagnostic.CA1063.severity = error   # IDisposable implemented correctly
+dotnet_diagnostic.CA1031.severity = warning # do not catch general Exception
+dotnet_diagnostic.CA1062.severity = warning # validate public args
+dotnet_diagnostic.IDE0005.severity = error  # unused usings (keeps diffs honest)
+dotnet_diagnostic.IDE0055.severity = error  # formatting — makes `dotnet format` binding
+
+# --- Performance --------------------------------------------------------------
+dotnet_diagnostic.CA1822.severity = warning # member can be static
+dotnet_diagnostic.CA1852.severity = warning # seal internal types
+dotnet_diagnostic.CA1860.severity = warning # prefer Count/Length over Any()
+dotnet_diagnostic.CA1866.severity = warning # char overloads
+
+# --- BannedApiAnalyzers: DateTime.Now etc. (see BannedSymbols.txt) ------------
+dotnet_diagnostic.RS0030.severity = error
+
+# =============================================================================
+#  Relaxations for generated + test code
+# =============================================================================
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_diagnostic.IDE0005.severity = none
+dotnet_diagnostic.CA1861.severity = none
+
+[**/*.Designer.cs]
+generated_code = true
+
+[**/{Test,Tests,IntegrationTests,ArchitectureTests}/**/*.cs]
+dotnet_diagnostic.CA1707.severity = none    # underscores in test names are correct
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA5394.severity = none

@@ -2,7 +2,7 @@
 
 **Invocation:** `/refactor-apply [scope] [--tier=safe|should-fix|all]`
 Default tier: `safe` (see Tier Definitions below). Default scope: same
-resolution as `refactor-assistant` — `full`, or a project/service name
+resolution as `enterprise-report-gen refactor` — `full`, or a project/service name
 resolved via `repo-map.json`.
 
 Examples:
@@ -16,7 +16,7 @@ Examples:
 `memory-bank/systemPatterns.md`, `memory-bank/commonMistakes.md`
 
 `refactor-apply` is the execution counterpart to `dotnet-clean-code-guard`,
-`react-clean-code-guard`, and `refactor-assistant`. Those three skills are
+`react-clean-code-guard`, and `enterprise-report-gen refactor`. Those three skills are
 deliberately read-only — they produce findings, never patch code — because
 detection and modification carry different risk profiles and mixing them
 makes both harder to trust. This skill closes the loop: it takes their
@@ -25,7 +25,7 @@ while routing everything else to explicit per-item confirmation.
 
 This skill does not re-implement detection logic. It never scans code
 itself — it always starts from a fresh run of the relevant guard skill(s)
-(or a `refactor-assistant` consolidated report) and works only from that
+(or a `enterprise-report-gen refactor` consolidated report) and works only from that
 findings list. If a finding looks wrong, the fix belongs in the guard skill
 that produced it, not here.
 
@@ -78,7 +78,7 @@ moments earlier in the same run.
 Anything security-relevant (auth, secrets, input validation), anything
 touching a financial/audit-trail invariant (`07-audit-trail-guard.mdc`
 territory), and anything the guard itself marked with uncertainty. Report
-these with a pointer to the right skill (`security-perf-report`,
+these with a pointer to the right skill (`enterprise-report-gen security-perf`,
 `speckit-adr` if it's a real architectural decision) instead of a diff.
 
 ---
@@ -88,10 +88,10 @@ these with a pointer to the right skill (`security-perf-report`,
 **Step 1 — Get findings.**
 
 If the user already has fresh output from `dotnet-clean-code-guard`,
-`react-clean-code-guard`, or `refactor-assistant` earlier in this session,
+`react-clean-code-guard`, or `enterprise-report-gen refactor` earlier in this session,
 reuse it — don't re-scan. Otherwise, run the appropriate guard(s) for the
 resolved scope first (via `repo-map.json` project/language detection, same
-as `refactor-assistant` Step 1).
+as `enterprise-report-gen refactor` Step 1).
 
 **Step 2 — Classify every finding into Tier 1 / 2 / 3.**
 
@@ -154,7 +154,7 @@ not execute tests itself.
 
 **Command:** `/refactor-apply Tamkeen.Payments`
 
-**Context:** Findings already produced by `refactor-assistant` earlier in
+**Context:** Findings already produced by `enterprise-report-gen refactor` earlier in
 the session; a `PaymentReconciliationService` god-class finding (Critical)
 and four smaller findings (missing `Async` suffix, two magic numbers, one
 missing `CancellationToken`).

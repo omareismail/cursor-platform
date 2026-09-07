@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-js/master/packages/api/schema/stryker-core.json",
+
+  "_comment": "StrykerJS. Copy to the frontend root. Run scoped: npx stryker run --mutate 'src/features/quotes/**/*.ts'",
+
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "checkers": ["typescript"],
+  "tsconfigFile": "tsconfig.json",
+
+  "_thresholds": "break is the only one that fails CI. Start at 0, measure, then raise it to what you actually hold.",
+  "thresholds": { "high": 80, "low": 60, "break": 0 },
+
+  "_mutate": "Scope every run. Business logic and hooks are worth mutating; presentational components are not — a survived mutation in JSX layout tells you nothing you would act on.",
+  "mutate": [
+    "src/features/**/*.ts",
+    "src/lib/**/*.ts",
+    "src/hooks/**/*.ts",
+    "!src/**/*.test.{ts,tsx}",
+    "!src/**/*.spec.{ts,tsx}",
+    "!src/**/*.stories.tsx",
+    "!src/mocks/**",
+    "!src/**/*.generated.ts",
+    "!src/**/types.ts"
+  ],
+
+  "reporters": ["html", "clear-text", "progress"],
+  "concurrency": 4,
+  "timeoutMS": 10000,
+
+  "_ignorers": "String-literal mutations in i18n keys generate noise, not signal.",
+  "disableTypeChecks": false,
+
+  "_incremental": "Reuses the previous run for unchanged files — the difference between minutes and hours on a repeat run.",
+  "incremental": true,
+  "incrementalFile": "reports/stryker-incremental.json"
+}

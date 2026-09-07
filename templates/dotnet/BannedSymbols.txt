@@ -1,0 +1,38 @@
+# Microsoft.CodeAnalysis.BannedApiAnalyzers — one banned symbol per line.
+# Format:  <DocumentationCommentId>;<message shown at the error>
+#
+# This is the single most under-used enforcement tool in .NET. It converts
+# "the agent keeps writing DateTime.Now" from a recurring review comment into
+# a compiler error, permanently, for every author including humans.
+#
+# Everything here maps to a rule in .cursor/rules/ or memory-bank/commonMistakes.md.
+# Add a line every time a code review catches the same mistake twice.
+
+# --- Time: ambiguous local time is a bug in a multi-timezone GCC deployment ---
+P:System.DateTime.Now;Use DateTimeOffset.UtcNow (or an injected IClock). DateTime.Now depends on server timezone.
+P:System.DateTime.Today;Use DateTimeOffset.UtcNow.Date (or an injected IClock).
+P:System.DateTime.UtcNow;Use DateTimeOffset.UtcNow so the offset is preserved.
+
+# --- Culture: locale-less formatting breaks Arabic/English bilingual output ---
+M:System.String.ToLower;Use ToLowerInvariant() or pass an explicit CultureInfo.
+M:System.String.ToUpper;Use ToUpperInvariant() or pass an explicit CultureInfo.
+
+# --- Data access: legacy/insecure providers ---
+T:System.Data.SqlClient.SqlConnection;Use Microsoft.Data.SqlClient. System.Data.SqlClient is legacy and no longer patched.
+T:System.Data.SqlClient.SqlCommand;Use Microsoft.Data.SqlClient.
+
+# --- Async correctness (sync-over-async deadlocks under load) ---
+M:System.Threading.Tasks.Task.Wait;Await the task. .Wait() deadlocks and starves the thread pool.
+P:System.Threading.Tasks.Task`1.Result;Await the task instead of blocking on .Result.
+M:System.Threading.Thread.Sleep(System.Int32);Use await Task.Delay(...) in async code.
+
+# --- Serialization / security ---
+T:System.Runtime.Serialization.Formatters.Binary.BinaryFormatter;BinaryFormatter is insecure and removed in .NET 9.
+M:System.Text.Json.JsonSerializer.Deserialize``1(System.String);Prefer the overload taking JsonSerializerOptions so options stay explicit and consistent.
+
+# --- Randomness used for anything security-adjacent ---
+T:System.Random;For tokens, IDs, or anything security-relevant use RandomNumberGenerator. If this is genuinely non-security randomness, suppress with a justification comment.
+
+# --- Money: float/double for currency ---
+# Not expressible as a banned symbol — enforced by ConventionTests.cs
+# (Money_Properties_Use_Decimal) in the architecture test project.

@@ -119,6 +119,72 @@ RecurringJob.AddOrUpdate<[JobName]Job>(
     Cron.Every15Minutes());
 ```
 
+**Step 3b — Single-instance execution across replicas (distributed lock).**
+
+The failure this prevents is not theoretical and not rare: **the job runs on
+every replica at the same time.** Scale a service to three pods and a nightly
+reconciliation posts three times. Idempotency (Step 2) makes a *retry* safe; it
+does not make *concurrent* execution safe, because two instances can both pass a
+check-then-write before either writes.
+
+Ask first whether you need the lock at all:
+
+| Job shape | Needs a distributed lock? |
+|---|---|
+| Reads and writes a shared table | **Yes** |
+| Pulls from a queue with competing consumers | No — the broker already distributes |
+| Idempotent by natural key, and duplicates are harmless | No, but say why in a comment |
+| Moves money, posts to a ledger, or calls a partner | **Yes**, and fail closed |
+
+Generate the lock using whatever the stack already has — do not introduce a
+dependency for it (rule 10). Resolve from `technologyStack.md`:
+
+| Already present | Use |
+|---|---|
+| Hangfire | `[DisableConcurrentExecution(timeoutSeconds)]` — built in |
+| Quartz | `[DisallowConcurrentExecution]` (per-scheduler) + a DB lock for cross-node |
+| Redis | `SET key value NX PX <ttl>` with a unique token, released only if the token matches |
+| SQL Server | `sp_getapplock` inside the job's transaction |
+| PostgreSQL | `pg_try_advisory_lock(key)` — session-scoped, released on disconnect |
+| EF Core only | A `JobLocks` table with a unique constraint on job name + a lease expiry |
+
+```csharp
+// PostgreSQL advisory lock: the lease dies with the connection, which is what
+// you want when a pod is killed mid-run.
+await using var conn = await _dataSource.OpenConnectionAsync(ct);
+var acquired = await conn.ExecuteScalarAsync<bool>(
+    "SELECT pg_try_advisory_lock(@key)", new { key = JobLockKeys.NightlyReconciliation });
+
+if (!acquired)
+{
+    // Not an error. Another replica owns this run.
+    _logger.LogInformation("Reconciliation skipped: lock held by another instance");
+    return;
+}
+try { await RunAsync(ct); }
+finally { await conn.ExecuteAsync("SELECT pg_advisory_unlock(@key)", new { key = JobLockKeys.NightlyReconciliation }); }
+```
+
+**Three things that make a distributed lock wrong more often than absent:**
+
+1. **A lock with no expiry.** A pod killed while holding it blocks the job
+   forever, and the outage is silent until someone notices yesterday's
+   reconciliation never ran. Always lease with a TTL.
+2. **A TTL shorter than the job.** The lease expires mid-run, a second instance
+   acquires it, and you have the concurrency you were preventing — now with two
+   instances that both believe they are alone. Set the TTL above the p99 runtime
+   and renew it for long jobs.
+3. **Releasing someone else's lock.** After a TTL expiry the lock may belong to
+   another instance. Release only if the token you wrote is still the token
+   stored — an unconditional `DEL` is a correctness bug.
+
+**Failing to acquire is normal, not an error.** Log it at Information and return.
+An `Error` here trains everyone to ignore the job's logs.
+
+Emit a metric for lock contention. Rising contention means the job is running
+longer than its interval, which is the early warning before overlap becomes
+backlog.
+
 **Step 4 — Generate unit test for job logic.**
 
 Tests decouple the scheduler from the job logic by testing the core method directly:

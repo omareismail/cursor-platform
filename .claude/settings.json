@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+
+  "//": "Project-scoped Claude Code settings for cursor-platform. Commit this file. Personal overrides belong in .claude/settings.local.json (gitignored).",
+
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/appsettings.Production.json)",
+      "Read(./**/*.pfx)",
+      "Read(./**/*.p12)",
+      "Read(./**/id_rsa)",
+      "Read(./.cursor/settings.local.json)",
+      "Read(./.claude/settings.local.json)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh release:*)",
+      "Bash(dotnet nuget push:*)",
+      "Bash(npm publish:*)",
+      "Bash(docker push:*)"
+    ]
+  },
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/session-start.mjs",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/guard-write.mjs",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "node .claude/hooks/guard-phase.mjs",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/guard-bash.mjs",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/guard-mcp.mjs",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/post-edit-verify.mjs",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/stop-memory-check.mjs",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}
