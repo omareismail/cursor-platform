@@ -1,6 +1,6 @@
 ---
 name: dotnet-messaging-gen
-description: "dotnet-messaging-gen scaffolds an integration event using the outbox pattern, ensuring that a message publish failure can never desync from the database write that triggered it. The outbox pattern is non-negotiable for integration events — fire-and-forget publishes are not generated. Invoked as /dotnet-messaging-gen."
+description: "Runs the dotnet-messaging-gen workflow. Invoked as /dotnet-messaging-gen."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "dotnet-messaging-gen".

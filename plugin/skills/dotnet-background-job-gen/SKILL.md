@@ -1,6 +1,6 @@
 ---
 name: dotnet-background-job-gen
-description: "dotnet-background-job-gen scaffolds a recurring or fire-and-forget background job with idempotency guards, retry/backoff policy, observability, and unit tests already wired in. The most common failure mode with background jobs is silent: the job runs, fails, and nobody knows. Invoked as /dotnet-background-job-gen."
+description: "Runs the dotnet-background-job-gen workflow. Invoked as /dotnet-background-job-gen."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "dotnet-background-job-gen".

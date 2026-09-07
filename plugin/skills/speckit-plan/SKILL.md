@@ -1,6 +1,6 @@
 ---
 name: speckit-plan
-description: "speckit-plan converts the constitution into an ordered, dependency-aware task board where every task has a layer, a size estimate, and a dependency list. Before writing a single task, it presents 2-3 named plan variants with a trade-off matrix and waits for the user to select one — this is mandatory per 05-planning-rigor.mdc. Invoked as /speckit-plan."
+description: "Runs the speckit-plan workflow. Invoked as /speckit-plan."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "speckit-plan".

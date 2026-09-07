@@ -1,6 +1,6 @@
 ---
 name: product-requirements
-description: "product-requirements produces the PRD — the functional and non-functional requirements, the MVP boundary, and the regulatory surface — from the brief and the personas. It is the document every later phase validates against, so it holds two rules absolutely: every non-functional requirement carries a number with a unit and a measurement point, and every scope decision states what is excluded as... Invoked as /product-requirements."
+description: "Runs the product-requirements workflow. Invoked as /product-requirements."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "product-requirements".

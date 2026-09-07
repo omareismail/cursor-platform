@@ -248,6 +248,32 @@ ${rewritePaths(body)}
   const wpol = join(ROOT, ".cursor", "lifecycle", "write-policy.json");
   if (existsSync(wpol)) emit("lifecycle/write-policy.json", read(wpol));
 
+  // ---- the gate definitions lifecycle.mjs judges against ----------------
+  //
+  // These were left out, and the omission was the same defect as guard-phase's
+  // one level further out: the plugin shipped the engine and not the fuel. A
+  // plugin install got lifecycle.mjs, guard-phase.mjs, write-policy.json and
+  // every document describing six gates - and then:
+  //
+  //   record-gate REQUIREMENTS --verdict GO
+  //   -> No gate definition at .cursor/lifecycle/gates/01-requirements.gate.md.
+  //      Cannot record a verdict against nothing.
+  //
+  // No judgement consent could ever be recorded, so `approve` refused forever,
+  // so the whole six-phase layer was unusable from a plugin install while every
+  // document said otherwise.
+  //
+  // lifecycle.mjs resolves the project's copy FIRST and falls back to these, so
+  // shipping them sets the default without taking the customisation away: a team
+  // that wants a criterion tightened copies the file into its own
+  // .cursor/lifecycle/gates/ and that copy wins.
+  const gateDir = join(ROOT, ".cursor", "lifecycle", "gates");
+  if (existsSync(gateDir)) {
+    for (const f of readdirSync(gateDir).filter((x) => x.endsWith(".gate.md")).sort()) {
+      emit(`lifecycle/gates/${f}`, read(join(gateDir, f)));
+    }
+  }
+
   // ---- MCP: same servers, no secrets ------------------------------------
   // Two names for one file: Claude Code reads .mcp.json, Cursor reads mcp.json
   // at the plugin root. Copying is cheaper than asking either host to be flexible.

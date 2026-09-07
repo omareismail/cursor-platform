@@ -1,6 +1,6 @@
 ---
 name: feature-inventory
-description: "feature-inventory answers 'what does this system actually do?' It harvests every entry point in the codebase — HTTP endpoints, UI routes, background jobs, scheduled tasks, message consumers, CLI commands, report definitions — clusters them into business capabilities, and produces a capability map with an honest coverage figure. Invoked as /feature-inventory."
+description: "Runs the feature-inventory workflow. Invoked as /feature-inventory."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "feature-inventory".

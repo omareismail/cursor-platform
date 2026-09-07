@@ -1,6 +1,6 @@
 ---
 name: business-rules-gen
-description: "business-rules-gen collects every constraint scattered across the brief, the PRD, the story acceptance criteria, the domain invariants and the use case flows into one numbered catalogue, and prepares it for promotion into memory-bank/businessRules.md. That promotion is the point: a rule sitting in an analysis document is a note, while the same rule in the memory-bank is read by... Invoked as /business-rules-gen."
+description: "Runs the business-rules-gen workflow. Invoked as /business-rules-gen."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "business-rules-gen".

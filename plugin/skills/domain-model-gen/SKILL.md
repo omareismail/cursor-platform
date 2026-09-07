@@ -1,6 +1,6 @@
 ---
 name: domain-model-gen
-description: "domain-model-gen derives the domain model from the story map — entities, aggregates, the boundaries that own each transaction, and the invariants that must hold — and emits it as a Mermaid ERD beside the prose. It is deliberately separate from /data-model-design in phase 3: this describes the business as it would exist without any software, so that the physical schema later has something to be... Invoked as /domain-model-gen."
+description: "Runs the domain-model-gen workflow. Invoked as /domain-model-gen."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "domain-model-gen".

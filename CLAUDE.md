@@ -534,6 +534,13 @@ tree; `run` invokes all three so there is one command. What it adds:
   states that risk in its own comment ("two copies of a guard, one per editor, is
   how one of them silently stops being enforced") and nothing checked it
 - the built plugin wires them too — the original bug
+- **and carries the data those tools read**, not only the tools. The plugin
+  shipped `lifecycle.mjs`, `guard-phase.mjs`, `write-policy.json` and six
+  documents describing six gates — and no gate definitions, so `record-gate`
+  died with "cannot record a verdict against nothing" and the whole six-phase
+  layer was unusable from a plugin install. `lifecycle.mjs` now resolves the
+  project's gate copy first and the shipped one second, so the default travels
+  without taking the customisation away
 - every gate's reviewer is a real agent and is never one of its authors
 - no orphan tool: something built and then wired to nothing
 - and that this audit itself runs in CI, since an audit nobody runs is exactly

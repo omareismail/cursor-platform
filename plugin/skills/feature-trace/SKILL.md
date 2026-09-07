@@ -1,6 +1,6 @@
 ---
 name: feature-trace
-description: "feature-trace answers the question the rest of this platform does not: 'how does this feature actually work today?' It follows one business capability end-to-end through every layer it passes — React route → component → hook → API client → HTTP endpoint → handler/command → domain logic → repository → DbContext → tables, plus the background jobs, integration events, feature flags and auth... Invoked as /feature-trace."
+description: "Runs the feature-trace workflow. Invoked as /feature-trace."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "feature-trace".

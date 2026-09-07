@@ -1,6 +1,6 @@
 ---
 name: persona-gen
-description: "persona-gen converts the actor list in the product brief into working personas — each with the job they are trying to get done, the context they work in, and the thing that would make them abandon the product. It exists because 'the user' is not a design input: a broker entering fifty quotes an hour on a desktop and a policyholder checking one policy on a phone in Arabic want opposite things,... Invoked as /persona-gen."
+description: "Runs the persona-gen workflow. Invoked as /persona-gen."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "persona-gen".

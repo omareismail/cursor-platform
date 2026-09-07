@@ -1,6 +1,6 @@
 ---
 name: refactor-apply
-description: "refactor-apply is the execution counterpart to dotnet-clean-code-guard, react-clean-code-guard, and enterprise-report-gen refactor. Those three skills are deliberately read-only — they produce findings, never patch code — because detection and modification carry different risk profiles and mixing them makes both harder to trust. Invoked as /refactor-apply."
+description: "Runs the refactor-apply workflow. Invoked as /refactor-apply."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "refactor-apply".

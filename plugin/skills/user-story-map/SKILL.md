@@ -1,6 +1,6 @@
 ---
 name: user-story-map
-description: "user-story-map turns the PRD into a story map — user journeys across the top, the stories that make each step work beneath them — where every story carries Given/When/Then acceptance criteria concrete enough to generate a test from. It is the hinge of the whole lifecycle: phase 2 traces use cases back to these stories, phase 4 slices work from them, and phase 5's ac-trace proves every one of... Invoked as /user-story-map."
+description: "Runs the user-story-map workflow. Invoked as /user-story-map."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "user-story-map".

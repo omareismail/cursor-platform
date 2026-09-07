@@ -1,6 +1,6 @@
 ---
 name: api-contract-design
-description: "api-contract-design produces the endpoint catalogue — every route, its use case, its auth, its request and response shapes and its error contract — and decides the conventions once, before any endpoint exists. It is the preventive counterpart to /api-consistency-audit, which exists because APIs written endpoint-by-endpoint over months drift into three pagination styles and four error shapes. Invoked as /api-contract-design."
+description: "Runs the api-contract-design workflow. Invoked as /api-contract-design."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "api-contract-design".

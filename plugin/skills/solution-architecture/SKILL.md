@@ -1,6 +1,6 @@
 ---
 name: solution-architecture
-description: "solution-architecture chooses the product's architecture from at least two fully-costed variants and records why the winner won, then traces every non-functional requirement to the design element that delivers it. It is the product-level counterpart to speckit-constitution, which settles the technical contract for one feature: this settles the one every feature will inherit. Invoked as /solution-architecture."
+description: "Runs the solution-architecture workflow. Invoked as /solution-architecture."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "solution-architecture".

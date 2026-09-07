@@ -1,6 +1,6 @@
 ---
 name: dotnet-query-optimizer
-description: "dotnet-query-optimizer reviews an EF Core LINQ query or a Dapper SQL statement for performance issues and produces a before/after with the actual execution plan characteristics that change — not just 'this should be faster.' It is distinct from dotnet-perf-profile (which covers in-process/allocation concerns); this skill is specifically about what happens once the query reaches the database... Invoked as /dotnet-query-optimizer."
+description: "Runs the dotnet-query-optimizer workflow. Invoked as /dotnet-query-optimizer."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "dotnet-query-optimizer".

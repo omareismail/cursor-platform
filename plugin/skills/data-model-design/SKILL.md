@@ -1,6 +1,6 @@
 ---
 name: data-model-design
-description: "data-model-design turns the domain model into a physical schema — tables, keys, indexes, precision, nullability — and assigns each data source its role where the product talks to more than one database. It is the phase 3 counterpart to /domain-model-gen: that one describes the business as it would exist without software, this one decides how it is stored. Invoked as /data-model-design."
+description: "Runs the data-model-design workflow. Invoked as /data-model-design."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "data-model-design".

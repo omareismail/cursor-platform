@@ -1,6 +1,6 @@
 ---
 name: compliance-audit
-description: "compliance-audit is deliberately separate from 04-security-guard.mdc and enterprise-report-gen security-perf. Those cover generic security posture (OWASP Top 10, secrets, injection) — this skill checks specific regulatory requirements from SAMA (Saudi Central Bank), ZATCA (e-invoicing), and mada (the domestic card scheme) that have no equivalent in a generic security checklist and that a... Invoked as /compliance-audit."
+description: "Runs the compliance-audit workflow. Invoked as /compliance-audit."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "compliance-audit".

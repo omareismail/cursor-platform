@@ -1,6 +1,6 @@
 ---
 name: repo-discovery
-description: "repo-discovery is the hard precondition every generator and auditor skill in this workspace now depends on. Before this phase, context-sync did discovery as a side effect of writing techContext.md, and every other skill just trusted that memory-bank was current — true on a small repo, false on a repo with hundreds of projects where memory-bank can go stale between runs. Invoked as /repo-discovery."
+description: "Runs the repo-discovery workflow. Invoked as /repo-discovery."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "repo-discovery".

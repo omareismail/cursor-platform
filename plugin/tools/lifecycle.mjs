@@ -185,12 +185,37 @@ function resolvedPaths(phase) {
 export const gateFile = (p) => `${String(PHASES.indexOf(p) + 1).padStart(2, "0")}-${p.toLowerCase()}.gate.md`;
 
 /**
+ * Where a gate definition actually lives — the project's copy first, the copy
+ * shipped beside this tool second.
+ *
+ * The plugin used to carry lifecycle.mjs, guard-phase.mjs, write-policy.json and
+ * every document describing six gates, and no gate definitions. So on a plugin
+ * install `record-gate` died with "cannot record a verdict against nothing", no
+ * judgement consent could ever exist, `approve` refused forever, and the entire
+ * six-phase layer was unusable while every document said it worked. That is the
+ * guard-phase defect one level out: the engine shipped and the fuel did not.
+ *
+ * Project-first, not plugin-first: gate criteria are meant to be tightened per
+ * product, and a criterion that can only be edited inside a read-only install is
+ * not a criterion anybody owns. The fallback sets the default; copying the file
+ * into `.cursor/lifecycle/gates/` takes it over. `gate` prints which one it read,
+ * because a team that edited the wrong copy is a new way to be wrong.
+ */
+export function gatePath(phase) {
+  const own = join(GATES(), gateFile(phase));
+  if (existsSync(own)) return { path: own, source: "project" };
+  const shipped = new URL(`../lifecycle/gates/${gateFile(phase)}`, import.meta.url);
+  try { if (existsSync(shipped)) return { path: shipped, source: "shipped with the plugin" }; } catch { /* not a file URL */ }
+  return { path: own, source: null };
+}
+
+/**
  * The gate definition's own version. Tighten a criterion and every approval
  * granted against the looser version stops counting — which is the whole point
  * of writing criteria down.
  */
 export function gateVersion(phase) {
-  try { return sha(readFileSync(join(GATES(), gateFile(phase)), "utf8")); } catch { return null; }
+  try { return sha(readFileSync(gatePath(phase).path, "utf8")); } catch { return null; }
 }
 
 /**
@@ -218,7 +243,7 @@ export function gateVersion(phase) {
  */
 export function gateMeta(phase) {
   let src = "";
-  try { src = readFileSync(join(GATES(), gateFile(phase)), "utf8"); } catch { return { reviewer: null, authors: [] }; }
+  try { src = readFileSync(gatePath(phase).path, "utf8"); } catch { return { reviewer: null, authors: [] }; }
   const roles = (label) => {
     const m = src.match(new RegExp(`^\\*\\*${label}:\\*\\*(.+)$`, "mi"));
     return m ? [...m[1].matchAll(/`([a-z0-9-]+)`/g)].map((x) => x[1]) : [];
@@ -486,7 +511,7 @@ async function cmdCheck(args) {
   console.log("");
   const ok = res.ok && traceOk;
   console.log(ok
-    ? `Mechanical check passes. That is one consent of three.\nNext: /lifecycle-gate ${phase} — presence is not quality. Criteria: ${rel(join(GATES(), gateFile(phase)))}`
+    ? `Mechanical check passes. That is one consent of three.\nNext: /lifecycle-gate ${phase} — presence is not quality. Criteria: ${gateLabel(phase)}`
     : res.ok
       ? `Mechanical check FAILS on traceability. A chain that stops is a decision nobody carried forward.\nnode .cursor/tools/artifact-schema.mjs check   # the full picture`
       : `Mechanical check FAILS. Produce the missing artifacts before anything else.`);
@@ -508,11 +533,11 @@ function cmdRecordGate(args) {
   if (!by) die(`record-gate needs --by "<reviewer>" — an unattributed verdict is not evidence.`, 2);
 
   const gv = gateVersion(phase);
-  if (!gv) die(`No gate definition at ${rel(join(GATES(), gateFile(phase)))}. Cannot record a verdict against nothing.`, 1);
+  if (!gv) die(`No gate definition at ${rel(join(GATES(), gateFile(phase)))}, and none shipped beside this tool.\nCannot record a verdict against nothing.`, 1);
 
   // --- separation of duties. The author may not sign off the author. --------
   const meta = gateMeta(phase);
-  const gpath = rel(join(GATES(), gateFile(phase)));
+  const gpath = gateLabel(phase);
   if (meta.reviewer && by !== meta.reviewer) {
     const authored = meta.authors.includes(by);
     die(`REFUSED: ${phase} is judged by \`${meta.reviewer}\`, not "${by}".\n\n` +
@@ -907,8 +932,11 @@ function cmdGate(args) {
   const phase = (args.find((a) => PHASES.includes(a.toUpperCase())) || s?.phase || "").toUpperCase();
   if (!phase) die("gate needs a phase.", 2);
   const meta = gateMeta(phase);
-  console.log(rel(join(GATES(), gateFile(phase))));
-  if (args.includes("--json")) return console.log(JSON.stringify({ phase, file: gateFile(phase), ...meta, version: gateVersion(phase) }, null, 2));
+  const g = gatePath(phase);
+  if (args.includes("--json")) return console.log(JSON.stringify({ phase, file: gateFile(phase), source: g.source, ...meta, version: gateVersion(phase) }, null, 2));
+  console.log(gateLabel(phase));
+  if (g.source === "shipped with the plugin")
+    console.log(`  (read from the plugin's own copy — no ${rel(join(GATES(), gateFile(phase)))} in this project.\n   Copy it there to tighten a criterion; the project's copy wins.)`);
   if (meta.authors.length) console.log(`Authored by:  ${meta.authors.join(", ")}`);
   console.log(meta.reviewer
     ? `Reviewed by:  ${meta.reviewer}   <- launch this one fresh; it may not be an author`
@@ -918,6 +946,13 @@ function cmdGate(args) {
 /* ------------------------------------------------------------------- helpers */
 
 const rel = (p) => p.slice(ROOT.length + 1).split("\\").join("/");
+/** A gate's path as a human should see it, saying so when it is the shipped copy. */
+const gateLabel = (phase) => {
+  const g = gatePath(phase);
+  return g.source === "project" || !g.source
+    ? rel(join(GATES(), gateFile(phase)))
+    : `${gateFile(phase)} (shipped with the plugin)`;
+};
 const valueOf = (args, flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
 function die(msg, code) { console.error(msg); process.exit(code); }
 function mustState() {

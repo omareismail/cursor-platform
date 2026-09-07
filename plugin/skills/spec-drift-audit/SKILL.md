@@ -1,6 +1,6 @@
 ---
 name: spec-drift-audit
-description: "spec-drift-audit answers 'does the code still do what we said it does?' It takes a written source of intent — a speckit spec, a businessRules.md section, an ADR from decisionLog.md, or a cached feature-trace — and checks each individual claim against the implementation, classifying every mismatch by which side is wrong. Invoked as /spec-drift-audit."
+description: "Runs the spec-drift-audit workflow. Invoked as /spec-drift-audit."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "spec-drift-audit".

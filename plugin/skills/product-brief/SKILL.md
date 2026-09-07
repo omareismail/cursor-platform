@@ -1,6 +1,6 @@
 ---
 name: product-brief
-description: "product-brief turns one sentence of intent into a bounded problem statement — who is underserved, how, what success would look like, and what is deliberately not being built. It is the first skill of the lifecycle and the only one that may be run on an empty repository. Invoked as /product-brief."
+description: "Runs the product-brief workflow. Invoked as /product-brief."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "product-brief".

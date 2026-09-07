@@ -1,6 +1,6 @@
 ---
 name: impact-analysis
-description: "impact-analysis answers 'if I change this, what breaks?' *before* anything is edited. It sweeps outward from a proposed change — callers, subclasses, interface implementors, DTO consumers, SQL referencing a column, API clients depending on a response shape, feature flags gating the path, tests that will go red, and cached data that will go wrong — and returns a ranked blast radius with the... Invoked as /impact-analysis."
+description: "Runs the impact-analysis workflow. Invoked as /impact-analysis."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "impact-analysis".
