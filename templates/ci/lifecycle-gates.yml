@@ -222,3 +222,8 @@ jobs:
       - run: node .cursor/tools/docs-lint.mjs check
       - run: node .cursor/tools/flag-debt.mjs scan
       - run: node .cursor/tools/platform-metadata.mjs check
+      # Wiring: is every control actually reachable? Written for a real defect -
+      # guard-phase.mjs was copied into the plugin and never wired into its
+      # hooks.json, so the design gate blocked nothing for every plugin install
+      # while every document said it did.
+      - run: node .cursor/tools/self-audit.mjs wiring

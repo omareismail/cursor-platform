@@ -1,7 +1,7 @@
 {
   "name": "cursor-platform",
   "version": "1.0.0",
-  "description": "Agent platform for .NET + React in regulated/fintech contexts. 97 skills, 14 read-only subagents, 7 enforcement hooks and 16 validators covering the whole loop: understand existing code, plan and size the work, generate it against local convention, prove it is done, and ship it safely.",
+  "description": "Agent platform for .NET + React in regulated/fintech contexts. 97 skills, 14 read-only subagents, 7 enforcement hooks and 17 validators covering the whole loop: understand existing code, plan and size the work, generate it against local convention, prove it is done, and ship it safely.",
   "author": {
     "name": "Mahmoud",
     "email": "mahmo12ab@gmail.com"

@@ -507,6 +507,40 @@ from `nfr.md` that production already contradicted it.
 
 ---
 
+## Is any of this actually connected?
+
+```bash
+node .cursor/tools/self-audit.mjs run       # wiring + docs-lint + metadata + plugin check
+node .cursor/tools/self-audit.mjs wiring    # only the wiring
+```
+
+Written for a defect that really happened: `guard-phase.mjs` was written, tested,
+documented and copied into the distributable plugin — and never added to the
+plugin's generated hook wiring. For everyone who installed the plugin rather than
+cloning the repo, **the design gate blocked nothing at all**, and every document
+said it did.
+
+That is the most dangerous class of defect here — a control that exists but is
+not reachable — because **a missing control is noticed and a disconnected one is
+trusted**, and this whole platform rests on the mechanical consent being the one
+that cannot be argued with.
+
+It checks only wiring, because `docs-lint.mjs` owns links and ghost references,
+`platform-metadata.mjs` owns counts, and `build-plugin.mjs check` owns the built
+tree; `run` invokes all three so there is one command. What it adds:
+
+- every hook script is wired in **both** `.claude/settings.json` and
+  `.cursor/hooks.json`, and the two wire the **same set** — `.cursor/hooks.json`
+  states that risk in its own comment ("two copies of a guard, one per editor, is
+  how one of them silently stops being enforced") and nothing checked it
+- the built plugin wires them too — the original bug
+- every gate's reviewer is a real agent and is never one of its authors
+- no orphan tool: something built and then wired to nothing
+- and that this audit itself runs in CI, since an audit nobody runs is exactly
+  the defect it exists to find
+
+---
+
 ## Hooks — what is enforced mechanically
 
 Prose rules are advisory; hooks are not. `.claude/settings.json` wires:
