@@ -15,7 +15,9 @@
  *   mechanical  do the required artifacts EXIST and have real content?
  *               Recomputed at approve time, never trusted from an earlier run.
  *   judgement   are they any GOOD? Recorded by /lifecycle-gate via `record-gate`,
- *               stamped with the gate definition's own hash.
+ *               stamped with the gate definition's own hash, filed under the
+ *               reviewer role that gate file names — which is never one of the
+ *               roles that wrote the artifacts, and never the human who signs.
  *   human       `approve --by "<name>"`. Nobody else may grant it.
  *
  * A phase reaches APPROVED only when all three are present and still valid. The
@@ -189,6 +191,39 @@ export const gateFile = (p) => `${String(PHASES.indexOf(p) + 1).padStart(2, "0")
  */
 export function gateVersion(phase) {
   try { return sha(readFileSync(join(GATES(), gateFile(phase)), "utf8")); } catch { return null; }
+}
+
+/**
+ * WHO MAY JUDGE THIS GATE.
+ *
+ * Every phase owner used to review its own phase: product-manager both wrote
+ * the requirements and judged gate 1, solution-architect both chose the
+ * architecture and judged gate 3. That is not a reviewer, it is an author
+ * reading its own work back with all of the author's reasons still in context.
+ * It never finds the thing it did not think of the first time.
+ *
+ * The assignment lives in the gate file, not here, so it is versioned with the
+ * criteria: change the reviewer and gateVersion changes, so verdicts recorded
+ * under the old assignment lapse. That is correct - a different reviewer is a
+ * different review.
+ *
+ *   **Authored by:** `product-manager`, `ux-bridge`
+ *   **Reviewed by:** `business-analyst`
+ *
+ * What this proves and what it does not: it proves the verdict was filed under
+ * a role that did not write the artifacts. It cannot prove the reviewer read
+ * anything, and nothing here can. Independence comes from launching that role
+ * as a fresh subagent with no memory of the authoring; this check only makes
+ * skipping that step something you have to do on purpose.
+ */
+export function gateMeta(phase) {
+  let src = "";
+  try { src = readFileSync(join(GATES(), gateFile(phase)), "utf8"); } catch { return { reviewer: null, authors: [] }; }
+  const roles = (label) => {
+    const m = src.match(new RegExp(`^\\*\\*${label}:\\*\\*(.+)$`, "mi"));
+    return m ? [...m[1].matchAll(/`([a-z0-9-]+)`/g)].map((x) => x[1]) : [];
+  };
+  return { reviewer: roles("Reviewed by")[0] || null, authors: roles("Authored by") };
 }
 
 /* --------------------------------------------------------- status derivation */
@@ -475,10 +510,40 @@ function cmdRecordGate(args) {
   const gv = gateVersion(phase);
   if (!gv) die(`No gate definition at ${rel(join(GATES(), gateFile(phase)))}. Cannot record a verdict against nothing.`, 1);
 
+  // --- separation of duties. The author may not sign off the author. --------
+  const meta = gateMeta(phase);
+  const gpath = rel(join(GATES(), gateFile(phase)));
+  if (meta.reviewer && by !== meta.reviewer) {
+    const authored = meta.authors.includes(by);
+    die(`REFUSED: ${phase} is judged by \`${meta.reviewer}\`, not "${by}".\n\n` +
+        (authored
+          ? `  \`${by}\` wrote these documents. An author re-reading their own work is not\n` +
+            `  a second consent — it is the first one signed twice.\n\n`
+          : "") +
+        `  ${gpath} names the reviewer and says why it is that one.\n` +
+        `  Launch \`${meta.reviewer}\` as a fresh subagent — it must reach the criteria\n` +
+        `  through the documents, not through the conversation that produced them.`, 2);
+  }
+  if (!meta.reviewer) {
+    console.error(`WARN  ${gpath} names no reviewer (no "**Reviewed by:**" line).`);
+    console.error(`      This verdict is recorded, but nothing here can tell whether it came`);
+    console.error(`      from someone other than the author. Add the line.\n`);
+  }
+
+  // The verdict is about THIS content. Hashing it here is what lets `approve`
+  // refuse a signature collected on an earlier draft.
+  const judgedArtifacts = {};
+  for (const p of resolvedPaths(phase)) { const h = artifactHash(p); if (h) judgedArtifacts[p] = h; }
+
+  const attempt = (s.history || []).filter((h) => h.event === "gate" && String(h.detail || "").startsWith(phase + " ")).length + 1;
+
   const rec = {
     verdict, by,
     at: new Date().toISOString(),
     gateVersion: gv,
+    reviewerRole: meta.reviewer || null,
+    attempt,
+    artifacts: judgedArtifacts,
     criteria: valueOf(args, "--criteria") || "",
     note: valueOf(args, "--note") || "",
   };
@@ -492,7 +557,11 @@ function cmdRecordGate(args) {
   const ev = join(EVIDENCE(), `${phase.toLowerCase()}-${rec.at.replace(/[:.]/g, "-")}.json`);
   writeFileSync(ev, JSON.stringify({ phase, ...rec, gateFile: gateFile(phase), mechanical: checkPhase(phase) }, null, 2) + "\n", "utf8");
 
-  console.log(`${phase} judgement recorded: ${verdict} by ${by}`);
+  console.log(`${phase} judgement recorded: ${verdict} by ${by}${attempt > 1 ? `  (attempt ${attempt})` : ""}`);
+  const nh = Object.keys(judgedArtifacts).length;
+  console.log(nh
+    ? `${nh} artifact(s) hashed — editing any of them before approval voids this verdict.`
+    : `No ${phase} artifact exists yet, so this verdict is bound to nothing. It will not carry an approval.`);
   console.log(`Evidence: ${rel(ev)}`);
   if (verdict === "GO") console.log(`Next: node .cursor/tools/lifecycle.mjs approve ${phase} --by "<name>"`);
   else { console.log(`NO-GO recorded. The phase cannot be approved until a GO replaces it.`); process.exit(1); }
@@ -536,18 +605,56 @@ function cmdApprove(args) {
     refusals.push(`The verdict was recorded against an older ${gateFile(phase)}. Re-run /lifecycle-gate against the current criteria.`);
   }
 
+  // --- the verdict must bind to the words it was given. Editing an artifact
+  // between the review and the signature is the same failure as editing one
+  // after it, and it was the only one this file did not catch: the GO carried
+  // over to content nobody had read.
+  if (j?.verdict === "GO" && j.artifacts) {
+    for (const [p, was] of Object.entries(j.artifacts)) {
+      const now = artifactHash(p);
+      if (now === null) refusals.push(`${p} was reviewed on ${j.at.slice(0, 10)} and no longer exists.`);
+      else if (now !== was) refusals.push(`${p} changed after ${j.by} judged it on ${j.at.slice(0, 10)}. The GO is on an older draft.`);
+    }
+    for (const p of resolvedPaths(phase)) {
+      if (!(p in j.artifacts)) refusals.push(`${p} appeared after the verdict — no reviewer has seen it.`);
+    }
+  }
+
+  // --- and the two consents must be two parties. -----------------------------
+  if (j && String(j.by).trim().toLowerCase() === by.trim().toLowerCase()) {
+    refusals.push(`The verdict was recorded by "${j.by}" and you are signing as the same party. Two consents held by one signature is one consent.`);
+  }
+
   if (refusals.length) {
     const ov = activeOverride(s, phase);
     if (!ov) {
       console.error(`REFUSED: ${phase} cannot be approved.\n`);
       for (const r of refusals) console.error(`  ${r}`);
-      console.error(`\nA gate needs three consents: mechanical, judgement, human. This has ${3 - countMissing(s, phase, mech)}.`);
+      const missing = countMissing(s, phase, mech);
+      console.error(missing
+        ? `\nA gate needs three consents: mechanical, judgement, human. This has ${3 - missing}.`
+        : `\nAll three consents exist — they just do not agree with each other. Every line`
+          + `\nabove is a mismatch rather than an absence: the review and the signature are`
+          + `\nabout different content. Re-run the gate against what is on disk now.`);
       console.error(`If this must proceed anyway, record an override — it expires and it is auditable:`);
       console.error(`  node .cursor/tools/lifecycle.mjs override ${phase} --reason "..." --risk HIGH --by "<name>" --expires 14`);
       process.exit(1);
     }
     console.error(`PROCEEDING UNDER OVERRIDE ${ov.id} (granted by ${ov.by}, expires ${ov.expiresAt.slice(0, 10)}).`);
     for (const r of refusals) console.error(`  bypassed: ${r}`);
+  }
+
+  // What the person signing should not have to go looking for. Not a refusal —
+  // a phase can legitimately fail twice and then be fixed. But "it passed on
+  // the third try" is a different fact from "it passed", and the signature
+  // covers whichever one this is.
+  const priors = (s.history || []).filter((h) => h.event === "gate" && String(h.detail || "").startsWith(phase + " "));
+  const nogos = priors.filter((h) => String(h.detail).includes(" NO-GO"));
+  if (nogos.length) {
+    console.log(`Before you sign — ${phase} was judged NO-GO ${nogos.length} time(s) first:`);
+    for (const n of nogos) console.log(`  ${n.at.slice(0, 10)}  ${n.detail}`);
+    console.log(`  Something was fixed between then and now, or the question was asked`);
+    console.log(`  differently. Your name goes on whichever it was.\n`);
   }
 
   const at = new Date().toISOString();
@@ -647,11 +754,151 @@ function cmdRollback(args) {
   console.log(`Reason recorded: ${reason}`);
 }
 
+/* ------------------------------------------------------------ the briefing */
+
+/**
+ * What an agent needs to know about this product in one screen.
+ *
+ * The obvious way to build this is a hand-written product.yaml listing the name,
+ * the stack, the phase and the integrations. That would be a FOURTH copy of
+ * facts that already have owners - state.json holds the phase,
+ * technologyStack.md the stack, .mcp.json the integrations - and a copy is a
+ * thing that goes wrong quietly. So nothing here is declared: every line is read
+ * from whatever already owns it, and says where it came from.
+ *
+ * The part that genuinely had no home is the governance profile. "This product
+ * touches money" is prose scattered through the PRD today, yet it decides
+ * whether rule 07 is strict, whether /threat-model is mandatory at gate 3, and
+ * whether /compliance-audit applies at all. Derived here from the documents the
+ * phase 1 skills already write, and printed with what each flag turns on.
+ */
+const REGIMES = [
+  ["SAMA", "Saudi Central Bank"],
+  ["ZATCA", "e-invoicing"],
+  ["mada", "domestic card scheme"],
+  ["PCI-DSS", "card data"],
+  ["GDPR", "EU personal data"],
+  ["HIPAA", "health data"],
+];
+
+function readDoc(rel) {
+  try {
+    const body = readFileSync(join(ROOT, rel), "utf8");
+    return body.trim().length >= 120 && !PLACEHOLDER.test(body) ? body : null;
+  } catch { return null; }
+}
+
+function governance() {
+  const sources = ["docs/product/prd.md", "docs/product/nfr.md", "docs/product/brief.md",
+                   "docs/product/story-map.md", "docs/analysis/business-rules.md"];
+  const found = { money: [], pii: [], auth: [], regimes: new Map(), read: [] };
+
+  for (const rel of sources) {
+    const body = readDoc(rel);
+    if (!body) continue;
+    found.read.push(rel);
+    // Match the words, not a column, so a flag survives being written in prose.
+    for (const [key, re] of [
+      ["money", /\b(money|premium|payment|invoice|refund|SAR|USD|EUR)\b|decimal\(\d+,\d+\)/i],
+      ["pii", /\b(PII|personal data|national id|iqama|passport|phone number|email address)\b/i],
+      ["auth", /\b(authn|authz|login|sign-?in|JWT|OAuth)\b/i],
+    ]) if (re.test(body)) found[key].push(rel);
+    for (const [name, what] of REGIMES) {
+      if (new RegExp(`\\b${name.replace(/[-\s]/g, "[-\\s]?")}\\b`, "i").test(body)) found.regimes.set(name, what);
+    }
+  }
+  return found;
+}
+
+async function cmdProduct(args) {
+  const s = mustState();
+  const d = deriveAll(s);
+  const g = governance();
+
+  let servers = [];
+  try { servers = Object.keys(JSON.parse(readFileSync(join(ROOT, ".mcp.json"), "utf8")).mcpServers || {}); } catch { /* none */ }
+
+  let ids = null;
+  try {
+    const as = await import(new URL("./artifact-schema.mjs", import.meta.url).href);
+    const graph = as.buildGraph();
+    if (graph.byId.size) ids = graph.byId.size;
+  } catch { /* id convention not adopted */ }
+
+  let crs = [];
+  try {
+    crs = readdirSync(join(ROOT, "lifecycle", "changes")).filter((f) => f.endsWith(".json"))
+      .map((f) => JSON.parse(readFileSync(join(ROOT, "lifecycle", "changes", f), "utf8")))
+      .filter((c) => c.status === "OPEN");
+  } catch { /* none */ }
+
+  const overrides = Object.entries(s.phases || {})
+    .filter(([, v]) => v.override && Date.parse(v.override.expiresAt) > Date.now())
+    .map(([p, v]) => ({ phase: p, ...v.override }));
+
+  if (args.includes("--json")) {
+    return console.log(JSON.stringify({
+      product: s.product, mode: s.mode, phase: s.phase, derived: d,
+      governance: { money: g.money.length > 0, pii: g.pii.length > 0, auth: g.auth.length > 0,
+                    regimes: [...g.regimes.keys()], sources: g.read },
+      integrations: servers, ids, openChangeRequests: crs.map((c) => c.id),
+      activeOverrides: overrides.map((o) => o.id),
+    }, null, 2));
+  }
+
+  const MARK = { APPROVED: "x", INHERITED: "i", IN_PROGRESS: "~", STALE: "!", BLOCKED: "-", NOT_STARTED: " " };
+  console.log(`Product briefing - ${s.product}\n`);
+  console.log(`  Mode         ${s.mode}`);
+  console.log(`  Phase        ${s.phase} (${d[s.phase]?.status})`);
+  console.log(`  Gates        ${PHASES.map((p) => `[${MARK[d[p].status] || "?"}] ${p.slice(0, 4)}`).join("  ")}`);
+  if (ids) console.log(`  Traced       ${ids} ids across the lifecycle documents`);
+
+  console.log(`\n  Governance   derived, not declared - every flag below was read from a document`);
+  const line = (label, on, effect) =>
+    console.log(`    ${label.padEnd(11)}${(on ? "YES" : "no").padEnd(6)}${on ? effect : ""}`);
+  line("money", g.money.length > 0, "rule 07 strict, decimal enforced, audit trail required");
+  line("PII", g.pii.length > 0, "/threat-model mandatory at gate 3, data classification required");
+  line("auth", g.auth.length > 0, "authn/authz must be designed, not named");
+  if (g.regimes.size) {
+    console.log(`    regulated  YES   /compliance-audit applies`);
+    for (const [n, w] of g.regimes) console.log(`                     ${n} - ${w}`);
+  } else {
+    console.log(`    regulated  no`);
+  }
+  console.log(g.read.length
+    ? `    sources:   ${g.read.join(", ")}`
+    : `    (no phase 1 document is readable yet - flags cannot be derived)`);
+
+  console.log(`\n  Stack        memory-bank/technologyStack.md ${readDoc("memory-bank/technologyStack.md") ? "(populated)" : "- STILL A TEMPLATE, run /context-sync"}`);
+  console.log(`  Integrations ${servers.join(", ") || "none declared in .mcp.json"}`);
+
+  console.log(`\n  Phase owners`);
+  const OWNERS = [["REQUIREMENTS", "product-manager"], ["ANALYSIS", "business-analyst"],
+                  ["DESIGN", "solution-architect, ux-bridge"], ["DEVELOPMENT", "main thread"],
+                  ["TESTING", "test-engineer"], ["PRODUCTION", "ops-reviewer"]];
+  for (const [p, o] of OWNERS) console.log(`    ${p.padEnd(14)}${o}${p === s.phase ? "   <- here" : ""}`);
+
+  if (crs.length) {
+    console.log(`\n  Open change requests`);
+    for (const c of crs) console.log(`    ${c.id}  risk ${c.risk}  ${c.reason.slice(0, 58)}`);
+  }
+  if (overrides.length) {
+    console.log(`\n  ACTIVE OVERRIDES - a gate is being bypassed`);
+    for (const o of overrides) console.log(`    ${o.id}  ${o.phase}  risk ${o.risk}  by ${o.by}  expires ${o.expiresAt.slice(0, 10)}`);
+  }
+}
+
 function cmdGate(args) {
   const s = readState();
   const phase = (args.find((a) => PHASES.includes(a.toUpperCase())) || s?.phase || "").toUpperCase();
   if (!phase) die("gate needs a phase.", 2);
+  const meta = gateMeta(phase);
   console.log(rel(join(GATES(), gateFile(phase))));
+  if (args.includes("--json")) return console.log(JSON.stringify({ phase, file: gateFile(phase), ...meta, version: gateVersion(phase) }, null, 2));
+  if (meta.authors.length) console.log(`Authored by:  ${meta.authors.join(", ")}`);
+  console.log(meta.reviewer
+    ? `Reviewed by:  ${meta.reviewer}   <- launch this one fresh; it may not be an author`
+    : `Reviewed by:  (not declared — independence is unverified)`);
 }
 
 /* ------------------------------------------------------------------- helpers */
@@ -681,6 +928,7 @@ switch (cmd) {
   case "override": cmdOverride(args); break;
   case "advance": cmdAdvance(); break;
   case "rollback": cmdRollback(args); break;
+  case "product": await cmdProduct(args); break;
   case "gate": cmdGate(args); break;
   default:
     console.error(`lifecycle.mjs — product lifecycle state machine
@@ -695,7 +943,7 @@ switch (cmd) {
                                         auditable, expiring bypass
   advance                               move to the next phase
   rollback PHASE --reason "..."         reopen a phase, reset every later one
-  gate [PHASE]                          path to the gate definition
+  gate [PHASE] [--json]                 the gate definition, and who may judge it
 
 Phases: ${PHASES.join(" -> ")}
 Statuses: NOT_STARTED IN_PROGRESS APPROVED INHERITED STALE BLOCKED`);

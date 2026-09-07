@@ -27,14 +27,32 @@ recommend adopting it unless asked.
 
 ## The phase map
 
-| Phase | Owner subagent | Skills |
-|---|---|---|
-| 1 REQUIREMENTS | `product-manager` | `/product-brief` `/product-requirements` `/persona-gen` `/user-story-map` |
-| 2 ANALYSIS | `business-analyst` | `/domain-model-gen` `/use-case-gen` `/business-rules-gen` `/risk-register` |
-| 3 DESIGN | `solution-architect`, `ux-bridge` | `/solution-architecture` `/api-contract-design` `/data-model-design` `/ux-design-bridge` `/threat-model` |
-| 4 DEVELOPMENT | main thread | `/feature-pipeline`, then `speckit-*` and the `*-gen` families |
-| 5 TESTING | `test-engineer` | `/test-strategy` `/e2e-test-gen` `/dotnet-test-gen` `/react-test-gen` `/load-test-gen` |
-| 6 PRODUCTION | `ops-reviewer` | `/deployment-pipeline-gen` `/go-live` `/production-readiness-review` |
+| Phase | Owner subagent (writes) | Gate reviewer (judges) | Skills |
+|---|---|---|---|
+| 1 REQUIREMENTS | `product-manager`, `ux-bridge` | `business-analyst` | `/product-brief` `/product-requirements` `/persona-gen` `/user-story-map` |
+| 2 ANALYSIS | `business-analyst` | `solution-architect` | `/domain-model-gen` `/use-case-gen` `/business-rules-gen` `/risk-register` |
+| 3 DESIGN | `solution-architect`, `ux-bridge` | `security-auditor` | `/solution-architecture` `/api-contract-design` `/data-model-design` `/ux-design-bridge` `/threat-model` |
+| 4 DEVELOPMENT | main thread | `test-engineer` | `/feature-pipeline`, then `speckit-*` and the `*-gen` families |
+| 5 TESTING | `test-engineer` | `product-manager` | `/test-strategy` `/e2e-test-gen` `/dotnet-test-gen` `/react-test-gen` `/load-test-gen` |
+| 6 PRODUCTION | `ops-reviewer` | `security-auditor` | `/deployment-pipeline-gen` `/go-live` `/production-readiness-review` |
+
+The two columns are never the same agent, and that is the point: an author
+re-reading their own work has all of the author's reasons still in context and
+never finds the thing they did not think of the first time. `record-gate`
+refuses a verdict filed under any role but the reviewer's.
+
+## Routing a gate
+
+When the request is "is phase N done?", do not answer it and do not read the
+artifacts. Route it:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs gate <PHASE>    # prints the reviewer and why
+```
+
+Name the reviewer from that output and say it must be launched as a **fresh**
+subagent following `/lifecycle-gate`. If the main thread has been drafting those
+very documents, say that too — it is exactly the case the separation exists for.
 
 ## How to answer
 

@@ -3,10 +3,31 @@
 **Blocks:** going live.
 **Mechanical check:** `node .cursor/tools/lifecycle.mjs check PRODUCTION`
 **Judgement:** `/lifecycle-gate`, wrapping `/production-readiness-review`.
+**Authored by:** `ops-reviewer`
+**Reviewed by:** `security-auditor` — never an author of the artifacts above.
 
 This is the one gate that must never be automated away, and the one where the
 pressure to soften a NO-GO is highest. `AGENTS.md` already says it: do not
 soften a NO-GO. A gate that has never blocked anything is a form, not a control.
+
+---
+
+## Who reviews this, and why
+
+`security-auditor` judges this gate. Not because it is senior, but because of what it
+loses if this gate passes on bad work:
+
+Production is where the design's security assumptions meet real traffic and real
+secrets. And a runbook's author is the worst possible judge of whether someone
+else can follow it at three in the morning.
+
+Launch it as a **fresh subagent**. It has to reach these criteria through the
+documents, not through the conversation that produced them — an author
+re-reading their own work still has all of the author's reasons in context,
+and never finds the thing they did not think of the first time.
+
+`record-gate` refuses a verdict filed under any other role, and `approve`
+refuses a signature from the same party that filed the verdict.
 
 ---
 
@@ -92,8 +113,8 @@ Rollback:     <tested on: date, environment, time-to-rollback>
 On call:      <named owner>
 Blocking:     <criterion, what is wrong, what would fix it>
 Record:      node .cursor/tools/lifecycle.mjs record-gate PRODUCTION --verdict GO|NO-GO \
-                  --by "lifecycle-gate" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve PRODUCTION --by "<name>"
+                  --by "security-auditor" --criteria "<n>/<total>"
+Then:        node .cursor/tools/lifecycle.mjs approve PRODUCTION --by "<a human, not security-auditor>"
 ```
 
 A NO-GO here is the system working. Report it plainly.

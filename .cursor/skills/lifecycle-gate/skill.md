@@ -15,6 +15,12 @@ anything, which needs to actually read them. A gate passes only when both halves
 agree and a human then approves — three independent consents, because a gate one
 party can clear alone is not a gate.
 
+**You are not the reviewer. The gate file names the reviewer.** Each gate is
+judged by a subagent that did not write the artifacts it is judging — phase 1 is
+judged by `business-analyst`, phase 3 by `security-auditor`, and so on. This
+skill is the procedure that reviewer follows. Run as anyone else and
+`record-gate` refuses the verdict.
+
 ---
 
 ## Steps
@@ -34,14 +40,26 @@ If it fails, stop. Report the missing artifacts and name the skill that produces
 each one. There is nothing to judge yet, and reading half a phase produces a
 verdict worse than no verdict.
 
-**Step 3 — Read the gate definition.**
+**Step 3 — Read the gate definition, and find out who may judge it.**
 
 ```bash
 node .cursor/tools/lifecycle.mjs gate <PHASE>
 ```
 
-Read that file in full. Its criteria are the contract; do not substitute your
-own, add criteria it does not list, or drop ones it does.
+That prints the gate file, who authored the phase, and **who reviews it**. Read
+the gate file in full. Its criteria are the contract; do not substitute your own,
+add criteria it does not list, or drop ones it does.
+
+Then decide where you are:
+
+- **You are the main thread.** Stop. Launch the named reviewer as a subagent and
+  give it this skill and the phase. It must reach the criteria through the
+  documents, not through the conversation that produced them — that is the whole
+  reason the review is a separate context.
+- **You are already that reviewer.** Continue at step 4. Do not read back over
+  the authoring conversation even if it is available to you.
+- **You are a different subagent.** Stop and say so. `record-gate` will refuse
+  your verdict, and a verdict that cannot be recorded is a wasted read.
 
 **Step 4 — Read every artifact the phase produced.**
 
@@ -87,15 +105,21 @@ Every gate file ends with a verdict block. Use it exactly.
 
 ```bash
 node .cursor/tools/lifecycle.mjs record-gate <PHASE> \
-  --verdict GO|NO-GO --by "lifecycle-gate" \
+  --verdict GO|NO-GO --by "<the reviewer the gate names>" \
   --criteria "<n>/<total>" --note "<one line>"
 ```
+
+`--by` must be the role from the gate file's `**Reviewed by:**` line. Anything
+else is refused, and if the name you pass is one of the phase's authors the
+refusal says so.
 
 This is what makes the judgement consent real: `approve` refuses without it, and
 the record is stamped with the gate definition's own hash, so tightening a
 criterion later invalidates every approval granted under the looser version. It
-also writes a machine-readable copy to `lifecycle/evidence/`, which is how "why
-was this allowed?" stays answerable months later.
+also hashes every artifact you just read, so an edit made between your verdict
+and the signature voids the verdict rather than riding along with it. It writes a
+machine-readable copy to `lifecycle/evidence/`, which is how "why was this
+allowed?" stays answerable months later.
 
 Record the verdict you actually reached. A NO-GO is recorded exactly like a GO;
 recording only the outcomes that let work proceed makes the whole record
@@ -107,8 +131,11 @@ Do not run `approve`. Do not offer to. Print the command and let the user run
 it, or say the words themselves:
 
 ```bash
-node .cursor/tools/lifecycle.mjs approve <PHASE> --by "<name>"
+node .cursor/tools/lifecycle.mjs approve <PHASE> --by "<a human — not you>"
 ```
+
+`approve` refuses a signature from the same party that recorded the verdict. Two
+consents held by one name is one consent.
 
 On GO for `DESIGN`, add one line: approving this unblocks `guard-phase.mjs` and
 source writes become possible. The user should know what they are authorising.
@@ -126,6 +153,12 @@ window" is actionable.
 
 **Never approve on the user's behalf.** The tool requires `--by` for this reason.
 Recording a verdict is yours to do; granting approval is not.
+
+**Never judge what you wrote.** If you authored any artifact in this phase, you
+are the wrong reviewer for it, however carefully you read. An author re-reading
+their own work still has all of the author's reasons in context and never finds
+the thing they did not think of the first time. Say so and name the reviewer the
+gate file declares.
 
 **A GO is not permanent.** It is recorded against the current gate file and the
 current artifact hashes. If either changes the phase reads `STALE` and must be

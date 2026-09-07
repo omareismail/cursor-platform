@@ -114,14 +114,14 @@ CI fails on an expired one. A permanent override is a deleted gate.
 
 ## Phases
 
-| # | Phase | Owner | Produces | Gate |
-|---|---|---|---|---|
-| 1 | Requirements | `product-manager` | `docs/product/` — brief, personas, prd, nfr, scope, story-map | [01](../lifecycle/gates/01-requirements.gate.md) |
-| 2 | Analysis | `business-analyst` | `docs/analysis/` — domain-model, use-cases, workflows, business-rules, risks | [02](../lifecycle/gates/02-analysis.gate.md) |
-| 3 | Design | `solution-architect`, `ux-bridge` | `docs/design/` — architecture, api-design, database-design, security-design, adr, ux | [03](../lifecycle/gates/03-design.gate.md) |
-| 4 | Development | main thread | `src/`, `frontend/`, `specs/features/`, migrations | [04](../lifecycle/gates/04-development.gate.md) |
-| 5 | Testing | `test-engineer` | `docs/testing/strategy.md`, `tests/` | [05](../lifecycle/gates/05-testing.gate.md) |
-| 6 | Production | `ops-reviewer` | `.github/workflows/`, runbooks, SLOs, cutover plan | [06](../lifecycle/gates/06-production.gate.md) |
+| # | Phase | Written by | Judged by | Produces | Gate |
+|---|---|---|---|---|---|
+| 1 | Requirements | `product-manager`, `ux-bridge` | `business-analyst` | `docs/product/` — brief, personas, prd, nfr, scope, story-map | [01](../lifecycle/gates/01-requirements.gate.md) |
+| 2 | Analysis | `business-analyst` | `solution-architect` | `docs/analysis/` — domain-model, use-cases, workflows, business-rules, risks | [02](../lifecycle/gates/02-analysis.gate.md) |
+| 3 | Design | `solution-architect`, `ux-bridge` | `security-auditor` | `docs/design/` — architecture, api-design, database-design, security-design, adr, ux | [03](../lifecycle/gates/03-design.gate.md) |
+| 4 | Development | main thread | `test-engineer` | `src/`, `frontend/`, `specs/features/`, migrations | [04](../lifecycle/gates/04-development.gate.md) |
+| 5 | Testing | `test-engineer` | `product-manager` | `docs/testing/strategy.md`, `tests/` | [05](../lifecycle/gates/05-testing.gate.md) |
+| 6 | Production | `ops-reviewer` | `security-auditor` | `.github/workflows/`, runbooks, SLOs, cutover plan | [06](../lifecycle/gates/06-production.gate.md) |
 
 Phase owners are **read-only** subagents, like every other agent in
 `.claude/agents/`. They do the expensive reading and return findings; the writing

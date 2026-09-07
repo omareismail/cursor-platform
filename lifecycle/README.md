@@ -31,8 +31,9 @@ Use the tool:
 ```bash
 node .cursor/tools/lifecycle.mjs status
 node .cursor/tools/lifecycle.mjs check <PHASE>
-node .cursor/tools/lifecycle.mjs record-gate <PHASE> --verdict GO --by "lifecycle-gate"
-node .cursor/tools/lifecycle.mjs approve <PHASE> --by "<name>"
+node .cursor/tools/lifecycle.mjs gate <PHASE>          # who may judge it, and why
+node .cursor/tools/lifecycle.mjs record-gate <PHASE> --verdict GO --by "<the reviewer>"
+node .cursor/tools/lifecycle.mjs approve <PHASE> --by "<a human, not the reviewer>"
 node .cursor/tools/lifecycle.mjs advance
 node .cursor/tools/lifecycle.mjs rollback <PHASE> --reason "..."
 node .cursor/tools/lifecycle.mjs override <PHASE> --reason "..." --risk HIGH --by "<name>" --expires 7

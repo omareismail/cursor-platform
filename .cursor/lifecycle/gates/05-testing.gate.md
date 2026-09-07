@@ -3,9 +3,30 @@
 **Blocks:** phase 6 (Production).
 **Mechanical check:** `node .cursor/tools/lifecycle.mjs check TESTING`
 **Judgement:** `/lifecycle-gate`.
+**Authored by:** `test-engineer`
+**Reviewed by:** `product-manager` — never an author of the artifacts above.
 
 The question is not "do tests pass" — they always do by the time anyone asks.
 It is whether the tests test what phase 1 promised.
+
+---
+
+## Who reviews this, and why
+
+`product-manager` judges this gate. Not because it is senior, but because of what it
+loses if this gate passes on bad work:
+
+This gate asks whether the tests prove what phase 1 asked for. Whoever wrote the
+acceptance criteria is the only one who knows what they meant — and, not having
+written the tests, is free to say that they do not.
+
+Launch it as a **fresh subagent**. It has to reach these criteria through the
+documents, not through the conversation that produced them — an author
+re-reading their own work still has all of the author's reasons in context,
+and never finds the thing they did not think of the first time.
+
+`record-gate` refuses a verdict filed under any other role, and `approve`
+refuses a signature from the same party that filed the verdict.
 
 ---
 
@@ -75,6 +96,6 @@ Layers:      unit <y/n>  integration <y/n>  e2e <y/n>  load <y/n>
 Mutation:    <score> vs <threshold>
 Blocking:    <criterion, file, what is wrong, what would fix it>
 Record:      node .cursor/tools/lifecycle.mjs record-gate TESTING --verdict GO|NO-GO \
-                  --by "lifecycle-gate" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve TESTING --by "<name>"
+                  --by "product-manager" --criteria "<n>/<total>"
+Then:        node .cursor/tools/lifecycle.mjs approve TESTING --by "<a human, not product-manager>"
 ```

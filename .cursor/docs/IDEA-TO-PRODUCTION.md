@@ -48,7 +48,7 @@ node .cursor/tools/lifecycle.mjs check REQUIREMENTS
 ```
 ```bash
 node .cursor/tools/lifecycle.mjs record-gate REQUIREMENTS --verdict GO \\
-  --by "lifecycle-gate" --criteria "<n>/<total>"
+  --by "business-analyst" --criteria "<n>/<total>"
 node .cursor/tools/lifecycle.mjs approve REQUIREMENTS --by "Ezzdeen"
 node .cursor/tools/lifecycle.mjs advance
 ```
@@ -114,7 +114,7 @@ node .cursor/tools/lifecycle.mjs check DESIGN
 ```
 ```bash
 node .cursor/tools/lifecycle.mjs record-gate DESIGN --verdict GO \\
-  --by "lifecycle-gate" --criteria "<n>/<total>"
+  --by "security-auditor" --criteria "<n>/<total>"
 node .cursor/tools/lifecycle.mjs approve DESIGN --by "Ezzdeen"
 node .cursor/tools/lifecycle.mjs advance
 ```
@@ -217,7 +217,7 @@ connection are blocked by the Bash hook, and that block is correct.
 
 ```bash
 node .cursor/tools/lifecycle.mjs record-gate PRODUCTION --verdict GO \\
-  --by "lifecycle-gate" --criteria "<n>/<total>"
+  --by "security-auditor" --criteria "<n>/<total>"
 node .cursor/tools/lifecycle.mjs approve PRODUCTION --by "Ezzdeen"
 ```
 

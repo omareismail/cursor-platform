@@ -3,6 +3,8 @@
 **Blocks:** phase 4 (Development) — **mechanically**, not by convention.
 **Mechanical check:** `node .cursor/tools/lifecycle.mjs check DESIGN`
 **Judgement:** `/lifecycle-gate`.
+**Authored by:** `solution-architect`, `ux-bridge`
+**Reviewed by:** `security-auditor` — never an author of the artifacts above.
 
 This is the only gate with a hook behind it. Until the DESIGN phase derives to
 `APPROVED` or `INHERITED`, `guard-phase.mjs` returns exit code 2 on every write
@@ -12,6 +14,25 @@ moment an approved design document changes.
 It is the hard one because it is the last point where a wrong decision is still
 cheap. After this gate the same decision is a migration, a deprecation and a
 rewrite.
+
+---
+
+## Who reviews this, and why
+
+`security-auditor` judges this gate. Not because it is senior, but because of what it
+loses if this gate passes on bad work:
+
+This is the last point at which a threat costs a paragraph instead of an
+incident. And an architect defending a choice is not reviewing it — the reviewer
+has to be someone with no stake in the design being right.
+
+Launch it as a **fresh subagent**. It has to reach these criteria through the
+documents, not through the conversation that produced them — an author
+re-reading their own work still has all of the author's reasons in context,
+and never finds the thing they did not think of the first time.
+
+`record-gate` refuses a verdict filed under any other role, and `approve`
+refuses a signature from the same party that filed the verdict.
 
 ---
 
@@ -109,7 +130,7 @@ Unmapped:    <use cases with no endpoint, entities with no table, screens with n
 Promotion:   <which memory-bank files this will change>
 Blocking:    <criterion, file, what is wrong, what would fix it>
 Record:      node .cursor/tools/lifecycle.mjs record-gate DESIGN --verdict GO|NO-GO \
-                  --by "lifecycle-gate" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve DESIGN --by "<name>"
+                  --by "security-auditor" --criteria "<n>/<total>"
+Then:        node .cursor/tools/lifecycle.mjs approve DESIGN --by "<a human, not security-auditor>"
              ^ this unblocks guard-phase.mjs. Say so explicitly when reporting GO.
 ```

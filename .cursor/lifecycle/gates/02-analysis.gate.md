@@ -3,11 +3,31 @@
 **Blocks:** phase 3 (Design).
 **Mechanical check:** `node .cursor/tools/lifecycle.mjs check ANALYSIS`
 **Judgement:** `/lifecycle-gate`.
+**Authored by:** `business-analyst`
+**Reviewed by:** `solution-architect` — never an author of the artifacts above.
 
 Phase 1 said what the product must do. Phase 2 works out how the *business*
 behaves — the entities, the rules, the flows. Getting this wrong produces a
 system that runs correctly and models the wrong world, which no amount of test
 coverage detects.
+
+---
+
+## Who reviews this, and why
+
+`solution-architect` judges this gate. Not because it is senior, but because of what it
+loses if this gate passes on bad work:
+
+The architect inherits this model whole. A wrong invariant here becomes a wrong
+constraint in the schema and a wrong assumption in every handler built on it.
+
+Launch it as a **fresh subagent**. It has to reach these criteria through the
+documents, not through the conversation that produced them — an author
+re-reading their own work still has all of the author's reasons in context,
+and never finds the thing they did not think of the first time.
+
+`record-gate` refuses a verdict filed under any other role, and `approve`
+refuses a signature from the same party that filed the verdict.
 
 ---
 
@@ -86,6 +106,6 @@ Criteria:    <n>/9 pass
 Untraced:    <stories with no use case, use cases with no story>
 Blocking:    <criterion, file, what is wrong, what would fix it>
 Record:      node .cursor/tools/lifecycle.mjs record-gate ANALYSIS --verdict GO|NO-GO \
-                  --by "lifecycle-gate" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve ANALYSIS --by "<name>"
+                  --by "solution-architect" --criteria "<n>/<total>"
+Then:        node .cursor/tools/lifecycle.mjs approve ANALYSIS --by "<a human, not solution-architect>"
 ```

@@ -3,11 +3,32 @@
 **Blocks:** phase 2 (Analysis).
 **Mechanical check:** `node .cursor/tools/lifecycle.mjs check REQUIREMENTS`
 **Judgement:** `/lifecycle-gate` reads the criteria below and returns GO or NO-GO.
+**Authored by:** `product-manager`, `ux-bridge`
+**Reviewed by:** `business-analyst` — never an author of the artifacts above.
 
 The mechanical check proves the documents exist. This file decides whether they
 are worth anything. Both must pass, then a human approves — three independent
 consents, because this is the cheapest point in the project to be wrong and the
 most expensive one to be wrong *silently*.
+
+---
+
+## Who reviews this, and why
+
+`business-analyst` judges this gate. Not because it is senior, but because of what it
+loses if this gate passes on bad work:
+
+Phase 2 has to build a domain model out of these documents. An ambiguity that
+survives this gate becomes the analyst's problem in a fortnight — so let the
+analyst find it now, while it still costs one sentence to fix.
+
+Launch it as a **fresh subagent**. It has to reach these criteria through the
+documents, not through the conversation that produced them — an author
+re-reading their own work still has all of the author's reasons in context,
+and never finds the thing they did not think of the first time.
+
+`record-gate` refuses a verdict filed under any other role, and `approve`
+refuses a signature from the same party that filed the verdict.
 
 ---
 
@@ -83,8 +104,8 @@ Mechanical:  <pass/fail, from lifecycle.mjs check>
 Criteria:    <n>/8 pass
 Blocking:    <criterion, file:line, what is wrong, what would fix it>
 Record:      node .cursor/tools/lifecycle.mjs record-gate REQUIREMENTS --verdict GO|NO-GO \
-                  --by "lifecycle-gate" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve REQUIREMENTS --by "<name>"
+                  --by "business-analyst" --criteria "<n>/<total>"
+Then:        node .cursor/tools/lifecycle.mjs approve REQUIREMENTS --by "<a human, not business-analyst>"
 ```
 
 A NO-GO names the fix, not just the fault. Never soften one.

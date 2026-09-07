@@ -31,9 +31,11 @@ development; the lifecycle stays in `TESTING`.
 human approved. It is machine-owned — `guard-write.mjs` blocks hand-edits.
 
 ```bash
+node .cursor/tools/lifecycle.mjs product                   # start here: one-screen briefing
 node .cursor/tools/lifecycle.mjs status                    # where are we, and is it still true
 node .cursor/tools/lifecycle.mjs check [PHASE]             # consent 1: artifacts exist
-node .cursor/tools/lifecycle.mjs record-gate PHASE --verdict GO --by "lifecycle-gate"
+node .cursor/tools/lifecycle.mjs gate PHASE                # who may judge it, and why
+node .cursor/tools/lifecycle.mjs record-gate PHASE --verdict GO --by "<the gate's reviewer>"
                                                            # consent 2: the review verdict
 node .cursor/tools/lifecycle.mjs approve PHASE --by "name"  # consent 3: the human
 node .cursor/tools/lifecycle.mjs advance
@@ -50,6 +52,28 @@ and the previous phase is cleared:
 | mechanical | `approve`, recomputed live | the artifacts exist and are not templates |
 | judgement | `/lifecycle-gate` via `record-gate` | they are worth building on |
 | human | `approve --by "<name>"` | someone is accountable |
+
+The three must be three **parties**, not one party three times:
+
+- The reviewer is named in the gate file and is never one of the phase's authors.
+  `record-gate` refuses a verdict filed under any other role.
+- `approve` refuses a signature from the same name that recorded the verdict.
+- The verdict is bound to the artifact hashes the reviewer actually read. Edit a
+  document between the review and the signature and the signature is refused —
+  the GO was given on an older draft.
+
+| Gate | Authored by | Judged by | Because |
+|---|---|---|---|
+| 1 Requirements | `product-manager`, `ux-bridge` | `business-analyst` | phase 2 inherits every ambiguity left in them |
+| 2 Analysis | `business-analyst` | `solution-architect` | it inherits the model whole |
+| 3 Design | `solution-architect`, `ux-bridge` | `security-auditor` | an architect defending a choice is not reviewing it |
+| 4 Development | the speckit pipeline | `test-engineer` | whoever must test it should say when it is finished |
+| 5 Testing | `test-engineer` | `product-manager` | only the author of the acceptance criteria knows what they meant |
+| 6 Production | `ops-reviewer` | `security-auditor` | a runbook's author cannot judge whether a stranger can follow it |
+
+None of this proves a reviewer read anything, and nothing in a repo can. It
+makes an author judging their own work something you have to do on purpose,
+rather than the default that it was.
 
 ## Status Is Derived, Not Stored
 
@@ -77,6 +101,38 @@ inert — that is a valid configuration, not a violation.
 
 ---
 
+## Orientation
+
+On a repo that has adopted the lifecycle, run this before anything else:
+
+```bash
+node .cursor/tools/lifecycle.mjs product
+```
+
+One screen: the phase and gate ladder, the **governance profile**, the stack, the
+integrations, the phase owners, and any open change request or active override.
+
+Nothing in it is declared by hand. The phase comes from `state.json`, the stack
+from `memory-bank/technologyStack.md`, the integrations from `.mcp.json`, and the
+governance flags are derived from the phase 1 documents. A hand-written manifest
+would be a fourth copy of facts that already have owners, and a copy is a thing
+that goes wrong quietly.
+
+The governance profile is the part worth reading, because it changes what is
+enforced:
+
+| Flag | Turns on |
+|---|---|
+| `money` | rule 07 strict, `decimal` enforced, audit trail required |
+| `PII` | `/threat-model` mandatory at gate 3, data classification required |
+| `auth` | authn/authz must be designed, not named |
+| `regulated` | `/compliance-audit` applies, with the regimes named |
+
+If it reports that flags cannot be derived, phase 1 has not produced readable
+documents yet — say so rather than assuming the answer is "no".
+
+---
+
 ## Binding Behaviour
 
 **Do not run a skill that belongs to a later phase than the current one.**
@@ -87,6 +143,10 @@ phase's work instead.
 **Never mark a gate approved on the user's behalf.** `approve` requires
 `--by "name"`. A gate a machine can clear is not a gate. Recording a review
 verdict with `record-gate` is the agent's job; granting approval is not.
+
+**Never review your own phase.** Run `lifecycle.mjs gate PHASE` and launch the
+reviewer it names as a fresh subagent. If you wrote any of the artifacts, you are
+the wrong reader for them no matter how carefully you read.
 
 **Never propose an override.** There is no `--force`. A bypass is an `override`
 record with an owner, a risk level and an expiry, and it exists for a human who
@@ -130,11 +190,15 @@ spec before the design gate is good practice, not a violation.
 | 3 Design | `solution-architect`, `ux-bridge` | `/solution-architecture` `/api-contract-design` `/data-model-design` `/ux-design-bridge` `/threat-model` |
 | 4 Development | main thread | `/feature-pipeline`, then the `speckit-*` and `*-gen` families |
 | 5 Testing | `test-engineer` | `/test-strategy` `/e2e-test-gen` `/dotnet-test-gen` `/react-test-gen` `/load-test-gen` |
-| 6 Production | `release-manager` | `/deployment-pipeline-gen` `/go-live` `/production-readiness-review` |
+| 6 Production | `ops-reviewer` | `/deployment-pipeline-gen` `/go-live` `/production-readiness-review` |
 
 Phase owners are **read-only** subagents, like every other agent in
 `.claude/agents/`. They analyse and report; the writing happens in the main
 thread where the guard rules and hooks apply.
+
+A phase owner authors its phase and **judges a different one** — see the table
+under *Three Consents*. `/lifecycle-gate` is the procedure a reviewer follows,
+not a role anyone can assume.
 
 ---
 

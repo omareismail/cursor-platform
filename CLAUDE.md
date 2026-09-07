@@ -56,7 +56,8 @@ one of six phases and you may not run work belonging to a later one. The
 `APPROVED` or `INHERITED`, `guard-phase.mjs` blocks every write under `src/`,
 `backend/` and `frontend/` — tests, specs and docs are never blocked. Never
 approve a gate on the user's behalf; `approve` requires `--by "name"` for that
-reason. A repo with no state file never adopted the lifecycle and this rule is
+reason. Never judge a gate for a phase you wrote: each gate file names the
+reviewer, and it is never one of that phase's authors. A repo with no state file never adopted the lifecycle and this rule is
 inert there. Full text: `.cursor/rules/11-lifecycle-gate.mdc`. Phases and gates:
 `.cursor/docs/LIFECYCLE.md`.
 
@@ -122,9 +123,11 @@ pipeline once per feature, phases 1-3 and 6 run once per product.
 ```
 
 ```bash
+node .cursor/tools/lifecycle.mjs product                   # start here: the one-screen briefing
 node .cursor/tools/lifecycle.mjs status                    # where are we, and is it still true
 node .cursor/tools/lifecycle.mjs check [PHASE]             # consent 1: artifacts exist
-node .cursor/tools/lifecycle.mjs record-gate PHASE --verdict GO --by "lifecycle-gate"
+node .cursor/tools/lifecycle.mjs gate PHASE                # who may judge it, and why
+node .cursor/tools/lifecycle.mjs record-gate PHASE --verdict GO --by "<the reviewer>"
 node .cursor/tools/lifecycle.mjs approve PHASE --by "name" # consent 3: the human
 node .cursor/tools/lifecycle.mjs advance
 node .cursor/tools/lifecycle.mjs rollback PHASE --reason "..."
@@ -136,6 +139,40 @@ artifacts exist and are not templates, recomputed at approve time), judgement
 and human (`approve --by`). `approve` refuses without all three, out of order, or
 while the previous phase is uncleared. There is no `--force` — a bypass is an
 `override` with an owner, a risk level and an expiry.
+
+**Three consents means three parties.** Every phase owner used to review its own
+gate, which is one consent signed twice. Each gate file now names its reviewer,
+`record-gate` refuses a verdict from anyone else, `approve` refuses a signature
+from the party that recorded the verdict, and the verdict is bound to the hashes
+of the documents the reviewer actually read — edit one before signing and the
+signature is refused.
+
+| Gate | Written by | Judged by |
+|---|---|---|
+| 1 Requirements | `product-manager`, `ux-bridge` | `business-analyst` |
+| 2 Analysis | `business-analyst` | `solution-architect` |
+| 3 Design | `solution-architect`, `ux-bridge` | `security-auditor` |
+| 4 Development | the speckit pipeline | `test-engineer` |
+| 5 Testing | `test-engineer` | `product-manager` |
+| 6 Production | `ops-reviewer` | `security-auditor` |
+
+`lifecycle.mjs gate PHASE` prints the pair and the reason. Launch the reviewer as
+a fresh subagent: it has to reach the criteria through the documents, not through
+the conversation that produced them.
+
+**Orient with `product` first.** It is one screen: phase and gate ladder, the
+governance profile, the stack, the integrations, the phase owners, and any open
+change request or active override. Nothing in it is declared by hand — the phase
+comes from `state.json`, the stack from `memory-bank/technologyStack.md`, the
+integrations from `.mcp.json`, and the governance flags are derived from the
+phase 1 documents. A hand-written manifest would be a fourth copy of facts that
+already have owners.
+
+The governance profile is the part that changes what is enforced: `money` makes
+rule 07 strict and `decimal` mandatory, `PII` makes `/threat-model` mandatory at
+gate 3, `regulated` brings `/compliance-audit` into scope with the regimes
+named. If it reports the flags cannot be derived, phase 1 has produced nothing
+readable yet — say that rather than assuming "no".
 
 **Status is derived, not stored.** Approval hashes every required artifact. Edit
 an approved design document and the phase reads `STALE` on the next command, and

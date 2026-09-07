@@ -8,7 +8,7 @@ description: "lifecycle is the entry point to the six-phase product lifecycle: i
 
 # Skill: lifecycle
 
-**Invocation:** `/lifecycle [status | start | advance | rollback]`
+**Invocation:** `/lifecycle [product | status | start | advance | rollback]`
 
 ---
 
@@ -25,6 +25,16 @@ production. Every other lifecycle skill reads the state this one maintains.
 
 ## Steps
 
+**Step 0 — Orient, on any product repo.**
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs product
+```
+
+Phase, gates, governance profile, stack, integrations, owners, open change
+requests, active overrides. Every line is read from whatever already owns it —
+nothing is declared by hand, so nothing can silently disagree with `state.json`.
+
 **Step 1 — Read the state.**
 
 ```bash
@@ -39,6 +49,7 @@ assuming the user wants it.
 
 | Sub-command | Do this |
 |---|---|
+| `product` | `node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs product` — the one-screen briefing. Read it out, and lead with the governance flags: they decide what is enforced for the rest of the session. Stop there. |
 | `status` (default) | Report the phase, the gate ladder, and whether the design gate blocks source writes. Stop there. |
 | `start` | Go to Step 3. |
 | `advance` | Go to Step 4. |
