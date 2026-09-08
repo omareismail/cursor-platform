@@ -1,0 +1,45 @@
+# Line endings, decided once, in the repository rather than in each machine's
+# git config.
+#
+# WHY THIS FILE EXISTS
+#
+# `core.autocrlf=true` on a Windows checkout, with nothing here to constrain it,
+# produced a hundred files that `git status` called modified and `git diff`
+# showed no change in: `sync-skills.mjs` wrote LF into a tree holding CRLF, and
+# the difference was entirely invisible line endings. A real 44-file change was
+# reported as a 130-file one.
+#
+# That is not a cosmetic problem. Every checker in this repo exists so that what
+# changed can be seen — and a diff nobody can read is a review nobody does. It
+# also left the generated trees (plugin/, .claude/skills/) looking permanently
+# dirty, which is exactly the signal `build-plugin check` and CI depend on.
+#
+# LF EVERYWHERE, including on Windows. Everything here is Node scripts, markdown
+# and JSON; every tool that touches them (node, VS Code, Cursor, PowerShell)
+# reads LF without complaint, and one convention that holds on all three
+# platforms beats a per-machine setting that silently differs.
+* text=auto eol=lf
+
+# Generated trees. Stated explicitly, not because the rule above would miss
+# them, but because these are the files a stray CRLF hurts most: build-plugin's
+# check compares the built tree against a fresh build, and a line-ending
+# difference would fail it for a reason no message would explain.
+plugin/**         text eol=lf
+.claude/skills/** text eol=lf
+
+# Windows-only helpers, if any are ever added, genuinely want CRLF.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Never touched.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.rar  binary
+*.pfx  binary
+*.p12  binary
