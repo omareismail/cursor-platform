@@ -72,7 +72,7 @@ Also landed in A (not in the original IDs): read-tool exemption in `guard-write`
 | E-24 | `release-evidence cut` refuses a FAILED checker unless `--accept-check <tool.mjs>`. Exit 2 (nothing to check) is skipped, not failed |
 | E-19 | `schemas/finding.schema.json` + `_findings.mjs`. Every checker’s `--json` is one envelope. Dashboard Findings panel consumes it |
 
-**Tests (this tree):** 15 suites, 723 assertions, 0 failed (`node tests/run.mjs`). Plugin rebuilt. `self-audit.mjs integrity` still fails until a human writes the manifest.
+**Tests (this tree):** `node tests/run.mjs`. Plugin rebuilt with the source. `self-audit.mjs integrity` is green only while `lifecycle/integrity.json` matches the attested files — re-attest after changing `_evidence.mjs` or `release-evidence.mjs`.
 
 ---
 
@@ -97,11 +97,19 @@ Source: `.cursor/cache/project-review-2026-09-09.md`. These were runtime failure
 | R13 | Incidents `--json` fails on a weak (rung-7) guard the same way as text (exit 1). |
 | R14 | `toBeDefined` next to a real assertion is not weak-alone. |
 
+### Follow-up — 2026-09-09 (`followup-review-2026-09-09.md`)
+
+| ID | What shipped |
+|---|---|
+| F1 | `commitIndexedRecord()` locks the file, asserts the chain still matches, then writes and indexes. `change-request close` and `release-evidence` cut/sign use it. A tampered CR is no longer absorbed by close. |
+| F2 | Skipped-suite brace matching ignores `{`/`}` inside strings and comments. |
+| F3 | `PayTests.cs` maps to spec slug `pay` in both global and scoped `ac-trace check`. |
+
 ---
 
 ## Remaining
 
-Say **"OK, implement Phase D"** (then E, then F) to continue. Do not start these until the human steps above are done if you want a clean commit of A–C first.
+Say **"OK, implement Phase D"** (then E, then F) to continue.
 
 ### Phase D — Orchestration (P2)
 
@@ -131,11 +139,10 @@ Say **"OK, implement Phase D"** (then E, then F) to continue. Do not start these
 ## Suggested order from here
 
 ```
-1. You: integrity --write --by "<name>"
-2. You: review + commit Phases A–C
-3. Agent: Phase D   (E-20, E-21)     — cheap, docs/index only
-4. Agent: Phase E   (E-22, E-23)     — brownfield repos feel this
-5. Agent: Phase F   (E-18, then E-17, E-25, E-26)
+1. You: commit the F1–F3 follow-up (integrity already re-attested)
+2. Agent: Phase D   (E-20, E-21)
+3. Agent: Phase E   (E-22, E-23)
+4. Agent: Phase F   (E-18, then E-17, E-25, E-26)
 ```
 
 Each remaining phase should end with `node tests/run.mjs`, `node .cursor/tools/self-audit.mjs run`, plugin rebuild, and (after you re-attest) `integrity --check`.

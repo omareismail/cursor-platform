@@ -39,7 +39,7 @@
 import { readFileSync, existsSync, appendFileSync, readdirSync, statSync, renameSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { lock, canonical, actor } from "./_state.mjs";
+import { lock, canonical, actor, writeJsonAtomic } from "./_state.mjs";
 
 export const INDEX_REL = "lifecycle/index.jsonl";
 
@@ -139,6 +139,24 @@ export function recordFile(root, rel, kind, meta) {
   const hash = hashFile(root, rel);
   if (hash === null) throw new Error(`${rel} was not written; nothing to index.`);
   return appendEntry(root, { kind, ref: rel, hash, meta });
+}
+
+/**
+ * Replace an existing chained record, or write a new one, under the file lock.
+ * The on-disk bytes must still be what the chain last indexed; a normal mutation
+ * must not absorb a rewrite that happened outside the writer.
+ */
+export function commitIndexedRecord(root, rel, obj, { kind, meta } = {}) {
+  rel = toPosix(rel);
+  const abs = join(root, ...rel.split("/"));
+  const { release } = lock(abs);
+  try {
+    assertIndexedUnchanged(root, rel);
+    writeJsonAtomic(abs, obj);
+    return recordFile(root, rel, kind, meta);
+  } finally {
+    release();
+  }
 }
 
 /* ---------------------------------------------------------------- verifying */

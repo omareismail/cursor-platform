@@ -221,30 +221,95 @@ function bindClaim(ci, marks) {
 
 const lineOf = (text, idx) => text.slice(0, idx).split("\n").length;
 
+function skipStringOrComment(text, i) {
+  const c = text[i], n = text[i + 1];
+  if (c === "/" && n === "/") {
+    const nl = text.indexOf("\n", i);
+    return nl < 0 ? text.length : nl + 1;
+  }
+  if (c === "/" && n === "*") {
+    const end = text.indexOf("*/", i + 2);
+    return end < 0 ? text.length : end + 2;
+  }
+  if (c === "'" || c === '"') {
+    let j = i + 1;
+    while (j < text.length) {
+      if (text[j] === "\\") { j += 2; continue; }
+      if (text[j] === c) return j + 1;
+      j++;
+    }
+    return text.length;
+  }
+  if (c === "`") {
+    let j = i + 1;
+    while (j < text.length) {
+      if (text[j] === "\\") { j += 2; continue; }
+      if (text[j] === "`") return j + 1;
+      j++;
+    }
+    return text.length;
+  }
+  return i;
+}
+
+function nextCodeChar(text, from, ch) {
+  let i = from;
+  while (i < text.length) {
+    const skip = skipStringOrComment(text, i);
+    if (skip !== i) { i = skip; continue; }
+    if (text[i] === ch) return i;
+    i++;
+  }
+  return -1;
+}
+
+function matchCodeBrace(text, open) {
+  let depth = 0;
+  let i = open;
+  while (i < text.length) {
+    const skip = skipStringOrComment(text, i);
+    if (skip !== i) { i = skip; continue; }
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+    i++;
+  }
+  return -1;
+}
+
 function skippedSuiteRanges(text) {
   const ranges = [];
   const re = /\b(?:describe|context|suite)\.(?:skip|todo)\s*\(|^\s*xdescribe\s*\(/gm;
   for (const m of text.matchAll(re)) {
-    const open = text.indexOf("{", m.index);
+    const open = nextCodeChar(text, m.index, "{");
     if (open < 0) continue;
-    let depth = 0;
-    for (let i = open; i < text.length; i++) {
-      if (text[i] === "{") depth++;
-      else if (text[i] === "}") {
-        depth--;
-        if (depth === 0) { ranges.push([m.index, i + 1]); break; }
-      }
-    }
+    const close = matchCodeBrace(text, open);
+    if (close >= 0) ranges.push([m.index, close + 1]);
   }
   return ranges;
 }
 const inRange = (ranges, pos) => ranges.some(([a, b]) => pos >= a && pos < b);
 
+function stemOfTestFile(posix) {
+  const base = posix.split("/").pop();
+  return base
+    .replace(/\.(?:test|spec)\.[cm]?[jt]sx?$/i, "")
+    .replace(/tests?\.[cm]?[jt]sx?$/i, "")
+    .replace(/tests?\.cs$/i, "")
+    .replace(/\.cs$/i, "");
+}
+
 function inferClaimSlug(fileRel, note, slugs) {
   const posix = String(fileRel).replace(/\\/g, "/");
+  const lower = posix.toLowerCase();
+  const stem = stemOfTestFile(lower);
   for (const slug of slugs) {
     if (!slug) continue;
-    if (posix.includes(`/${slug}/`) || posix.includes(`/${slug}.`) || posix.includes(`/${slug}-`) || posix.endsWith(`/${slug}`)) return slug;
+    const s = slug.toLowerCase();
+    if (lower.includes(`/${s}/`) || lower.includes(`/${s}.`) || lower.includes(`/${s}-`) || lower.endsWith(`/${s}`)) return slug;
+    if (stem === s) return slug;
     if (note && new RegExp(`(?:^|[^a-z0-9-])${slug.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(?:\\.md)?(?:[^a-z0-9-]|$)`, "i").test(note)) return slug;
   }
   return null;

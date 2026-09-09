@@ -38,6 +38,31 @@ section("ac-trace — a skipped suite skips the tests inside it");
   check("the only claim inside describe.skip is skipped-only, not covered", rep.findings.some((f) => f.code === "skipped-only" && f.ref === "AC-1"), JSON.stringify(rep.findings));
 }
 
+section("ac-trace — a brace inside a string does not end a skipped suite");
+{
+  const root = fixture("ac-skip-brace");
+  put(root, "specs/features/pay.md", DOC("Pay") + "\n- **AC-1** Given a quote, when paid, then a receipt exists.\n");
+  put(root, "tests/pay.test.mjs", `describe.skip("offline", () => {\n  const closing = "}";\n  it("pays", () => {\n    // AC-1: receipt\n    expect(pay()).toBe(20);\n  });\n});\n`);
+  gitInit(root);
+  const r = runTool("ac-trace.mjs", ["check", "--json"], root);
+  const rep = JSON.parse(r.out);
+  check("const closing = \"}\" does not make the inner test look live", r.exit === 1 && rep.findings.some((f) => f.code === "skipped-only" && f.ref === "AC-1"), JSON.stringify(rep.findings));
+}
+
+section("ac-trace — PayTests.cs covers pay.md in scoped and global checks");
+{
+  const root = fixture("ac-csharp");
+  put(root, "specs/features/pay.md", DOC("Pay") + "\n- **AC-1** Given a quote, when paid, then a receipt exists.\n");
+  put(root, "tests/PayTests.cs", `[Fact]\npublic void Pays() {\n  // AC-1: receipt\n  Assert.Equal(20, Pay());\n}\n`);
+  gitInit(root);
+  let r = runTool("ac-trace.mjs", ["check", "--json"], root);
+  const all = JSON.parse(r.out);
+  check("global check covers PayTests.cs against pay.md", r.exit === 0 && all.data.covered === 1 && !all.findings.some((f) => f.code === "uncovered"), JSON.stringify(all.findings));
+  r = runTool("ac-trace.mjs", ["check", "specs/features/pay.md", "--json"], root);
+  const scoped = JSON.parse(r.out);
+  check("scoped check agrees — it does not leave AC-1 uncovered", r.exit === 0 && scoped.data.covered === 1 && !scoped.findings.some((f) => f.code === "uncovered"), JSON.stringify(scoped.findings));
+}
+
 section("ac-trace — toBeDefined plus a real assertion is not weak");
 {
   const root = fixture("ac-strong");
@@ -49,4 +74,4 @@ section("ac-trace — toBeDefined plus a real assertion is not weak");
   check("toBeDefined then toBe(20) is covered, not weak", r.exit === 0 && !rep.findings.some((f) => f.code === "weak-assertion" || f.code === "vacuous-only"), JSON.stringify(rep.findings));
 }
 
-report("AC claims are bound to a feature, skipped suites skip, and a guard assertion next to a real one is not weak.");
+report("AC claims are bound to a feature, skipped suites skip even when a string contains a brace, and a guard assertion next to a real one is not weak.");

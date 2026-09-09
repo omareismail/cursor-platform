@@ -51,8 +51,8 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { writeJsonAtomic, actor, actorWarning, canonical } from "./_state.mjs";
-import { recordFile, verifyChain, formatChainFindings } from "./_evidence.mjs";
+import { actor, actorWarning, canonical } from "./_state.mjs";
+import { verifyChain, formatChainFindings, commitIndexedRecord } from "./_evidence.mjs";
 
 const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -201,13 +201,11 @@ function ranCheck(tool, args) {
 }
 const lastLine = (s) => (String(s).split("\n").map((l) => l.trim()).filter(Boolean).pop() || "").slice(0, 300);
 
-/** Index a record that was just written. The record stands either way; say so if the index did not. */
-function chained(relPath, kind, meta) {
-  try { return recordFile(ROOT, relPath, kind, meta); }
+function commitRelease(relPath, record, kind, meta) {
+  try { return commitIndexedRecord(ROOT, relPath, record, { kind, meta }); }
   catch (e) {
-    console.error(`WARN  ${relPath} was written but could not be added to lifecycle/index.jsonl: ${e.message}`);
-    console.error(`      \`lifecycle.mjs evidence\` will report it until a human reseals the chain.`);
-    return null;
+    if (e.code === "ECHANGED" || e.code === "EUNINDEXED" || e.code === "ELOCKED") die(`REFUSED: ${e.message}\nNothing was written.`, 1);
+    throw e;
   }
 }
 
@@ -383,8 +381,7 @@ async function cmdCut(args) {
   record.acceptedChecks = failed.filter((c) => c.accepted).map((c) => c.tool);
   record.integrity = integrityOf(record);
 
-  writeJsonAtomic(fileFor(version), record);
-  chained(rel(fileFor(version)), "release-cut", { version, head, acceptedChecks: record.acceptedChecks });
+  commitRelease(rel(fileFor(version)), record, "release-cut", { version, head, acceptedChecks: record.acceptedChecks });
 
   console.log(`Release ${version} cut.`);
   console.log(`  ${rel(fileFor(version))}`);
@@ -478,8 +475,7 @@ async function cmdSign(args) {
     recordedBy: who,
     integrityAtSigning: record.integrity,
   };
-  writeJsonAtomic(fileFor(version), record);
-  chained(rel(fileFor(version)), "release-signed", { version, by });
+  commitRelease(rel(fileFor(version)), record, "release-signed", { version, by });
   console.log(`${version} signed by ${by}.`);
   if (record.acceptedChecks?.length) console.log(`This record was cut over ${record.acceptedChecks.length} failing check(s) accepted by name: ${record.acceptedChecks.join(", ")}. Your signature covers that decision too.`);
   if (ovs.length) console.log(`Accepted ${ovs.length} override(s): ${ovs.map((o) => o.id).join(", ")} — each expires, and the expiry is now on your name.`);

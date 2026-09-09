@@ -161,6 +161,23 @@ section("adoption — records that predate the chain are indexed on the first wr
   check("close appends its own entry (the CR file has two entries; the latest hash is the one checked)", r2.exit === 0 && lines(root).slice(-1)[0].kind === "change-request-closed", JSON.stringify(lines(root).slice(-1)[0]));
 }
 
+section("close refuses to absorb a CHANGED change request");
+{
+  const root = fixture("ev-cr-absorb", { gates: true });
+  put(root, "docs/analysis/business-rules.md", DOC("Business rules") + "\n### BR-1 — Cooling-off period\n\nFourteen days.\n");
+  gitInit(root);
+  let r = runTool("change-request.mjs", ["open", "--changes", "BR-1", "--reason", "customer changed a rule", "--by", "omar"], root);
+  check("open", r.exit === 0, r.err + r.out.slice(0, 300));
+  const crPath = join(root, "lifecycle", "changes", "CR-0001.json");
+  const cr = JSON.parse(readFileSync(crPath, "utf8"));
+  cr.reason = "tampered after it was indexed";
+  writeFileSync(crPath, JSON.stringify(cr, null, 2) + "\n");
+  check("fixture: evidence reports CHANGED", codes(root).includes("CHANGED"), JSON.stringify(codes(root)));
+  r = runTool("change-request.mjs", ["close", "CR-0001"], root);
+  check("close REFUSES rather than rewriting the hash", r.exit === 1 && /CHANGED/.test(r.err), r.err.slice(0, 500));
+  check("...and the chain is still dirty", codes(root).includes("CHANGED"), JSON.stringify(codes(root)));
+}
+
 section("incidents.mjs open — indexed");
 {
   const root = fixture("ev-inc", { gates: true });

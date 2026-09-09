@@ -39,7 +39,7 @@
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { writeJsonAtomic, nextSequentialId, actor } from "./_state.mjs";
-import { recordFile } from "./_evidence.mjs";
+import { recordFile, commitIndexedRecord } from "./_evidence.mjs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -257,6 +257,13 @@ function cmdShow(args) {
   console.log(readFileSync(p, "utf8"));
 }
 
+function refuseChanged(e) {
+  if (e.code === "ECHANGED" || e.code === "EUNINDEXED" || e.code === "ELOCKED") {
+    die(`REFUSED: ${e.message}\nNothing was written.`, 1);
+  }
+  throw e;
+}
+
 function cmdClose(args) {
   const id = (args.find((a) => /^CR-\d+$/i.test(a)) || "").toUpperCase();
   if (!id) die("close needs a change request id.", 2);
@@ -267,8 +274,9 @@ function cmdClose(args) {
   cr.closedAt = new Date().toISOString();
   cr.closeNote = valueOf(args, "--note") || "";
   cr.closedBy = actor(ROOT);
-  writeJsonAtomic(p, cr);
-  chained(`lifecycle/changes/${id}.json`, "change-request-closed", { id });
+  try {
+    commitIndexedRecord(ROOT, `lifecycle/changes/${id}.json`, cr, { kind: "change-request-closed", meta: { id } });
+  } catch (e) { refuseChanged(e); }
   console.log(`${id} closed.`);
   if (cr.reApprovalRequired?.length) {
     console.log(`\nIt forecast re-approval for: ${cr.reApprovalRequired.join(", ")}`);
