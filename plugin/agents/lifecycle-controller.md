@@ -75,7 +75,8 @@ route around the lifecycle.
 node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs status    # the DESIGN row, and its reasons
 ```
 
-If DESIGN derives to anything other than `APPROVED` or `INHERITED`,
+If DESIGN derives to anything other than `APPROVED`, `INHERITED` or
+`INHERITED_UNVERIFIED`,
 `guard-phase.mjs` blocks every write under `src/`, `backend/` and `frontend/`
 with exit code 2.
 

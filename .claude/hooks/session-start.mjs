@@ -54,20 +54,56 @@ const problems = [];
 // Reported first because it changes what the agent is ALLOWED to do, not merely
 // what it knows. A repo with no state.json never adopted the lifecycle; that is
 // a valid configuration and gets no mention.
+//
+// Status is DERIVED by lifecycle.mjs, never read off the file: v2 stopped
+// storing `phases[p].status`, and this hook kept reading it, so every approved
+// gate showed as not passed and the digest opened with a warning that was false.
+// The same dual-path import guard-phase.mjs uses; if it fails, the fallback
+// reads the file and says that it could not derive.
 const lcPath = join(root, "lifecycle", "state.json");
-try {
-  const lc = JSON.parse(readFileSync(lcPath, "utf8"));
-  const order = ["REQUIREMENTS", "ANALYSIS", "DESIGN", "DEVELOPMENT", "TESTING", "PRODUCTION"];
-  const cleared = new Set(["APPROVED", "INHERITED"]);
-  const track = order.map((p) => `${cleared.has(lc.phases?.[p]?.status) ? "x" : p === lc.phase ? "~" : " "} ${p}`).join("  |  ");
-  out.push(`\n**Lifecycle:** \`${lc.product}\` is in phase **${lc.phase}** (${lc.mode}).\n\n    [${track}]`);
-  if (!cleared.has(lc.phases?.DESIGN?.status)) {
-    problems.push(
-      `**The DESIGN gate has not passed.** \`guard-phase.mjs\` will BLOCK every write under ` +
-      `\`src/\`, \`backend/\` and \`frontend/\`. Do not attempt implementation - work the current ` +
-      `phase instead. \`node .cursor/tools/lifecycle.mjs check ${lc.phase}\` lists what is missing.`);
+const lcTool = await (async () => {
+  for (const rel of ["../../.cursor/tools/lifecycle.mjs", "../tools/lifecycle.mjs"]) {
+    try { return await import(new URL(rel, import.meta.url).href); } catch { /* try the next */ }
   }
-} catch { /* no lifecycle in this repo - not every project adopts it */ }
+  return null;
+})();
+const ORDER = ["REQUIREMENTS", "ANALYSIS", "DESIGN", "DEVELOPMENT", "TESTING", "PRODUCTION"];
+const MARK = { APPROVED: "x", INHERITED: "i", INHERITED_UNVERIFIED: "u", STALE: "!", BLOCKED: "-", IN_PROGRESS: "~", NOT_STARTED: " " };
+if (lcTool) {
+  try {
+    lcTool.setRoot(root);
+    const info = lcTool.readStateInfo();
+    if (info.status === "corrupt") {
+      problems.push(
+        `**\`lifecycle/state.json\` exists but cannot be read** (${info.error}). \`guard-phase.mjs\` treats ` +
+        `this as a CLOSED design gate and blocks source writes. Do not run \`init\` over it - restore it ` +
+        `from git or repair it with the user.`);
+    } else if (info.status === "ok") {
+      const lc = info.state;
+      const d = lcTool.deriveAll(lc);
+      const track = ORDER.map((p) => `${MARK[d[p]?.status] ?? "?"} ${p}`).join("  |  ");
+      out.push(`\n**Lifecycle:** \`${lc.product}\` is in phase **${lc.phase}** (${lc.mode}${lc.migratedFrom ? `, migrated from schema v${lc.migratedFrom}` : ""}).\n\n    [${track}]\n\n    x approved  i inherited  u inherited, unverified  ! stale  - blocked  ~ in progress`);
+      const stale = ORDER.filter((p) => d[p]?.status === "STALE");
+      if (stale.length) problems.push(`**${stale.join(", ")} ${stale.length === 1 ? "is" : "are"} STALE** - approved once, and something approved changed since. ${d[stale[0]].reasons[0] || ""} Offer to re-review, never to re-approve.`);
+      const unverified = ORDER.filter((p) => d[p]?.status === "INHERITED_UNVERIFIED");
+      if (unverified.length) out.push(`\n_${unverified.join(", ")}: inherited from before the lifecycle was adopted, with nobody named as having checked that. Work continues; a release must accept them by name._`);
+      if (!lcTool.designCleared(lc)) {
+        problems.push(
+          `**The DESIGN gate has not passed** (${d.DESIGN?.status}). \`guard-phase.mjs\` will BLOCK every write under ` +
+          `\`src/\`, \`backend/\` and \`frontend/\`. Do not attempt implementation - work the current ` +
+          `phase instead. \`node .cursor/tools/lifecycle.mjs check ${lc.phase}\` lists what is missing.`);
+      }
+    }
+    // status "missing": never adopted the lifecycle. Valid; no mention.
+  } catch (e) {
+    problems.push(`Lifecycle status could not be derived (${String(e.message || e).slice(0, 120)}). Run \`node .cursor/tools/lifecycle.mjs status\` before writing source.`);
+  }
+} else {
+  try {
+    const lc = JSON.parse(readFileSync(lcPath, "utf8"));
+    out.push(`\n**Lifecycle:** \`${lc.product}\` is in phase **${lc.phase}** (${lc.mode}). Gate statuses could not be derived here - run \`node .cursor/tools/lifecycle.mjs status\`.`);
+  } catch { /* no lifecycle in this repo - not every project adopts it */ }
+}
 
 // --- repo-map freshness -----------------------------------------------------
 const mapPath = join(root, ".cursor", "cache", "repo-map.json");

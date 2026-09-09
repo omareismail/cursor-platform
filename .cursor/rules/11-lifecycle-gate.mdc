@@ -83,7 +83,8 @@ The state file holds evidence; the status is computed on every read.
 |---|---|
 | `NOT_STARTED` / `IN_PROGRESS` | no approval yet |
 | `APPROVED` | all three consents, all still valid |
-| `INHERITED` | brownfield; done informally before the lifecycle was adopted |
+| `INHERITED` | brownfield; done informally before adoption — claimed by one named person, checked by a second |
+| `INHERITED_UNVERIFIED` | brownfield claim with no reviewer named (or a pre-v3 bare flag). Clears the design gate; **cannot carry a release** until a signer accepts it by name |
 | `STALE` | **was** approved, and something it was approved against changed |
 | `BLOCKED` | an earlier phase is not cleared |
 
@@ -91,6 +92,21 @@ The state file holds evidence; the status is computed on every read.
 stamps the gate definition's version. Edit an approved design document, or
 tighten a gate criterion, and the phase is `STALE` on the very next command —
 and `guard-phase.mjs` starts blocking source writes again.
+
+The hash is of **content**, recursively: `src/`, `tests/`, `specs/features/` are
+hashed file by file (build output and git-ignored files excluded), so replacing
+every line of a source file while keeping its name stales `DEVELOPMENT` the way
+it always should have. And an artifact has to be the *kind* of thing the gate
+asked for — a `tests/` directory holding only fixtures is not a test suite, an
+`adr/` holding `.gitkeep` is not an ADR set, a task board with a row still
+`In Progress` is not done. `check` prints the type beside each artifact and the
+reason it failed.
+
+`approve` also runs the mechanical checks that used to be a reviewer's
+criterion and nothing more: the id chain (`artifact-schema.mjs`) for every phase,
+and `ac-trace.mjs check` for `TESTING`. A failing check is a refusal; a signer
+who proceeds anyway does it by name — `--accept-check ac-trace.mjs` — and the
+record says so.
 
 When a phase reads `STALE`, do not offer to re-approve it. Offer to re-review it:
 the approval that lapsed was granted against text that no longer exists.
@@ -256,8 +272,14 @@ node .cursor/tools/release-evidence.mjs verify
 `cut` derives the record and refuses on a dirty tree, an uncleared DEVELOPMENT or
 TESTING gate, or a `TESTING` approval older than the `DEVELOPMENT` one — two
 green gates whose *order* is wrong, which is how a feature ships with no test.
-`sign` refuses while any of the three gates a release rests on is uncleared, and
-refuses to sign under an active override unless the signer names it.
+It also runs the checkers (`ac-trace`, `risk-profile`, `failure-modes`,
+`fitness`, `incidents`, `flag-debt`, `lifecycle check TESTING`) and **refuses on
+a FAILED one**; a person who proceeds anyway names the tool —
+`--accept-check flag-debt.mjs` — and the record carries `acceptedChecks`. A
+checker with nothing to check (exit 2) is recorded as skipped, not failed.
+`sign` refuses while any of the three gates a release rests on is uncleared,
+refuses to sign under an active override unless the signer names it, and refuses
+on a broken evidence chain (below) with no flag at all.
 
 Records live in `lifecycle/releases/` and are committed. They are immutable: to
 change what a version contains, cut a different version.
@@ -271,6 +293,90 @@ years ago, in people's heads. `lifecycle.mjs init --existing` records that
 honestly as `INHERITED` rather than either pretending they were approved or
 blocking all work on a live system.
 
-`INHERITED` clears the design gate. To upgrade a phase from `INHERITED` to
-`APPROVED`, produce its artifacts — `/feature-inventory` and `/context-sync`
-reconstruct most of phases 1-2 from the code — then run `check` and `approve`.
+An inheritance is a **claim**, and a claim has a claimant and a basis:
+
+```bash
+node .cursor/tools/lifecycle.mjs init --name "<product>" --existing --by "<claimant>" [--review-by "<a second person>"]
+```
+
+- Without `--by` it is refused. Without `--review-by` the phases derive
+  `INHERITED_UNVERIFIED`: source writes are open, but
+  `release-evidence.mjs sign` refuses until the signer names each one with
+  `--accept-inherited PHASE`. With `--review-by` (a different person) they derive
+  `INHERITED`.
+- It is refused on an empty repository — no commits and no source files means
+  nothing was done informally. Use `init --name` and start at `REQUIREMENTS`.
+- The record keeps what was there at the time: commit count, `HEAD`, the
+  source roots and file count.
+
+Both are human-only commands (`guard-bash.mjs` refuses them from the agent's
+shell); the agent prints the command and the human runs it.
+
+`INHERITED` and `INHERITED_UNVERIFIED` both clear the design gate. To upgrade a
+phase to `APPROVED`, produce its artifacts — `/feature-inventory` and
+`/context-sync` reconstruct most of phases 1-2 from the code — then run `check`
+and `approve`.
+
+---
+
+## The Enforcement Surface Has A Signature
+
+Every guard above is a file. `lifecycle/integrity.json` is a human's attestation
+over all of them — the hooks, `.claude/settings.json`, `.cursor/hooks.json`,
+both policy files, the gate definitions, `lifecycle.mjs` and its state layer:
+
+```bash
+node .cursor/tools/self-audit.mjs integrity                      # CI and the agent: does it still match
+node .cursor/tools/self-audit.mjs integrity --write --by "<name>"  # a human, after reviewing a change
+```
+
+`--check` fails on a `CHANGED` guard, a `MISSING` one, or an `UNATTESTED` file
+that appeared under a covered path. `--write` is human-only: an agent that could
+edit a hook and then re-attest it would have closed the loop on itself. The
+platform's own CI runs the check, and so does the adopter template
+(`templates/ci/lifecycle-gates.yml`).
+
+Every record the lifecycle writes is written atomically and every `state.json`
+write is a compare-and-swap on its `revision`: two sessions cannot silently
+overwrite each other's decision, and a crash mid-write cannot leave an empty
+file. Each verdict, approval, override and signature also records who the
+environment says typed it (`recordedBy`) beside `--by`, and prints a warning
+when the two disagree.
+
+## The Records Have A Chain
+
+Each record under `lifecycle/` vouches for itself; none of them could say
+whether it is the *set* that was written. `lifecycle/index.jsonl` does: every
+write — a `state.json` revision, a verdict, an override, a release cut or
+signature, an incident, a change request — appends one line naming the file, its
+sha256, and the hash of the line before it. The first append on a repo that
+already has records adopts them, so the chain is honest about where its
+knowledge starts.
+
+```bash
+node .cursor/tools/lifecycle.mjs evidence            # CI and the agent: walk the chain
+node .cursor/tools/lifecycle.mjs evidence reseal --by "<name>" --reason "..."   # human-only
+```
+
+`evidence` fails on `LINK_BROKEN` (a line removed or reordered), `ENTRY_ALTERED`
+(a line edited), `CHANGED` (a record edited after it was indexed), `MISSING` (a
+record deleted) and `UNINDEXED` (a record added by hand). **`approve` and `sign`
+refuse on any of them, and no override reaches it** — an override is a decision
+about one gate; a broken chain is doubt about every record a signature cites.
+When it fails, that is the finding: say what changed. Do not offer to reseal.
+`reseal` is a human accepting, by name and with a reason, that the records are
+what they now are; it archives the old chain beside the new one, untouched, and
+`guard-bash.mjs` refuses it from the agent's shell.
+
+## Every Checker Speaks One Shape
+
+`--json` from every checking tool — `ac-trace`, `risk-profile`, `fitness`,
+`failure-modes`, `incidents`, `flag-debt`, `artifact-schema`, `docs-lint`,
+`self-audit integrity` — is a **finding report** (`schemas/finding.schema.json`):
+what ran, `ok`, `exit`, a one-line `summary`, and a flat `findings[]` where every
+entry has a `severity` (`block` | `warn` | `info`), a stable kebab-case `code`, a
+`message`, and where it applies a `file`, `line` or `ref`. The tool's own former
+shape is intact under `data`. A tool with nothing to check says `skipped: true`
+and exits 2 — `fitness check` on an un-promoted architecture is skipped, not
+failed. The dashboard's Findings panel is one list over all of them; a tenth tool
+joins by emitting the shape.

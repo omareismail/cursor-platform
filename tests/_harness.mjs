@@ -28,22 +28,27 @@ const failures = [];
 const TMP = mkdtempSync(join(tmpdir(), "platform-tests-"));
 process.on("exit", () => { try { rmSync(TMP, { recursive: true, force: true }); } catch { /* best effort */ } });
 
-const HOOKS = ["_lib.mjs", "_sql.mjs", "guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs"];
-const TOOLS = ["memory-bank.mjs", "lifecycle.mjs"];
+const HOOKS = ["_lib.mjs", "_sql.mjs", "guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs", "session-start.mjs"];
+// lifecycle.mjs imports _state.mjs and lazily imports artifact-schema.mjs and
+// ac-trace.mjs; release-evidence and change-request import lifecycle.mjs. A
+// fixture that copied lifecycle.mjs alone would fail on the import and every
+// state case would be testing the error path instead of the tool.
+const TOOLS = ["memory-bank.mjs", "lifecycle.mjs", "_state.mjs", "_evidence.mjs", "_findings.mjs", "artifact-schema.mjs", "ac-trace.mjs", "release-evidence.mjs", "change-request.mjs", "incidents.mjs", "feature-map.mjs", "self-audit.mjs", "fitness.mjs", "failure-modes.mjs", "flag-debt.mjs", "risk-profile.mjs", "docs-lint.mjs"];
 
 /**
  * A project that has a memory bank, the hooks, and (by default) the tools and
  * policies they read.
  *
- *   withTools    copy .cursor/tools/{memory-bank,lifecycle}.mjs   (default true)
+ *   withTools    copy the tools the hooks and each other import          (default true)
  *   mcpPolicy    object -> written as .cursor/mcp-policy.json
  *                "repo"  -> this repo's real policy               (default)
  *                "corrupt" -> a file that is not JSON
  *                null    -> no policy file at all
  *   writePolicy  copy .cursor/lifecycle/write-policy.json         (default true)
+ *   gates        copy .cursor/lifecycle/gates/ and schemas/       (default false - record-gate needs them)
  *   state        object -> lifecycle/state.json; string -> written verbatim (for corrupt cases)
  */
-export function fixture(name, { withTools = true, mcpPolicy = "repo", writePolicy = true, state = undefined } = {}) {
+export function fixture(name, { withTools = true, mcpPolicy = "repo", writePolicy = true, gates = false, state = undefined } = {}) {
   const root = join(TMP, name);
   mkdirSync(join(root, "memory-bank"), { recursive: true });
   mkdirSync(join(root, ".cursor", "tools"), { recursive: true });
@@ -61,6 +66,10 @@ export function fixture(name, { withTools = true, mcpPolicy = "repo", writePolic
       const src = join(REPO, ".cursor", "tools", t);
       if (existsSync(src)) cpSync(src, join(root, ".cursor", "tools", t));
     }
+  }
+  if (gates) {
+    cpSync(join(REPO, ".cursor", "lifecycle", "gates"), join(root, ".cursor", "lifecycle", "gates"), { recursive: true });
+    cpSync(join(REPO, "schemas"), join(root, "schemas"), { recursive: true });
   }
   if (writePolicy) cpSync(join(REPO, ".cursor", "lifecycle", "write-policy.json"), join(root, ".cursor", "lifecycle", "write-policy.json"));
   if (mcpPolicy === "repo") cpSync(join(REPO, ".cursor", "mcp-policy.json"), join(root, ".cursor", "mcp-policy.json"));
@@ -98,9 +107,30 @@ export function runTool(tool, args, root, env = {}) {
   const r = spawnSync(process.execPath, [join(root, ".cursor", "tools", tool), ...args], {
     encoding: "utf8", cwd: root,
     env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...env },
-    timeout: 20_000,
+    timeout: 60_000,
   });
   return { exit: r.status, out: r.stdout || "", err: r.stderr || "" };
+}
+
+/** A real document: long enough, no template markers, no unfilled [slots]. */
+export const DOC = (title) => `# ${title}\n\n` + Array.from({ length: 6 }, (_, i) => `Paragraph ${i + 1}: real content about ${title}, decided and written down so that a reviewer has something to judge.`).join("\n\n") + "\n";
+
+/** Write a file under the fixture, creating directories. */
+export function put(root, rel, content) {
+  const abs = join(root, ...rel.split("/"));
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, content);
+  return abs;
+}
+
+/** `git init` + one commit inside the fixture, so tools that read git have something to read. */
+export function gitInit(root) {
+  const g = (...a) => spawnSync("git", a, { cwd: root, encoding: "utf8" });
+  g("init", "-q");
+  g("config", "user.email", "fixture@test");
+  g("config", "user.name", "fixture");
+  g("add", "-A");
+  g("commit", "-qm", "fixture", "--allow-empty");
 }
 
 /* -------------------------------------------------------------- payloads */

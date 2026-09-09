@@ -221,7 +221,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 19 validators
+### `.cursor/tools/` — 22 validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.
@@ -335,7 +335,7 @@ running out of context mid-refactor.
 |---|---|---|
 | `session-start.mjs` | session start | Injects memory-bank digest + cache freshness. **Makes rule 00 automatic.** |
 | `guard-write.mjs` | before Write/Edit/Delete | Blocks edits to the caches, `.env`, Tier 2 memory-bank, hardcoded credentials — and to the enforcement surface itself (hooks, wiring, policies, lifecycle records; `protected.paths` in `write-policy.json`) |
-| `guard-bash.mjs` | before Bash | Blocks `dotnet add package`, `npm install <pkg>`, `ef database update`, force-push, `DROP TABLE`, shell writes to protected paths, `psql` writes, and the human-only `lifecycle.mjs approve` / `override` / `init --existing` / `release-evidence.mjs sign` |
+| `guard-bash.mjs` | before Bash | Blocks `dotnet add package`, `npm install <pkg>`, `ef database update`, force-push, `DROP TABLE`, shell writes to protected paths, `psql` writes, and the human-only `lifecycle.mjs approve` / `override` / `init --existing` / `lifecycle.mjs evidence reseal` / `release-evidence.mjs sign` / `self-audit.mjs integrity --write` |
 | `post-edit-verify.mjs` | after Write/Edit | Fast tripwires on the file just written — money as `double`, `DateTime.Now`, sync-over-async, interpolated SQL, `fetch` in a component, physical CSS |
 | `stop-memory-check.mjs` | on stop | Blocks once if source changed but `activeContext.md` did not |
 | `sync-skills.mjs` | manual | Regenerates the shims |

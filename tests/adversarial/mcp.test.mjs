@@ -109,6 +109,8 @@ section("guard-mcp.mjs — SQL through postgres, every field, every shape");
   denies("a second statement", runHook(H, q("SELECT 1; DELETE FROM users"), root), "more than one statement");
   denies("a second statement behind a comment", runHook(H, q("SELECT 1; -- x\nDELETE FROM users"), root), "more than one statement");
   denies("pg_sleep", runHook(H, q("SELECT pg_sleep(30)"), root), "denied for a read-only session");
+  denies("quoted pg_sleep", runHook(H, q('SELECT "pg_sleep"(10)'), root), "denied for a read-only session");
+  denies("quoted schema-qualified lo_unlink", runHook(H, q('SELECT pg_catalog."lo_unlink"(12345)'), root), "denied for a read-only session");
   denies("FOR UPDATE", runHook(H, q("SELECT * FROM users FOR UPDATE"), root), "UPDATE");
   denies("FOR SHARE", runHook(H, q("SELECT * FROM users FOR SHARE"), root), "row locking");
   denies("SQL in a field the old list never read (command)", runHook(H, q("DELETE FROM users", "command"), root), "not an allowed statement");

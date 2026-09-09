@@ -80,12 +80,16 @@ true.
 |---|---|
 | `NOT_STARTED` / `IN_PROGRESS` | no approval yet |
 | `APPROVED` | all three consents, all still valid |
-| `INHERITED` | brownfield; done informally before the lifecycle was adopted |
+| `INHERITED` | brownfield; done informally before adoption — claimed by one named person, checked by a second |
+| `INHERITED_UNVERIFIED` | brownfield claim nobody has checked (or a pre-v3 bare flag). Clears the design gate; a release must accept it by name |
 | `STALE` | **was** approved; something it was approved against changed |
 | `BLOCKED` | an earlier phase is not cleared |
 
-Approval hashes every required artifact and stamps the gate definition's own
-version. So:
+Approval hashes every required artifact — by **content**, recursively for
+directories, with build output and git-ignored files excluded — and stamps the
+gate definition's own version. Each artifact also has a type (`document`,
+`adr-set`, `spec-set`, `source-tree`, `test-suite`, `task-board`, `pipeline`)
+and has to pass as that kind of thing, not merely exist. So:
 
 ```
 DESIGN approved  ->  someone edits docs/design/api-design.md
@@ -200,13 +204,17 @@ A codebase that already exists did not skip phases 1-3 — it did them informall
 years ago, in people's heads.
 
 ```bash
-node .cursor/tools/lifecycle.mjs init --name "<product>" --existing
+node .cursor/tools/lifecycle.mjs init --name "<product>" --existing --by "<claimant>" --review-by "<second person>"
 ```
 
 marks them `INHERITED`, which clears the design gate and starts the product in
-`DEVELOPMENT`. To upgrade a phase to `APPROVED`, produce its artifacts —
-`/feature-inventory` and `/context-sync` reconstruct most of phases 1-2 from the
-code — then `check` and `approve`.
+`DEVELOPMENT`. Leave off `--review-by` and they are `INHERITED_UNVERIFIED`: work
+is still open, but `release-evidence.mjs sign` refuses until the signer names
+each one with `--accept-inherited PHASE`. Without `--by`, or on a repository
+with no commits and no source, `init --existing` is refused — there was nothing
+done informally to inherit. To upgrade a phase to `APPROVED`, produce its
+artifacts — `/feature-inventory` and `/context-sync` reconstruct most of phases
+1-2 from the code — then `check` and `approve`.
 
 ---
 

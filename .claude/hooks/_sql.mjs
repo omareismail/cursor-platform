@@ -142,7 +142,8 @@ export function splitStatements(tokens) {
  * What one statement is, as facts rather than a verdict:
  *   verb            first keyword, upper-cased ("" when the statement is empty)
  *   keywords        every unquoted word, upper-cased
- *   functions       every unquoted word followed by "(", lower-cased
+ *   functions       every word or quoted identifier followed by "(", lower-cased;
+ *                   schema qualification is stripped (`pg_catalog."pg_sleep"` is `pg_sleep`)
  *   dml             a data/schema/session-changing keyword appears ANYWHERE
  *   explainAnalyze  EXPLAIN with ANALYZE/ANALYSE among its options - it EXECUTES
  *   explained       for EXPLAIN, the verb of the statement being explained
@@ -155,7 +156,16 @@ export function classifyStatement(tokens) {
   const keywords = new Set(words.map((w) => w.v.toUpperCase()));
   const functions = new Set();
   for (let i = 0; i < tokens.length - 1; i++) {
-    if (tokens[i].t === "word" && tokens[i + 1].t === "punct" && tokens[i + 1].v === "(") functions.add(tokens[i].v.toLowerCase());
+    const ident = (t) => t && (t.t === "word" || t.t === "quoted");
+    const nameOf = (t) => String(t.v).replace(/^"+|"+$/g, "").toLowerCase();
+    // schema-qualified: ident . ident (
+    if (ident(tokens[i]) && tokens[i + 1]?.t === "punct" && tokens[i + 1].v === "."
+        && ident(tokens[i + 2]) && tokens[i + 3]?.t === "punct" && tokens[i + 3].v === "(") {
+      functions.add(nameOf(tokens[i + 2]));
+      i += 2;
+      continue;
+    }
+    if (ident(tokens[i]) && tokens[i + 1].t === "punct" && tokens[i + 1].v === "(") functions.add(nameOf(tokens[i]));
   }
   const dml = [...keywords].filter((k) => DML_KEYWORDS.has(k));
 

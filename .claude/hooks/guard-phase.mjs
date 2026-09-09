@@ -22,9 +22,10 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { readPayload, projectDir, relPath, targetPath, block, ok, fileUrlPath } from "./_lib.mjs";
+import { readPayload, projectDir, relPath, targetPath, isReadTool, block, ok, fileUrlPath } from "./_lib.mjs";
 
 const p = await readPayload();
+if (isReadTool(p)) ok();
 const file = relPath(targetPath(p));
 if (!file) ok();
 

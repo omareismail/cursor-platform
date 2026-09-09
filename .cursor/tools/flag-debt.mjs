@@ -33,6 +33,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { report, emit, block, warn, info } from "./_findings.mjs";
 import { join, extname } from "node:path";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
@@ -171,7 +172,21 @@ function scan(args) {
   const result = { scanned: files.length, declared: declared.size, used: used.size,
                    expired, expiringSoon, noOwner, undeclared, orphanDecl, healthy };
 
-  if (json) { out(JSON.stringify(result, null, 2)); return expired.length || (strict && undeclared.length) ? 1 : 0; }
+  if (json) {
+    const findings = [
+      ...expired.map((f) => block("expired-flag", `${f.name} expired ${f.overdueDays}d ago (owner ${f.owner || "none"}, ${f.uses} use site(s))`, { ref: f.name, file: f.file, line: f.line })),
+      ...expiringSoon.map((f) => warn("expiring-flag", `${f.name} expires in ${f.inDays}d (owner ${f.owner || "none"})`, { ref: f.name, file: f.file, line: f.line })),
+      ...noOwner.map((f) => warn("unowned-flag", `${f.name}: ${f.missing.join(", ")}`, { ref: f.name, file: f.file, line: f.line })),
+      ...undeclared.map((f) => (strict ? block : warn)("undeclared-flag", `${f.name} is read in ${f.uses} place(s) and has no FLAG: declaration`, { ref: f.name, file: f.sites[0]?.file, line: f.sites[0]?.line })),
+      ...orphanDecl.map((f) => info("orphan-flag", `${f.name} is declared and never read`, { ref: f.name, file: f.file, line: f.line })),
+    ];
+    const bad = expired.length + (strict ? undeclared.length : 0);
+    return emit(report({
+      tool: "flag-debt.mjs", command: "scan", findings,
+      summary: bad ? `FAILED: ${expired.length} expired${strict && undeclared.length ? `, ${undeclared.length} undeclared` : ""}` : `OK: no expired flags`,
+      data: result,
+    }));
+  }
 
   out(`# Feature-flag debt\n`);
   out(`  ${files.length} files scanned | ${declared.size} declared, ${used.size} in use\n`);

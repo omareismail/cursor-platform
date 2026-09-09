@@ -23,6 +23,13 @@
 #            state that opened the design gate).
 #   audit    self-audit run — wiring, plus docs-lint, platform-metadata and
 #            build-plugin check, which it composes rather than reimplements.
+#   integrity  Every file that enforces something (hooks, wiring, policies,
+#            gates, lifecycle.mjs) still hashes to what a human attested in
+#            lifecycle/integrity.json. The guards stop an agent editing a
+#            guard; this catches everyone else.
+#   evidence The hash chain over lifecycle/ records (index.jsonl). This repo
+#            has no product state.json, so the job skips cleanly until one
+#            exists; the adopter template runs the same walk.
 #   plugin   The distributable is rebuilt from source and must come out
 #            identical. A plugin built by hand months ago is a second, silently
 #            diverging copy of the platform.
@@ -98,6 +105,41 @@ jobs:
       # check, so this one command is the whole static surface.
       - name: node .cursor/tools/self-audit.mjs run
         run: node .cursor/tools/self-audit.mjs run
+
+  integrity:
+    name: the enforcement surface is what a human attested
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # The hooks refuse an agent's edit to a hook. They cannot refuse an edit
+      # made with the escape variable, from a clone without hooks, or in a web
+      # editor. lifecycle/integrity.json is a human's sha256 attestation of every
+      # enforcing file; this fails when any of them changed without the manifest
+      # changing with it. A PR that touches a guard therefore also touches the
+      # manifest, and the reviewer sees both.
+      - name: node .cursor/tools/self-audit.mjs integrity
+        run: node .cursor/tools/self-audit.mjs integrity
+
+  evidence:
+    name: the lifecycle records are the ones that were written
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # This repo is the platform and has no product state.json, so the chain
+      # usually does not exist yet. Skip cleanly; an adopter with records gets
+      # the same walk from templates/ci/lifecycle-gates.yml.
+      - name: node .cursor/tools/lifecycle.mjs evidence
+        run: |
+          [ -f lifecycle/index.jsonl ] || { echo "::notice::No evidence chain yet. It starts with the first record the lifecycle writes."; exit 0; }
+          node .cursor/tools/lifecycle.mjs evidence
 
   plugin:
     name: the built plugin matches its source

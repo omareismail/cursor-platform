@@ -36,6 +36,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { report, emit, block } from "./_findings.mjs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
@@ -514,9 +515,23 @@ function cmdCheck(args) {
     if (d.required && !d.found.length) findings.unlinked.push({ id: v.id, file: v.file, targets: d.targets });
   }
 
-  if (args.includes("--json")) return console.log(JSON.stringify(findings, null, 2));
-
   const n = Object.values(findings).reduce((a, x) => a + x.length, 0);
+  if (args.includes("--json")) {
+    const list = [
+      ...findings.dangling.map((d) => block("dangling-id", `${d.id} is cited in ${d.file} and defined nowhere`, { ref: d.id, file: d.file })),
+      ...findings.duplicate.map((d) => block("duplicate-id", `${d.id} is defined in ${d.first} and again in ${d.again}`, { ref: d.id, file: d.again, line: d.line })),
+      ...findings.misplaced.map((d) => block("misplaced-id", `${d.id} is defined in ${d.file}; the prefix belongs to ${d.want}`, { ref: d.id, file: d.file, line: d.line })),
+      ...findings.unlinked.map((d) => block("unlinked-id", `${d.id} is defined and reaches no ${d.targets.join(" or ")}`, { ref: d.id, file: d.file })),
+    ];
+    process.exitCode = emit(report({
+      tool: "artifact-schema.mjs", command: "check", findings: list,
+      skipped: !g.byId.size, exit: !g.byId.size ? 0 : n ? 1 : 0,
+      summary: !g.byId.size ? "no ids found - nothing to check yet" : n ? `${n} traceability finding(s)` : `traceability intact: ${g.byId.size} ids across ${g.files.length} document(s)`,
+      data: findings,
+    }));
+    return;
+  }
+
   if (!g.byId.size) { console.log("No ids found — nothing to check yet."); return; }
   if (!n) {
     console.log(`Traceability intact: ${g.byId.size} ids across ${g.files.length} document(s), every chain reaches its next link.`);

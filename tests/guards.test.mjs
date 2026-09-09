@@ -66,7 +66,7 @@ import { join } from "node:path";
 // The fixture and the assertions live in _harness.mjs, shared with the
 // adversarial suites. The hook is still run from INSIDE the fixture, never from
 // this repository - see the harness for why.
-import { fixture, runHook, write, bash, check, denies, allows, report } from "./_harness.mjs";
+import { fixture, runHook, write, bash, check, denies, allows, cursorAllows, report } from "./_harness.mjs";
 
 /* --------------------------------------------------------- guard-write */
 
@@ -122,6 +122,9 @@ console.log("\nguard-phase.mjs — source may not exist before the design gate c
   }, null, 2));
   denies("source before DESIGN is refused", runHook("guard-phase.mjs", write(join(adopted, "src/Payments/Handler.cs")), adopted), "BLOCKED");
   allows("a document is not source", runHook("guard-phase.mjs", write(join(adopted, "docs/analysis.md")), adopted));
+  const readSrc = { hook_event_name: "preToolUse", cursor_version: "1", workspace_roots: [adopted], tool_name: "Read", tool_input: { file_path: join(adopted, "src/Payments/Handler.cs") } };
+  cursorAllows("Cursor: Read of src during REQUIREMENTS is not a write", runHook("guard-phase.mjs", readSrc, adopted));
+  cursorAllows("...and guard-write agrees on the same payload", runHook("guard-write.mjs", readSrc, adopted));
 }
 
 /* ---------------------------------------------------------- guard-bash */

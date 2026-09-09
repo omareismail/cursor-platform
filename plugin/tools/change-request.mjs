@@ -37,7 +37,9 @@
  * Exit codes:  0 = ok   1 = refused / not found   2 = usage
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { writeJsonAtomic, nextSequentialId, actor } from "./_state.mjs";
+import { recordFile } from "./_evidence.mjs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -47,6 +49,12 @@ function repoRoot() {
   catch { return null; }
 }
 const CR_DIR = () => join(ROOT, "lifecycle", "changes");
+
+/** Index a record that was just written. The record stands either way; say so if the index did not. */
+function chained(relPath, kind, meta) {
+  try { return recordFile(ROOT, relPath, kind, meta); }
+  catch (e) { console.error(`WARN  ${relPath} was written but could not be added to lifecycle/index.jsonl: ${e.message}`); return null; }
+}
 
 const load = async (mod) => import(new URL(`./${mod}`, import.meta.url).href);
 
@@ -135,7 +143,7 @@ async function forecast(seeds) {
   const invalidates = [];
   for (const [phase] of phases) {
     const st = derived?.[phase]?.status;
-    if (st === "APPROVED" || st === "INHERITED") invalidates.push({ phase, status: st });
+    if (st === "APPROVED" || st === "INHERITED" || st === "INHERITED_UNVERIFIED") invalidates.push({ phase, status: st });
   }
   return { g, seeds, impacted, missing, files, phases, derived, invalidates };
 }
@@ -176,11 +184,9 @@ function render(f) {
 
 /* ------------------------------------------------------------------- commands */
 
-const nextId = () => {
-  mkdirSync(CR_DIR(), { recursive: true });
-  const n = readdirSync(CR_DIR()).filter((f) => /^CR-\d+\.json$/.test(f)).length;
-  return `CR-${String(n + 1).padStart(4, "0")}`;
-};
+// max+1, never count+1: delete CR-0002 and count+1 would hand CR-0003 out twice,
+// overwriting a record that somebody's phase re-approval cites.
+const nextId = () => nextSequentialId(CR_DIR(), "CR", 4);
 
 async function cmdOpen(args) {
   const reason = valueOf(args, "--reason");
@@ -206,9 +212,11 @@ async function cmdOpen(args) {
     documents: f.files,
     phases: Object.fromEntries([...f.phases].map(([p, s]) => [p, { documents: [...s], statusAtOpen: f.derived?.[p]?.status || null }])),
     reApprovalRequired: f.invalidates.map((x) => x.phase),
+    recordedBy: actor(ROOT),
   };
-  mkdirSync(CR_DIR(), { recursive: true });
-  writeFileSync(join(CR_DIR(), `${id}.json`), JSON.stringify(cr, null, 2) + "\n", "utf8");
+  if (existsSync(join(CR_DIR(), `${id}.json`))) die(`${id} already exists - another session opened one at the same moment. Re-run.`, 1);
+  writeJsonAtomic(join(CR_DIR(), `${id}.json`), cr);
+  chained(`lifecycle/changes/${id}.json`, "change-request", { id, by, risk });
   console.log(`\n${id} opened by ${by} (risk ${risk}).`);
   console.log(`  lifecycle/changes/${id}.json`);
   console.log(`\nNow revise the documents listed above. Each phase whose documents you touch`);
@@ -258,7 +266,9 @@ function cmdClose(args) {
   cr.status = "CLOSED";
   cr.closedAt = new Date().toISOString();
   cr.closeNote = valueOf(args, "--note") || "";
-  writeFileSync(p, JSON.stringify(cr, null, 2) + "\n", "utf8");
+  cr.closedBy = actor(ROOT);
+  writeJsonAtomic(p, cr);
+  chained(`lifecycle/changes/${id}.json`, "change-request-closed", { id });
   console.log(`${id} closed.`);
   if (cr.reApprovalRequired?.length) {
     console.log(`\nIt forecast re-approval for: ${cr.reApprovalRequired.join(", ")}`);

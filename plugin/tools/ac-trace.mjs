@@ -38,11 +38,12 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { report, emit, block, warn } from "./_findings.mjs";
 import { join, extname, relative } from "node:path";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
 
-const TEST_EXT = new Set([".cs", ".ts", ".tsx", ".js", ".jsx"]);
+const TEST_EXT = new Set([".cs", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
 const TEST_PATH = /(^|\/)(tests?|__tests__|spec)(\/|$)|\.(test|spec)\.[jt]sx?$|Tests?\.cs$/i;
 const SKIP_DIR = /(^|\/)(bin|obj|node_modules|dist|\.next|coverage|TestResults|\.git)(\/|$)/;
 
@@ -144,9 +145,15 @@ function fail(msg, code = 2) { process.stderr.write(msg + "\n"); process.exit(co
 
 // ---------------------------------------------------------------- parsing --
 
-/** Acceptance criteria declared in a spec, with the line they appear on. */
+function specSlug(rel) {
+  return String(rel).replace(/\\/g, "/").replace(/^.*\//, "").replace(/\.md$/i, "");
+}
+
+/** Acceptance criteria declared in a spec, with the line they appear on.
+ *  Keyed by spec-slug + AC number so two features each numbering from AC-1
+ *  do not collapse into one criterion. */
 function specACs(files, explicit = false) {
-  const acs = new Map();   // "AC-3" -> {id, num, spec, line, text}
+  const acs = new Map();   // "login:AC-3" -> {id, key, num, spec, slug, line, text}
   for (const rel of files) {
     if (!rel.endsWith(".md")) continue;
     // Only real specs. Matching any path containing "spec" pulls in
@@ -155,16 +162,15 @@ function specACs(files, explicit = false) {
     if (!explicit && !/^specs?\//.test(rel)) continue;
     let text; try { text = readFileSync(join(ROOT, rel), "utf8"); } catch { continue; }
     if (!/\bAC-\d/.test(text)) continue;
+    const slug = specSlug(rel);
     text.split("\n").forEach((line, i) => {
       AC_IN_SPEC.lastIndex = 0;
       for (const m of line.matchAll(AC_IN_SPEC)) {
         const num = Number(m[1]);
-        const id = `AC-${num}`;
-        // The first mention with descriptive text wins; a bare cross-reference
-        // later in the doc should not overwrite the definition.
+        const key = `${slug}:AC-${num}`;
         const desc = line.replace(/^[\s|*\-#>]*/, "").replace(/\bAC-\d{1,3}\b\s*[:.\-]?\s*/, "").trim();
-        if (!acs.has(id) || (!acs.get(id).text && desc)) {
-          acs.set(id, { id, num, spec: rel, line: i + 1, text: desc.slice(0, 120) });
+        if (!acs.has(key) || (!acs.get(key).text && desc)) {
+          acs.set(key, { id: `AC-${num}`, key, num, spec: rel, slug, line: i + 1, text: desc.slice(0, 120) });
         }
       }
     });
@@ -215,19 +221,69 @@ function bindClaim(ci, marks) {
 
 const lineOf = (text, idx) => text.slice(0, idx).split("\n").length;
 
+function skippedSuiteRanges(text) {
+  const ranges = [];
+  const re = /\b(?:describe|context|suite)\.(?:skip|todo)\s*\(|^\s*xdescribe\s*\(/gm;
+  for (const m of text.matchAll(re)) {
+    const open = text.indexOf("{", m.index);
+    if (open < 0) continue;
+    let depth = 0;
+    for (let i = open; i < text.length; i++) {
+      if (text[i] === "{") depth++;
+      else if (text[i] === "}") {
+        depth--;
+        if (depth === 0) { ranges.push([m.index, i + 1]); break; }
+      }
+    }
+  }
+  return ranges;
+}
+const inRange = (ranges, pos) => ranges.some(([a, b]) => pos >= a && pos < b);
+
+function inferClaimSlug(fileRel, note, slugs) {
+  const posix = String(fileRel).replace(/\\/g, "/");
+  for (const slug of slugs) {
+    if (!slug) continue;
+    if (posix.includes(`/${slug}/`) || posix.includes(`/${slug}.`) || posix.includes(`/${slug}-`) || posix.endsWith(`/${slug}`)) return slug;
+    if (note && new RegExp(`(?:^|[^a-z0-9-])${slug.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}(?:\\.md)?(?:[^a-z0-9-]|$)`, "i").test(note)) return slug;
+  }
+  return null;
+}
+
+function weakOf(body) {
+  const hits = WEAK_ASSERTION.filter(([re]) => re.test(body));
+  if (!hits.length) return [];
+  const alone = hits.filter(([, why]) => /alone/.test(why));
+  const other = hits.filter(([, why]) => !/alone/.test(why));
+  if (alone.length && !other.length) {
+    const rest = body
+      .replace(/\bexpect\s*\(\s*[\w.]+\s*\)\s*\.\s*toBeDefined\s*\(\s*\)\s*;?/g, "")
+      .replace(/\bShould\s*\(\s*\)\s*\.\s*NotBeNull\s*\(\s*\)\s*;?/g, "")
+      .replace(/\.\s*Should\s*\(\s*\)\s*\.\s*BeOfType\s*<[^>]+>\s*\(\s*\)\s*;?/g, "");
+    if (ASSERTION.test(rest)) return [];
+  }
+  return hits.map(([, why]) => why);
+}
+
 /** AC claims found in test files, each attributed to the test it describes. */
-function testClaims(files) {
+function testClaims(files, acs, { scoped = false } = {}) {
   const claims = [];
   const unclaimed = [];
   const fileStats = [];
+  const slugs = [...new Set([...acs.values()].map((a) => a.slug))];
+  const numsBySlug = new Map();
+  for (const ac of acs.values()) {
+    if (!numsBySlug.has(ac.num)) numsBySlug.set(ac.num, []);
+    numsBySlug.get(ac.num).push(ac);
+  }
 
   for (const rel of files) {
     if (!TEST_EXT.has(extname(rel)) || !TEST_PATH.test(rel) || SKIP_DIR.test("/" + rel)) continue;
     let text; try { text = readFileSync(join(ROOT, rel), "utf8"); } catch { continue; }
     const { parts, marks } = splitTests(text);
     if (!parts.length) continue;
+    const skippedSuites = skippedSuiteRanges(text);
 
-    // Bind every claim in the file to a test index first.
     const claimsByTest = new Map();
     AC_IN_TEST.lastIndex = 0;
     for (const m of text.matchAll(AC_IN_TEST)) {
@@ -239,10 +295,10 @@ function testClaims(files) {
 
     let claimedHere = 0;
     parts.forEach((p, i) => {
-      const skipped = SKIP_MARK.test(p.body) || SKIP_JS.test(p.body) || IGNORE_CS.test(p.body);
+      const skipped = SKIP_MARK.test(p.body) || SKIP_JS.test(p.body) || IGNORE_CS.test(p.body) || inRange(skippedSuites, p.start);
       const hasAssertion = ASSERTION.test(p.body);
       const negative = THROWS.test(p.body) || STATUS_4XX.test(p.body) || NEGATIVE_NAME.test(nameOf(p.body));
-      const weak = WEAK_ASSERTION.filter(([re]) => re.test(p.body)).map(([, why]) => why);
+      const weak = weakOf(p.body);
       const mine = claimsByTest.get(i) || [];
 
       if (!mine.length) {
@@ -251,9 +307,18 @@ function testClaims(files) {
       }
       claimedHere += mine.length;
       for (const c of mine) {
+        let feature = inferClaimSlug(rel, c.note, slugs);
+        const sameNum = numsBySlug.get(c.num) || [];
+        let ambiguous = false;
+        if (!feature) {
+          if (scoped) feature = null;
+          else if (sameNum.length === 1) feature = sameNum[0].slug;
+          else if (sameNum.length > 1) ambiguous = true;
+        }
+        const key = feature ? `${feature}:AC-${c.num}` : `AC-${c.num}`;
         claims.push({
-          ac: `AC-${c.num}`, file: rel, line: lineOf(text, c.at),
-          note: c.note, skipped, vacuous: !hasAssertion, weak, negative,
+          ac: key, id: `AC-${c.num}`, file: rel, line: lineOf(text, c.at),
+          note: c.note, skipped, vacuous: !hasAssertion, weak, negative, feature, ambiguous,
         });
       }
     });
@@ -265,7 +330,15 @@ function testClaims(files) {
 // ---------------------------------------------------------------- analysis --
 function analyse(acs, claims) {
   const byAc = new Map();
+  const ambiguous = [];
   for (const c of claims) {
+    if (c.ambiguous) { ambiguous.push(c); continue; }
+    if (!acs.has(c.ac)) {
+      if (!c.feature) continue;
+      if (!byAc.has(c.ac)) byAc.set(c.ac, []);
+      byAc.get(c.ac).push(c);
+      continue;
+    }
     if (!byAc.has(c.ac)) byAc.set(c.ac, []);
     byAc.get(c.ac).push(c);
   }
@@ -285,10 +358,10 @@ function analyse(acs, claims) {
     .filter(([id]) => !acs.has(id))
     .map(([id, cs]) => ({ ac: id, claims: cs }));
 
-  const vacuous = claims.filter(c => c.vacuous);
+  const vacuous = claims.filter(c => c.vacuous && !c.ambiguous);
   const weak = claims.filter(c => c.weak.length);
 
-  return { uncovered, skippedOnly, vacuousOnly, covered, orphans, vacuous, weak, byAc };
+  return { uncovered, skippedOnly, vacuousOnly, covered, orphans, vacuous, weak, byAc, ambiguous };
 }
 
 /* --------------------------------------------------------------------------
@@ -317,7 +390,7 @@ export function load(args) {
   } else {
     acs = specACs(files);
   }
-  const { claims, unclaimed, fileStats } = testClaims(files);
+  const { claims, unclaimed, fileStats } = testClaims(files, acs, { scoped: !!specArg });
   return { acs, claims, unclaimed, fileStats, specArg, files };
 }
 
@@ -328,13 +401,27 @@ const CMDS = {
     const json = args.includes("--json");
 
     if (json) {
-      out(JSON.stringify({
-        scope: specArg || "all specs", acs: acs.size, claims: claims.length,
-        uncovered: a.uncovered, orphans: a.orphans, skippedOnly: a.skippedOnly,
-        vacuousOnly: a.vacuousOnly, vacuous: a.vacuous, weak: a.weak,
-        covered: a.covered.length, unclaimedTests: unclaimed.length,
-      }, null, 2));
-      return failures(a) ? 1 : 0;
+      const where = (x) => ({ ref: x.id || x.ac, file: x.spec || x.file, line: x.line });
+      const findings = [
+        ...a.uncovered.map((x) => block("uncovered", `${x.id}: no test claims this criterion`, where(x))),
+        ...a.orphans.map((x) => block("orphan-claim", `${x.ac || x.id}: a test claims a criterion no spec defines`, { ref: x.ac || x.id, file: x.file || x.claims?.[0]?.file, line: x.line || x.claims?.[0]?.line })),
+        ...a.ambiguous.map((x) => block("ambiguous-claim", `${x.id}: claim is not bound to a feature, and more than one spec defines it`, { ref: x.id, file: x.file, line: x.line })),
+        ...a.skippedOnly.map((x) => block("skipped-only", `${x.id}: every test claiming it is skipped`, where(x))),
+        ...a.vacuousOnly.map((x) => block("vacuous-only", `${x.id}: every test claiming it has no assertion, or one that cannot fail`, where(x))),
+        ...a.vacuous.map((x) => warn("vacuous-test", `${x.file}:${x.line} claims ${x.ac} and asserts nothing`, { ref: x.ac, file: x.file, line: x.line })),
+        ...a.weak.map((x) => warn("weak-assertion", `${x.file}:${x.line} claims ${x.ac} with an assertion that cannot fail: ${x.weak[0]}`, { ref: x.ac, file: x.file, line: x.line })),
+      ];
+      return emit(report({
+        tool: "ac-trace.mjs", command: "check", findings,
+        skipped: !acs.size, exit: !acs.size ? 0 : failures(a) ? 1 : 0,
+        summary: !acs.size ? "no acceptance criteria found - nothing to trace" : failures(a) ? `FAILED: ${failures(a)} criterion/criteria without a real test` : `OK: ${a.covered.length} of ${acs.size} criteria genuinely covered`,
+        data: {
+          scope: specArg || "all specs", acs: acs.size, claims: claims.length,
+          uncovered: a.uncovered, orphans: a.orphans, skippedOnly: a.skippedOnly,
+          vacuousOnly: a.vacuousOnly, vacuous: a.vacuous, weak: a.weak,
+          covered: a.covered.length, unclaimedTests: unclaimed.length,
+        },
+      }));
     }
 
     out(`# AC traceability — ${specArg || "all specs"}\n`);
@@ -358,6 +445,11 @@ const CMDS = {
       out(`   Either the spec changed and the test was not updated, or the test is`);
       out(`   claiming coverage it does not have. Both are worth knowing.`);
       for (const o of a.orphans) for (const c of o.claims) out(`  ${pad(o.ac, 8)} ${c.file}:${c.line}`);
+      out("");
+    }
+    if (a.ambiguous.length) {
+      out(`## AMBIGUOUS CLAIMS (${a.ambiguous.length}) — AC-N without a feature, and more than one spec defines it`);
+      for (const c of a.ambiguous) out(`  ${pad(c.id, 8)} ${c.file}:${c.line}`);
       out("");
     }
     if (a.skippedOnly.length) {
@@ -459,7 +551,7 @@ const CMDS = {
 
 const failures = (a) =>
   a.uncovered.length + a.orphans.length + a.skippedOnly.length +
-  a.vacuousOnly.length + a.vacuous.length + a.weak.length;
+  a.vacuousOnly.length + a.vacuous.length + a.weak.length + (a.ambiguous?.length || 0);
 
 // Only run the CLI when this file IS the program. Without the guard, importing
 // it from another tool executes a command chosen from that tool's argv and then

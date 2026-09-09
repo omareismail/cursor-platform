@@ -1,25 +1,33 @@
 # Active Context
-**Last Updated:** 2026-09-09 14:30
-**Current branch:** main (uncommitted working tree)
-**Recently modified files:** `.claude/hooks/{_lib,_sql,guard-write,guard-bash,guard-mcp,guard-phase}.mjs`, `.cursor/mcp-policy.json`, `.cursor/lifecycle/write-policy.json`, `.cursor/hooks.json`, `.cursor/tools/{lifecycle,self-audit,build-plugin,platform-metadata,artifact-schema}.mjs`, `tests/**`, `templates/postgres/readonly-role.sql`, `.github/workflows/platform-checks.yml`, docs (`CLAUDE.md`, `HANDBOOK*.md`, rule 11, `lifecycle-gate` skill, `mcp-ecosystem.md`, `lifecycle/README.md`), `plugin/` (rebuilt)
-**Active feature:** Governance hardening, Phase A (P0) — complete, awaiting commit and Phase B go-ahead
+**Last Updated:** 2026-09-09 18:30
+**Current branch:** platform-ui
+**Recently modified files:** governance tools and hooks, `lifecycle/integrity.json`, rebuilt `plugin/`
+**Active feature:** Governance hardening — Phases A–C plus R1–R14; integrity attested 2026-09-09 by omar ismail
 
-## What was just done (Phase A)
+## What was just done (review-fix R1–R14)
 
-- **E-01** `guard-mcp.mjs`: unknown server/tool → deny; policy v2 access levels (`deny` / `read-only` / `restricted-write` / `full`); camelCase-aware read/write classification; missing or corrupt policy denies everything.
-- **E-02** `_sql.mjs`: tokenizer-based statement classifier (CTE writes, `EXPLAIN ANALYZE`, multi-statement behind comments/literals, `FOR UPDATE`, `SELECT INTO`, denied functions); scans every argument field; `psql` rule in `guard-bash`; `templates/postgres/readonly-role.sql` as the system-boundary layer.
-- **E-03** Protected paths (`write-policy.json → protected.paths`, fallback in `_lib.mjs`): `guard-write` (all tools incl. Delete) and `guard-bash` (redirects, cmdlets, rm/mv/cp/sed, interpreters, git checkout/restore, cd-rebased, parent dirs) refuse agent writes to hooks, wiring, policies, `lifecycle.mjs`, `.mcp.json`, lifecycle records. Escape `CURSOR_PLATFORM_DEV=1`.
-- **E-04** `relPath` / `fileUrlPath` fixed for Windows drive-letter case and plugin `file:` URLs; `artifact-schema.mjs` fallback path fixed.
-- **E-05** `lifecycle.readStateInfo()`: corrupt state ≠ missing; `guard-phase` / `guard-mcp` fail closed; `lifecycle.mjs` no longer suggests `init` over a corrupt file.
-- **E-06** `failClosed: true` on the four guards in `.cursor/hooks.json` and the generated plugin wiring; `_lib.ok()` answers `{"permission":"allow"}` on Cursor deciding events (Cursor treats silent exit 0 as failure); self-audit **A10** (failClosed + allow line) and **A11** (protected list vs fallback).
-- **E-07** `guard-bash` refuses `lifecycle.mjs approve|override|init --existing` and `release-evidence.mjs sign` from the agent shell, no escape.
-- **E-27** `tests/_harness.mjs`, `tests/run.mjs`, `tests/adversarial/{sql,mcp,bash,write,state,paths}.test.mjs` — 342 assertions, 7 suites; CI `guards` job runs `tests/run.mjs`; self-audit A7 requires it.
+The 9 September project review found 14 correctness issues in the uncommitted A–C work. Those are now fixed, with regressions in the adversarial suites. This is not Phase D.
 
-## Next logical step
+- **R1** Protected integrity/index records and the new verifiers in both the policy and the fallback; tests name each path.
+- **R2** `writeState` refuses to replace a `state.json` the chain already reports as CHANGED.
+- **R3** Release checkers load as siblings of the running tool; missing required checker = failure; plugin-only adopter covered.
+- **R4** Integrity enumerates from the plugin install directory; 0 files or a missing required guard is FAIL.
+- **R5** A new present `anyOf` root stales an existing approval.
+- **R6–R7, R14** AC ids are feature-scoped; skipped suites skip their tests; `toBeDefined` + a real assertion is not weak.
+- **R8–R9** Adopter CI `node -e` parses; bootstrap copies `.claude`, `schemas`, `CLAUDE.md`.
+- **R10** `cut` refuses untracked files under approved artifact roots.
+- **R11** Quoted / schema-qualified SQL function identifiers are classified.
+- **R12** `guard-phase` exempts Read the same way `guard-write` does.
+- **R13** Weak incident guards fail JSON the same as text.
 
-1. Human review + commit of the working tree (agent cannot edit hooks/policies any more — by design).
-2. Phase B — Lifecycle integrity (P1) from the analysis report: recursive content hashes + `anyOf` (E-08), typed artifact evidence + traceability at `approve` (E-09), atomic writes + `revision` CAS (E-10), `INHERITED` basis / `INHERITED_UNVERIFIED` (E-11), actor capture on approvals (E-12), `session-start` derives status via `lifecycle.mjs` (E-13), `feature-map.mjs reasons()` crash (E-14), integrity manifest `lifecycle/integrity.json` (E-15).
+## Tests
+
+`node tests/run.mjs`: **15 suites, 723 assertions, 0 failed.** Plugin rebuilt (`plugin/` digest from `build-plugin.mjs build`).
+
+## Next logical step (human)
+
+1. Phase D — Orchestration: skills index (E-20) and docs-lint hyphen / `.mdc` / Arabic patterns (E-21). Then E and F.
 
 ## Open questions for the human
 
-- Whether `CURSOR_PLATFORM_DEV=1` should be set in this (platform) repo's editor environment, so the platform's own maintenance sessions can edit hooks — or whether hook edits should always go through a human.
+- Whether `CURSOR_PLATFORM_DEV=1` should stay set globally. Right for this repo; wrong for any adopter repo opened in the same editor.

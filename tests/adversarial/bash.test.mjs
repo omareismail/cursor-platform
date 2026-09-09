@@ -79,6 +79,13 @@ section("guard-bash.mjs — shell writes to the enforcement surface");
     "echo x > .cursor/lifecycle/gates/design.md",
     "echo x > .mcp.json",
     'echo "{}" > .cursor/cache/repo-map.json',
+    'echo "{}" > lifecycle/integrity.json',
+    "echo x > lifecycle/index.jsonl",
+    "echo x > .cursor/tools/_state.mjs",
+    "echo x > .cursor/tools/_evidence.mjs",
+    "echo x > .cursor/tools/self-audit.mjs",
+    "echo x > .cursor/tools/release-evidence.mjs",
+    "Remove-Item lifecycle/integrity.json",
     // Windows separators and absolute paths
     'echo "{}" > .cursor\\mcp-policy.json',
     `echo "{}" > ${abs(".cursor/mcp-policy.json")}`,

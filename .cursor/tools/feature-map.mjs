@@ -31,8 +31,9 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join, dirname, resolve, sep } from "node:path";
+import { readFileSync, existsSync } from "node:fs";
+import { writeJsonAtomic } from "./_state.mjs";
+import { join, resolve, sep } from "node:path";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || findRepoRoot() || process.cwd();
 const MAP_PATH = join(ROOT, ".cursor", "cache", "feature-map.json");
@@ -136,8 +137,7 @@ function load({ required = true } = {}) {
 
 function save(m) {
   m.generatedAt = new Date().toISOString();
-  mkdirSync(dirname(MAP_PATH), { recursive: true });
-  writeFileSync(MAP_PATH, JSON.stringify(m, null, 2) + "\n", "utf8");
+  writeJsonAtomic(MAP_PATH, m);
 }
 
 const out = (s = "") => process.stdout.write(s + "\n");
@@ -375,10 +375,12 @@ const CMDS = {
 
 // ------------------------------------------------------------------ utils ---
 const pad = (s, n) => String(s).slice(0, n - 1).padEnd(n);
+// Only fields assess() actually sets. A reason for a field it never fills in
+// (`uncommitted` was one) throws on the first stale feature, and `list` died on
+// the exact row it existed to show.
 const reasons = (r) => [
   r.changed.length && `${r.changed.length} changed`,
   r.missing.length && `${r.missing.length} missing`,
-  r.uncommitted.length && `${r.uncommitted.length} uncommitted`,
   r.agedOut && `${r.ageDays}d old`,
 ].filter(Boolean).join(", ");
 

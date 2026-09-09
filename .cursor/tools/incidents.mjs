@@ -56,7 +56,10 @@
  *              2 = usage
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { writeJsonAtomic } from "./_state.mjs";
+import { recordFile } from "./_evidence.mjs";
+import { report, emit, block } from "./_findings.mjs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -174,8 +177,9 @@ const CMDS = {
       note: valueOf(args, "--note") || "",
       recurrenceOf: prior.map((p) => p.id),
     };
-    mkdirSync(DIR(), { recursive: true });
-    writeFileSync(join(DIR(), `${rec.id}.json`), JSON.stringify(rec, null, 2) + "\n", "utf8");
+    writeJsonAtomic(join(DIR(), `${rec.id}.json`), rec);
+    try { recordFile(ROOT, `lifecycle/incidents/${rec.id}.json`, "incident", { id: rec.id, detected: rec.detected, by: rec.openedBy }); }
+    catch (e) { process.stderr.write(`WARN  ${rec.id} was written but could not be added to lifecycle/index.jsonl: ${e.message}\n`); }
 
     out(`${rec.id} recorded.`);
     for (const g of rec.guards) {
@@ -207,8 +211,19 @@ const CMDS = {
     const list = all();
     if (args.includes("--json")) {
       const rows = list.map((i) => ({ ...i, guards: (i.guards || []).map((g) => ({ ...g, ...verify(g.spec) })) }));
-      out(JSON.stringify(rows, null, 2));
-      return rows.some((i) => i.guards.some((g) => g.state !== "PRESENT")) ? 1 : 0;
+      const findings = [];
+      for (const i of rows) {
+        for (const g of i.guards) if (g.state !== "PRESENT") findings.push(block(`guard-${g.state.toLowerCase()}`, `${i.id}: the guard it bought is ${g.state} - ${g.spec}: ${g.why}`, { ref: i.id, file: g.spec.split("#")[0], detail: { spec: g.spec, rung: g.rung } }));
+        const best = i.guards.length ? Math.min(...i.guards.map((g) => g.rung)) : 9;
+        if (best >= 7 && !i.unmechanisable) findings.push(block("guard-weak", `${i.id}: strongest guard is rung ${best} - read by whoever already agrees with it`, { ref: i.id }));
+      }
+      const gone = findings.filter((f) => f.severity === "block" && f.code !== "guard-weak").length;
+      const weakN = findings.filter((f) => f.code === "guard-weak").length;
+      return emit(report({
+        tool: "incidents.mjs", command: "check", findings,
+        summary: !rows.length ? "no incident records" : (gone || weakN) ? `${gone} guard(s) bought by past incidents are no longer standing, ${weakN} with no real one` : `every incident guard still stands`,
+        data: rows,
+      }));
     }
     if (!list.length) { out(`No incident records. lifecycle/incidents/ is empty.`); return 0; }
 

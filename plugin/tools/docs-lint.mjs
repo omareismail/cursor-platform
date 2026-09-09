@@ -38,6 +38,7 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { report, emit, finding } from "./_findings.mjs";
 import { join, dirname, relative, normalize } from "node:path";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
@@ -265,8 +266,17 @@ const CMDS = {
     const r = scan();
     const strict = args.includes("--strict");
     if (args.includes("--json")) {
-      out(JSON.stringify(r, null, 2));
-      return r.errors.length || (strict && r.warnings.length) ? 1 : 0;
+      const code = (k) => String(k || "lint").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "lint";
+      const findings = [
+        ...r.errors.map((e) => finding("block", code(e.kind), e.msg, { file: e.file, line: e.line })),
+        ...r.warnings.map((w) => finding(strict ? "block" : "warn", code(w.kind), w.msg, { file: w.file, line: w.line })),
+      ];
+      const bad = r.errors.length + (strict ? r.warnings.length : 0);
+      return emit(report({
+        tool: "docs-lint.mjs", command: "check", findings,
+        summary: bad ? `FAILED: ${r.errors.length} error(s), ${r.warnings.length} warning(s)${strict ? " (strict)" : ""}` : `OK: ${r.docs.length} markdown files, ${r.warnings.length} warning(s)`,
+        data: r,
+      }));
     }
 
     out(`# Docs lint\n`);

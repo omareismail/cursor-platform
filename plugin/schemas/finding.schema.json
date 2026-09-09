@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Finding report",
+
+  "//": "The one shape every checking tool's --json emits. Eight tools used to answer eight different ways - an array here, {errors,warnings} there, {new,fixed} somewhere else - and anything that wanted to read them all (the dashboard, a CI summary, a release record) had to know each one. This is the envelope: what ran, whether it passed, and a flat list of findings that all look alike. The tool's own detail is kept whole under `data`, so nothing a tool used to say is lost - it is just no longer the only way it says it.",
+
+  "type": "object",
+  "required": ["schema", "tool", "command", "at", "ok", "exit", "summary", "findings"],
+  "additionalProperties": false,
+
+  "properties": {
+    "schema": { "const": "finding-report/1" },
+    "tool": { "type": "string", "pattern": "^[a-z0-9-]+\\.mjs$", "description": "Which tool produced this." },
+    "command": { "type": "string", "description": "Which subcommand - check, scan, integrity." },
+    "at": { "type": "string", "format": "date-time" },
+    "ok": { "type": "boolean", "description": "Did the command pass. Always false when any finding is `block`." },
+    "skipped": { "type": "boolean", "description": "True when there was nothing to check - no criteria, no promoted architecture, no dependencies. ok is true and findings is empty; the summary says why." },
+    "exit": { "type": "integer", "minimum": 0, "maximum": 2, "description": "The process exit code: 0 clean, 1 findings, 2 nothing to check." },
+    "summary": { "type": "string", "description": "One line, the same sentence the text mode ends with." },
+    "counts": {
+      "type": "object",
+      "description": "Findings by severity, so a reader need not count.",
+      "required": ["block", "warn", "info"],
+      "additionalProperties": false,
+      "properties": {
+        "block": { "type": "integer", "minimum": 0 },
+        "warn": { "type": "integer", "minimum": 0 },
+        "info": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "data": {
+      "description": "The tool's own full result, unchanged in shape from before the envelope existed. May be null when the tool was skipped."
+    }
+  },
+
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["severity", "code", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": ["block", "warn", "info"],
+          "description": "block fails the command. warn is reported and does not fail (unless the tool was run --strict, in which case it is emitted as block). info is context."
+        },
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "description": "Stable, per tool, kebab-case. What kind of finding - `uncovered`, `expired-flag`, `dangling-id`. Not the message." },
+        "message": { "type": "string", "description": "One sentence a person can act on." },
+        "file": { "type": "string", "description": "Repo-relative path, when the finding is about a file." },
+        "line": { "type": "integer", "minimum": 1 },
+        "ref": { "type": "string", "description": "The id or name the finding is about - AC-12, INC-0003, PaymentsGateway - when it is not a file." },
+        "detail": { "description": "Tool-specific extra, kept small. Readers must not need it." }
+      }
+    }
+  }
+}

@@ -63,6 +63,7 @@
  */
 
 import { readFileSync, statSync, readdirSync } from "node:fs";
+import { report, emit, finding } from "./_findings.mjs";
 import { join, extname, relative } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -401,8 +402,17 @@ const CMDS = {
     const { deps } = build();
     const bad = deps.filter((d) => d.findings.some((f) => f.sev !== "MED"));
     if (args.includes("--json")) {
-      out(JSON.stringify({ dependencies: deps.length, failing: bad.length, deps }, null, 2));
-      return bad.length ? 1 : 0;
+      const findings = [];
+      for (const d of deps) for (const f of d.findings) {
+        findings.push(finding(f.sev === "MED" ? "warn" : "block", String(f.what || "finding").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "finding",
+          `${d.name} (${d.kind}${d.money ? ", money path" : ""}): ${f.what} - ${f.why}`, { ref: d.name, file: String(d.sites?.[0] || "").split(":")[0] || undefined, detail: { sev: f.sev, sites: d.sites } }));
+      }
+      return emit(report({
+        tool: "failure-modes.mjs", command: "check", findings,
+        skipped: !deps.length, summary: !deps.length ? "nothing found to check" : bad.length ? `FAILED: ${bad.length} of ${deps.length} dependencies` : `OK: every dependency has a timeout and a failing test`,
+        exit: !deps.length ? 0 : bad.length ? 1 : 0,
+        data: { dependencies: deps.length, failing: bad.length, deps },
+      }));
     }
     out(`# Failure modes — ${deps.length} dependenc${deps.length === 1 ? "y" : "ies"}\n`);
     if (!deps.length) { out(`Nothing found to check.`); return 0; }

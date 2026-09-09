@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "writtenAt": "2026-09-09T15:30:14.411Z",
+  "by": "omar ismail",
+  "recordedBy": {
+    "os": "MSI",
+    "git": "omar.ismail",
+    "email": "omar.ismail@fis.ps",
+    "ci": null,
+    "host": "OMAR-EYAD"
+  },
+  "note": "sha256 of every file that enforces a control. `self-audit.mjs integrity --check` fails when any of them changes without this file changing with it. Written by a human; guard-bash refuses --write from the agent's shell.",
+  "files": {
+    ".claude/hooks/_lib.mjs": "6838948c2c67640ee3c29282ba977086768b82d74631000486ba8d9844a91192",
+    ".claude/hooks/_sql.mjs": "539f623ad0fc74321f0c11ad4fbe1e55d80da5607db94e918ebfeb8af98a5935",
+    ".claude/hooks/guard-bash.mjs": "3b7c757acea32fbc858e8aa5ca90181e80126a9f235cdd40f0e9d015ed582709",
+    ".claude/hooks/guard-mcp.mjs": "6e9012433be249a7b3a2bea437982d3e97cb6ba4c68dc0e252483e18f1abb9a5",
+    ".claude/hooks/guard-phase.mjs": "149ed24aefb3ee29ec275ca560aee993e7c1488e1c5ce6cade9613804136111e",
+    ".claude/hooks/guard-write.mjs": "037938b54b146cbcc27f4c555585ee3d5b1f426716bb16233450471afba89eff",
+    ".claude/hooks/post-edit-verify.mjs": "fab01f0e32c73fc61c36cd144b505d1ab7b3b839ddcaa0d26425a1fbb6077fd3",
+    ".claude/hooks/session-start.mjs": "5c38767d7d9a920908f430905386983426778201be6b762aae05da43b139a5ea",
+    ".claude/hooks/stop-memory-check.mjs": "f37bf38feec09db2de89ea5a5cbbf005a50c0524cb63769f3e0d26cf2d67f91c",
+    ".claude/hooks/sync-skills.mjs": "ce892446e7afa74570943edfc4e26af316fb1fc4130e838f8196d0ec753ad4da",
+    ".claude/settings.json": "7f864a2f2fb6da0398df6ad43f9c6bc0d80c0939a3f6c769f7a3a7596c9df338",
+    ".cursor/hooks.json": "74b0d66ed6e4ad758a0c39e2f1cb3e853471cfb30f08ea7b3812018b5a1fabe5",
+    ".cursor/lifecycle/gates/01-requirements.gate.md": "9e56901be6de070b5332fdab8c2b5d498fd889f692657658617fbd0aa1c3bdb2",
+    ".cursor/lifecycle/gates/02-analysis.gate.md": "e79c4f39e81cf3ce817b319b7239488282cd7c2b2bc01685d624964283e3a944",
+    ".cursor/lifecycle/gates/03-design.gate.md": "8cc37baafbe88cc39a5c5717e0d24eb4b971deb8c21fa0b30b1332b4cd165469",
+    ".cursor/lifecycle/gates/04-development.gate.md": "6881803c287665a473eeb0432abef96096647a5738a4a36a5340f3c89c65d886",
+    ".cursor/lifecycle/gates/05-testing.gate.md": "516793a54ed2ca1a855e3f99dc3e16ce4582c6f5b43e0c79aa4553d63af30dbe",
+    ".cursor/lifecycle/gates/06-production.gate.md": "6690b9774ffc6d5c4ca7ef79e443ca13002fc45075a74fdb2c8f8b2d3e4c4da8",
+    ".cursor/lifecycle/write-policy.json": "1ef931ed0de08f66da5837560ab8779a375775d362452f658e6928cfa46dd4d2",
+    ".cursor/mcp-policy.json": "35475e837a4810d734003a534f6920115b7e1fa121c8129d6ebfeba98b64b6e4",
+    ".cursor/tools/_evidence.mjs": "a60de8c5d14555ff433ef49efe150a8aca53994c13d9b9dd0398c37bc399c790",
+    ".cursor/tools/_state.mjs": "0937602735d20b1cbbf1a6df33bea95f74eca8cd4ffb5c49223a19ec0b140ac7",
+    ".cursor/tools/lifecycle.mjs": "3c1093f8655bb8062e86cce69f37d2c99b70de6966fe2900e280f07bfc7a4a82",
+    ".cursor/tools/release-evidence.mjs": "34d2426b8d3ec8efd833f69191fb62d1c87eee85a6d0d297e09cbe574e702e84",
+    ".cursor/tools/self-audit.mjs": "abff2bd2f4f6a2a5533ad863cf484f7be50e22aadf277c96786348a50c1e916b",
+    ".mcp.json": "b4cfb1ab2bc76b9380844665978fd41312fbf542182e231088f7ffd223abd528"
+  }
+}

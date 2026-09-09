@@ -37,8 +37,8 @@
  * evidence, this hash is only the tripwire. Commit `lifecycle/releases/`.
  *
  * Usage:
- *   node .cursor/tools/release-evidence.mjs cut --version v1.2.0 [--note "..."]
- *   node .cursor/tools/release-evidence.mjs sign v1.2.0 --by "name" [--accept-override OV-XXXX] [--note "..."]
+ *   node .cursor/tools/release-evidence.mjs cut --version v1.2.0 [--note "..."] [--accept-check <tool.mjs>]
+ *   node .cursor/tools/release-evidence.mjs sign v1.2.0 --by "name" [--accept-override OV-XXXX] [--accept-inherited PHASE] [--note "..."]
  *   node .cursor/tools/release-evidence.mjs list
  *   node .cursor/tools/release-evidence.mjs show v1.2.0 [--md | --json]
  *   node .cursor/tools/release-evidence.mjs verify [v1.2.0]
@@ -46,10 +46,15 @@
  * Exit codes:  0 = ok   1 = refused / failed   2 = usage
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { writeJsonAtomic, actor, actorWarning, canonical } from "./_state.mjs";
+import { recordFile, verifyChain, formatChainFindings } from "./_evidence.mjs";
+
+const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
 function repoRoot() {
@@ -76,11 +81,6 @@ function git(...args) {
 /* ------------------------------------------------------------------ hashing */
 
 /** Stable stringify: key order must not change the hash. */
-function canonical(v) {
-  if (v === null || typeof v !== "object") return JSON.stringify(v);
-  if (Array.isArray(v)) return "[" + v.map(canonical).join(",") + "]";
-  return "{" + Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + canonical(v[k])).join(",") + "}";
-}
 
 /** The hash covers the derived facts. Signatures are added after and are not
  *  part of it — otherwise signing a record would invalidate the record. */
@@ -175,17 +175,41 @@ function activeOverrides(state, PHASES) {
 /** Run a checker and record that it ran, its exit code and its last line. We do
  *  not parse their output: a record that breaks when a tool reformats a table is
  *  a record that stops being written. */
+function checkerPath(tool) {
+  const sibling = join(TOOL_DIR, tool);
+  if (existsSync(sibling)) return sibling;
+  const project = join(ROOT, ".cursor", "tools", tool);
+  if (existsSync(project)) return project;
+  return null;
+}
+
 function ranCheck(tool, args) {
-  const abs = join(ROOT, ".cursor", "tools", tool);
-  if (!existsSync(abs)) return { tool, ran: false, why: "not present in this repo" };
+  const abs = checkerPath(tool);
+  if (!abs) return { tool, ran: false, ok: false, missing: true, why: "required checker not found beside this tool or in .cursor/tools" };
   try {
     const out = execFileSync(process.execPath, [abs, ...args], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 8 * 1024 * 1024 });
     return { tool, ran: true, ok: true, exit: 0, summary: lastLine(out) };
   } catch (e) {
-    return { tool, ran: true, ok: false, exit: typeof e.status === "number" ? e.status : null, summary: lastLine(String(e.stdout || "") + String(e.stderr || "")) };
+    const exit = typeof e.status === "number" ? e.status : null;
+    const summary = lastLine(String(e.stdout || "") + String(e.stderr || ""));
+    // Exit 2 is every checker's "nothing here to check" (no criteria, no
+    // promoted architecture, no dependencies). Same convention as
+    // lifecycle.mjs: recorded as skipped, which is neither a pass nor a fail.
+    if (exit === 2) return { tool, ran: true, ok: true, skipped: true, exit, summary };
+    return { tool, ran: true, ok: false, exit, summary };
   }
 }
 const lastLine = (s) => (String(s).split("\n").map((l) => l.trim()).filter(Boolean).pop() || "").slice(0, 300);
+
+/** Index a record that was just written. The record stands either way; say so if the index did not. */
+function chained(relPath, kind, meta) {
+  try { return recordFile(ROOT, relPath, kind, meta); }
+  catch (e) {
+    console.error(`WARN  ${relPath} was written but could not be added to lifecycle/index.jsonl: ${e.message}`);
+    console.error(`      \`lifecycle.mjs evidence\` will report it until a human reseals the chain.`);
+    return null;
+  }
+}
 
 /* ----------------------------------------------------------------- commands */
 
@@ -210,9 +234,30 @@ async function cmdCut(args) {
 
   const { lc, state, derived } = await lifecycle();
 
+  // Directory approval hashes include untracked files. A cut that ignores
+  // them names a commit that is not the source the approval covered.
+  const artifactRoots = new Set();
+  for (const ph of ["DEVELOPMENT", "TESTING"]) {
+    for (const rel of Object.keys(state.phases?.[ph]?.mechanical?.artifacts || {})) {
+      artifactRoots.add(String(rel).split("\\").join("/"));
+    }
+  }
+  const untrackedUnder = untracked
+    .map((l) => l.slice(3).split("\\").join("/").replace(/^\.\//, ""))
+    .filter((f) => [...artifactRoots].some((r) => f === r || f.startsWith(r + "/")));
+  if (untrackedUnder.length) {
+    console.error("REFUSED: " + untrackedUnder.length + " untracked file(s) under an approved source/test/spec artifact.\n");
+    for (const f of untrackedUnder.slice(0, 20)) console.error("  ?? " + f);
+    if (untrackedUnder.length > 20) console.error("  ... and " + (untrackedUnder.length - 20) + " more");
+    die("\nThe recorded approval can cover code that is not in HEAD. Commit or remove those files first.", 1);
+  }
+
   // --- the gates that a release actually depends on. ------------------------
+  // RELEASE_CLEARED, not CLEARED: an INHERITED_UNVERIFIED phase lets work
+  // continue on a brownfield repo, and a release is not work continuing - it is
+  // a claim that the gates stood. `sign` is where the claim gets a name.
   const need = ["DEVELOPMENT", "TESTING"];
-  const bad = need.filter((p) => !lc.CLEARED.has(derived[p].status));
+  const bad = need.filter((p) => !lc.RELEASE_CLEARED.has(derived[p].status));
   if (bad.length) {
     console.error(`REFUSED: ${version} cannot be cut.\n`);
     for (const p of bad) {
@@ -261,7 +306,9 @@ async function cmdCut(args) {
       reasons: derived[p].reasons,
       judgement: ph.judgement ? { verdict: ph.judgement.verdict, by: ph.judgement.by, at: ph.judgement.at, gateVersion: ph.judgement.gateVersion, criteria: ph.judgement.criteria || "", attempt: ph.judgement.attempt || 1 } : null,
       human: ph.human ? { by: ph.human.by, at: ph.human.at } : null,
-      inherited: !!ph.inherited,
+      inherited: ph.inherited
+        ? (typeof ph.inherited === "object" ? { by: ph.inherited.by || null, reviewBy: ph.inherited.reviewBy || null, legacy: !!ph.inherited.legacy } : { legacy: true })
+        : null,
     };
   }
 
@@ -310,17 +357,40 @@ async function cmdCut(args) {
       ranCheck("lifecycle.mjs", ["check", "TESTING"]),
     ],
     note: valueOf(args, "--note") || "",
+    cutBy: actor(ROOT),
     signature: null,
   };
+
+  // A FAILed check used to be a line in the record and nothing more - the cut
+  // went through, and whoever signed had to notice a word in a list. A failure
+  // is a refusal; a person who proceeds anyway does it by naming the tool, and
+  // the record says they did.
+  const acceptChecks = args.reduce((acc, a, i) => (a === "--accept-check" ? [...acc, args[i + 1]] : acc), []);
+  const failed = record.checks.filter((c) => !c.ok);
+  for (const c of failed) if (acceptChecks.includes(c.tool)) c.accepted = true;
+  const unaccepted = failed.filter((c) => !c.accepted);
+  if (unaccepted.length) {
+    console.error(`REFUSED: ${version} cannot be cut - ${unaccepted.length} check(s) FAILED.\n`);
+    for (const c of unaccepted) console.error(`  FAIL  ${c.tool}${c.summary ? `  - ${c.summary}` : ""}`);
+    console.error(`\nA release record is what shipped and what proved it. Cutting one over a failing`);
+    console.error(`check records that nothing proved it. Fix the finding, or accept it by name -`);
+    console.error(`the record will say which tool, and whose decision:\n`);
+    console.error(`  node .cursor/tools/release-evidence.mjs cut --version ${version} ${unaccepted.map((c) => `--accept-check ${c.tool}`).join(" ")}`);
+    die(``, 1);
+  }
+  const unused = acceptChecks.filter((t) => !failed.some((c) => c.tool === t));
+  if (unused.length) console.error(`NOTE  --accept-check named ${unused.join(", ")}, which did not fail. Not recorded as accepted.\n`);
+  record.acceptedChecks = failed.filter((c) => c.accepted).map((c) => c.tool);
   record.integrity = integrityOf(record);
 
-  mkdirSync(REL_DIR(), { recursive: true });
-  writeFileSync(fileFor(version), JSON.stringify(record, null, 2) + "\n", "utf8");
+  writeJsonAtomic(fileFor(version), record);
+  chained(rel(fileFor(version)), "release-cut", { version, head, acceptedChecks: record.acceptedChecks });
 
   console.log(`Release ${version} cut.`);
   console.log(`  ${rel(fileFor(version))}`);
   console.log(`  ${record.contents.commitCount} commit(s), ${record.contents.featureSpecs.length} feature spec(s), at ${head.slice(0, 10)}`);
-  for (const c of record.checks) console.log(`  ${c.ran ? (c.ok ? "PASS" : "FAIL") : "----"}  ${c.tool}${c.ran ? "" : ` (${c.why})`}`);
+  for (const c of record.checks) console.log(`  ${c.ran ? (c.skipped ? "----" : c.ok ? "PASS" : "FAIL (accepted by name)") : "----"}  ${c.tool}${c.ran ? (c.skipped && c.summary ? `  (${c.summary})` : "") : ` (${c.why})`}`);
+  if (record.acceptedChecks.length) console.log(`\n  ${record.acceptedChecks.length} failing check(s) accepted at cut time: ${record.acceptedChecks.join(", ")}. The signer will see this.`);
   if (record.owed.activeOverrides.length) {
     console.log(`\n  ${record.owed.activeOverrides.length} active override(s) — this release ships under them:`);
     for (const o of record.owed.activeOverrides) console.log(`    ${o.id}  ${o.phase}  risk ${o.risk}  expires ${String(o.expiresAt).slice(0, 10)}  (${o.by})`);
@@ -342,12 +412,40 @@ async function cmdSign(args) {
   if (record.signature) die(`${version} was already signed by ${record.signature.by} on ${String(record.signature.at).slice(0, 10)}.\nA second signature would overwrite the first. If something changed, cut a new version.`, 1);
   if (integrityOf(record) !== record.integrity) die(`REFUSED: ${rel(fileFor(version))} does not match its own hash. It was edited\nafter it was cut. Do not sign it — find out what changed (git log -p on that file).`, 1);
 
+  // The record's own hash says this file is intact. The chain says whether the
+  // set of records it sits among is - a deleted override, a replaced verdict, a
+  // state.json nobody's command wrote. No flag accepts a broken chain: it is not
+  // a risk about this release, it is doubt about every record a signature cites.
+  const ch = verifyChain(ROOT);
+  if (!ch.ok) {
+    console.error(`REFUSED: the evidence chain (lifecycle/index.jsonl) does not verify.\n`);
+    console.error(formatChainFindings(ch));
+    console.error(`\nFind out what changed. If it is acceptable, a human reseals the chain by name:`);
+    console.error(`  node .cursor/tools/lifecycle.mjs evidence reseal --by "<name>" --reason "..."`);
+    die(``, 1);
+  }
+
   const { lc, state, derived } = await lifecycle();
-  const bad = ["DEVELOPMENT", "TESTING", "PRODUCTION"].filter((p) => !lc.CLEARED.has(derived[p].status));
+  const bad = ["DEVELOPMENT", "TESTING", "PRODUCTION"].filter((p) => !lc.RELEASE_CLEARED.has(derived[p].status));
   if (bad.length) {
     console.error(`REFUSED: ${version} cannot be signed.\n`);
     for (const p of bad) { console.error(`  ${p} is ${derived[p].status}`); for (const r of derived[p].reasons) console.error(`      ${r}`); }
     die(`\nCutting a record is bookkeeping; signing it is authorisation. All three of the\ngates a release rests on have to be standing at the moment you sign.`, 1);
+  }
+
+  // A release also rests on phases 1-3. On a brownfield repo those may be
+  // INHERITED_UNVERIFIED: somebody typed that they happened and nobody has put a
+  // name to checking it. The signer can be that name - by saying which phases.
+  const unverified = lc.PHASES.filter((p) => derived[p].status === "INHERITED_UNVERIFIED");
+  const acceptedInherited = args.reduce((acc, a, i) => (a === "--accept-inherited" ? [...acc, String(args[i + 1] || "").toUpperCase()] : acc), []);
+  const unaccepted = unverified.filter((p) => !acceptedInherited.includes(p));
+  if (unaccepted.length) {
+    console.error(`REFUSED: ${version} rests on ${unverified.length} phase(s) that are INHERITED_UNVERIFIED.\n`);
+    for (const p of unaccepted) console.error(`  ${p}  ${derived[p].reasons[0] || ""}`);
+    console.error(`\nThey were recorded as done-before-adoption with nobody named as having checked`);
+    console.error(`that. Signing a release on top of them is accepting that claim. Do it by name:\n`);
+    console.error(`  node .cursor/tools/release-evidence.mjs sign ${version} --by "${by}" ${unaccepted.map((p) => `--accept-inherited ${p}`).join(" ")}`);
+    die(``, 1);
   }
 
   // Shipping under an override must be said out loud, by name.
@@ -368,15 +466,24 @@ async function cmdSign(args) {
     }
   }
 
+  const who = actor(ROOT);
+  const w = actorWarning(by, who);
+  if (w) console.error(w + "\n");
+
   record.signature = {
     by, at: new Date().toISOString(),
     note: valueOf(args, "--note") || "",
     acceptedOverrides: ovs.map((o) => o.id),
+    acceptedInherited: unverified,
+    recordedBy: who,
     integrityAtSigning: record.integrity,
   };
-  writeFileSync(fileFor(version), JSON.stringify(record, null, 2) + "\n", "utf8");
+  writeJsonAtomic(fileFor(version), record);
+  chained(rel(fileFor(version)), "release-signed", { version, by });
   console.log(`${version} signed by ${by}.`);
+  if (record.acceptedChecks?.length) console.log(`This record was cut over ${record.acceptedChecks.length} failing check(s) accepted by name: ${record.acceptedChecks.join(", ")}. Your signature covers that decision too.`);
   if (ovs.length) console.log(`Accepted ${ovs.length} override(s): ${ovs.map((o) => o.id).join(", ")} — each expires, and the expiry is now on your name.`);
+  if (unverified.length) console.log(`Accepted ${unverified.length} unverified inherited phase(s): ${unverified.join(", ")} — the claim that they happened now has your name on it.`);
   console.log(`\nCommit ${rel(fileFor(version))}.`);
 }
 
@@ -460,7 +567,7 @@ function renderMarkdown(r) {
              `> it — including to rule it out. \`docs/product/nfr.md\` is where which ones`,
              `> actually apply is decided.`);
   L.push("", "## Checks at cut time", "", "| Check | Result | Last line |", "|---|---|---|");
-  for (const c of r.checks) L.push(`| \`${c.tool}\` | ${c.ran ? (c.ok ? "PASS" : "FAIL") : "not run"} | ${(c.summary || c.why || "").replace(/\|/g, "\\|")} |`);
+  for (const c of r.checks) L.push(`| \`${c.tool}\` | ${c.ran ? (c.skipped ? "skipped" : c.ok ? "PASS" : c.accepted ? "FAIL (accepted by name)" : "FAIL") : "not run"} | ${(c.summary || c.why || "").replace(/\|/g, "\\|")} |`);
   const ovs = r.owed.activeOverrides, crs = r.owed.openChangeRequests;
   const late = (r.signature?.acceptedOverrides || []).filter((id) => !ovs.some((o) => o.id === id));
   L.push("", "## Still owed", "");
@@ -487,9 +594,11 @@ switch (cmd) {
     console.error(`release-evidence.mjs — what shipped, what proved it, and who said so
 
   cut --version v1.2.0 [--note "..."]     derive and file the record. Refuses on a
-                                          dirty tree, or an uncleared DEV/TEST gate.
+      [--accept-check <tool.mjs>]         dirty tree, an uncleared DEV/TEST gate, or a
+                                          FAILED check nobody accepted by name.
   sign v1.2.0 --by "name"                 the human authorisation. Refuses while any
-       [--accept-override OV-XXXX]        gate is uncleared, or an override is unnamed.
+       [--accept-override OV-XXXX]        gate is uncleared, an override is unnamed,
+       [--accept-inherited PHASE]         or the evidence chain does not verify.
   list                                    every release, newest last
   show v1.2.0 [--json]                    the record, as markdown or raw
   verify [v1.2.0] [--require-signed]      hash and commit still stand up. An unsigned

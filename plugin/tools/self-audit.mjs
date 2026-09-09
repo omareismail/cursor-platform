@@ -57,10 +57,15 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { report as findingReport, emit } from "./_findings.mjs";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
+const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
+const INSTALL_PARENT = dirname(TOOL_DIR);
 function repoRoot() {
   try { return execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); }
   catch { return null; }
@@ -529,6 +534,184 @@ function report(list) {
   return hard ? 1 : 0;
 }
 
+/* ------------------------------------------------------------ integrity */
+
+/**
+ * The enforcement surface, attested.
+ *
+ * guard-write and guard-bash refuse an AGENT's edit to a hook or a policy. They
+ * do nothing about an edit made with the escape variable set, a commit from a
+ * clone with no hooks installed, or a line changed in a web editor. Those are
+ * legitimate ways to change the platform, and they are also every way a control
+ * gets weakened without anyone deciding to weaken it.
+ *
+ * `integrity --write` records a sha256 of every file that enforces something,
+ * under a human's name (guard-bash refuses it from the agent's shell). `--check`
+ * recomputes and fails on any file that changed, vanished, or appeared under a
+ * covered directory without being attested - a new hook is a new control and
+ * a new place for a hole. CI runs `--check` on every push, so the surface can
+ * change only through a diff that also touches the manifest, which is the
+ * review prompt: "why did the guards change?"
+ *
+ * The manifest lives under lifecycle/ because it is a record about this repo's
+ * controls, and lifecycle/** is itself protected - the manifest is covered by
+ * the guards it attests.
+ */
+const INTEGRITY_FILE = "lifecycle/integrity.json";
+const PROJECT_GLOBS = [
+  ".claude/hooks/*.mjs", ".claude/settings.json", ".cursor/hooks.json",
+  ".cursor/mcp-policy.json", ".cursor/lifecycle/write-policy.json", ".cursor/lifecycle/gates/*.md",
+  ".cursor/tools/lifecycle.mjs", ".cursor/tools/_state.mjs", ".cursor/tools/_evidence.mjs", ".cursor/tools/release-evidence.mjs",
+  ".cursor/tools/self-audit.mjs", ".mcp.json",
+];
+const PLUGIN_GLOBS = [
+  "hooks/*.mjs", "hooks/hooks.json", "hooks/cursor-hooks.json", "mcp-policy.json",
+  "lifecycle/write-policy.json", "lifecycle/gates/*.md",
+  "tools/lifecycle.mjs", "tools/_state.mjs", "tools/_evidence.mjs", "tools/release-evidence.mjs", "tools/self-audit.mjs",
+];
+const INTEGRITY_REQUIRED = ["guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs", "_lib.mjs", "lifecycle.mjs"];
+
+function globIntegrity(root, globs) {
+  const files = [];
+  for (const g of globs) {
+    const slash = g.lastIndexOf("/");
+    const dir = g.slice(0, slash), pat = g.slice(slash + 1);
+    if (!pat.includes("*")) {
+      const abs = join(root, ...g.split("/"));
+      if (existsSync(abs) && statSafe(abs)?.isFile()) files.push({ rel: g, abs });
+      continue;
+    }
+    const re = new RegExp("^" + pat.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*") + "$");
+    let names = [];
+    try { names = readdirSync(join(root, ...dir.split("/"))); } catch { continue; }
+    for (const f of names) {
+      const abs = join(root, ...dir.split("/"), f);
+      if (re.test(f) && statSafe(abs)?.isFile()) files.push({ rel: dir + "/" + f, abs });
+    }
+  }
+  return files;
+}
+
+function integrityEntries() {
+  const out = [], seen = new Set();
+  const add = (list) => { for (const e of list) { if (seen.has(e.rel)) continue; seen.add(e.rel); out.push(e); } };
+  if (existsSync(join(INSTALL_PARENT, "hooks", "guard-write.mjs"))) add(globIntegrity(INSTALL_PARENT, PLUGIN_GLOBS));
+  add(globIntegrity(ROOT, PROJECT_GLOBS));
+  return out.sort((a, b) => a.rel.localeCompare(b.rel));
+}
+function integrityFiles() { return integrityEntries().map((e) => e.rel); }
+function requiredLocation(n) {
+  const plugin = n === "lifecycle.mjs" ? join(INSTALL_PARENT, "tools", n) : join(INSTALL_PARENT, "hooks", n);
+  const project = n === "lifecycle.mjs" ? join(ROOT, ".cursor", "tools", n) : join(ROOT, ".claude", "hooks", n);
+  return { plugin, project };
+}
+function coverageGaps(entries) {
+  // Incomplete means a file that is on disk was not enumerated, or a plugin
+  // install is missing a required guard. A deleted attested file is MISSING
+  // at check time, not a coverage gap — otherwise --write could never record
+  // that the guard is gone.
+  const names = new Set(entries.map((e) => e.rel.split("/").pop()));
+  const pluginInstall = existsSync(join(INSTALL_PARENT, "hooks", "guard-write.mjs"));
+  const missing = [];
+  for (const n of INTEGRITY_REQUIRED) {
+    const { plugin, project } = requiredLocation(n);
+    const onDisk = existsSync(plugin) || existsSync(project);
+    if (onDisk && !names.has(n)) missing.push(n);
+    else if (pluginInstall && !existsSync(plugin)) missing.push(n);
+  }
+  return missing;
+}
+const statSafe = (p) => { try { return statSync(p); } catch { return null; } };
+
+/** The shared finding-report shape (schemas/finding.schema.json). */
+function emitFindings(command, findings, summary, data) {
+  return emit(findingReport({ tool: "self-audit.mjs", command, findings, summary, data }), out);
+}
+const sha256 = (rel) => {
+  const hit = integrityEntries().find((e) => e.rel === rel);
+  const b = readFileSync(hit ? hit.abs : join(ROOT, rel));
+  return execSha(b);
+};
+function execSha(buf) { return createHash("sha256").update(buf).digest("hex"); }
+
+async function integrityWrite(args) {
+  const by = args[args.indexOf("--by") + 1];
+  if (!args.includes("--by") || !by) { out(`integrity --write needs --by "<name>". An attestation with no name on it is a checksum.`); return 2; }
+  const files = integrityFiles();
+  const gaps = coverageGaps(integrityEntries());
+  if (!files.length || gaps.length) {
+    out("FAIL: incomplete coverage of the enforcement surface (" + (files.length ? "missing " + gaps.join(", ") : "0 files") + ").");
+    out("A plugin-only install is attested from the plugin directory this tool lives in, not from an empty project.");
+    return 1;
+  }
+  const st = await import(new URL("./_state.mjs", import.meta.url).href);
+  const prev = readJson(INTEGRITY_FILE);
+  const manifest = {
+    version: 1,
+    writtenAt: new Date().toISOString(),
+    by,
+    recordedBy: st.actor(ROOT),
+    note: "sha256 of every file that enforces a control. `self-audit.mjs integrity --check` fails when any of them changes without this file changing with it. Written by a human; guard-bash refuses --write from the agent's shell.",
+    files: Object.fromEntries(files.map((f) => [f, sha256(f)])),
+  };
+  const w = st.actorWarning(by, manifest.recordedBy);
+  if (w) process.stderr.write(w + "\n");
+  st.writeJsonAtomic(join(ROOT, INTEGRITY_FILE), manifest);
+  const changed = prev ? files.filter((f) => prev.files?.[f] && prev.files[f] !== manifest.files[f]) : [];
+  const added = prev ? files.filter((f) => !prev.files?.[f]) : files;
+  const gone = prev ? Object.keys(prev.files || {}).filter((f) => !manifest.files[f]) : [];
+  out(`Integrity manifest written: ${files.length} file(s) attested by ${by}.`);
+  if (prev) out(`  since ${String(prev.writtenAt).slice(0, 10)} (${prev.by}): ${changed.length} changed, ${added.length} added, ${gone.length} removed`);
+  for (const f of changed) out(`    ~ ${f}`);
+  for (const f of added) out(`    + ${f}`);
+  for (const f of gone) out(`    - ${f}`);
+  out(`  ${INTEGRITY_FILE}\nCommit it with the change it attests.`);
+  return 0;
+}
+
+function integrityCheck(args) {
+  const m = readJson(INTEGRITY_FILE);
+  const jsonOut = args.includes("--json");
+  if (!m || typeof m.files !== "object") {
+    const why = existsSync(join(ROOT, INTEGRITY_FILE)) ? "exists but is not a readable manifest" : "does not exist";
+    if (jsonOut) return emitFindings("integrity", [{ severity: "block", code: "manifest-missing", message: `${INTEGRITY_FILE} ${why}`, file: INTEGRITY_FILE }], `FAIL: ${INTEGRITY_FILE} ${why}`, { ok: false, missing: true, why });
+    out(`FAIL: ${INTEGRITY_FILE} ${why}.\n\nNothing attests to the enforcement surface, so a hook can change and nothing\nnotices. A human writes it:\n\n  node .cursor/tools/self-audit.mjs integrity --write --by "<name>"`);
+    return 1;
+  }
+  const now = integrityFiles();
+  const gaps = coverageGaps(integrityEntries());
+  if (!now.length || gaps.length) {
+    const why = !now.length ? "0 enforcement files found (plugin files are resolved from this tool's install directory)" : "missing " + gaps.join(", ");
+    if (jsonOut) return emitFindings("integrity", [{ severity: "block", code: "coverage-incomplete", message: why, file: INTEGRITY_FILE }], "FAIL: incomplete coverage of the enforcement surface", { ok: false, incomplete: true, why, gaps });
+    out("FAIL: incomplete coverage of the enforcement surface: " + why + ".");
+    return 1;
+  }
+  const changed = [], missing = [], unattested = [];
+  for (const [f, h] of Object.entries(m.files)) {
+    const hit = integrityEntries().find((e) => e.rel === f);
+    const abs = hit ? hit.abs : join(ROOT, f);
+    if (!existsSync(abs)) missing.push(f);
+    else if (sha256(f) !== h) changed.push(f);
+  }
+  for (const f of now) if (!(f in m.files)) unattested.push(f);
+  const ok = !changed.length && !missing.length && !unattested.length;
+  if (jsonOut) {
+    const findings = [
+      ...changed.map((f) => ({ severity: "block", code: "changed", message: `${f} differs from what ${m.by} attested`, file: f })),
+      ...missing.map((f) => ({ severity: "block", code: "missing", message: `${f} was attested and is gone`, file: f })),
+      ...unattested.map((f) => ({ severity: "block", code: "unattested", message: `${f} is new under a covered path and nobody has signed for it`, file: f })),
+    ];
+    return emitFindings("integrity", findings, ok ? `OK: ${Object.keys(m.files).length} enforcement file(s) match the manifest` : `FAIL: the enforcement surface differs from what ${m.by} attested`, { ok, attestedAt: m.writtenAt, by: m.by, changed, missing, unattested });
+  }
+  if (ok) { out(`OK: ${Object.keys(m.files).length} enforcement file(s) match the manifest ${m.by} wrote on ${String(m.writtenAt).slice(0, 10)}.`); return 0; }
+  out(`FAIL: the enforcement surface differs from what ${m.by} attested on ${String(m.writtenAt).slice(0, 10)}.\n`);
+  for (const f of changed) out(`  CHANGED     ${f}`);
+  for (const f of missing) out(`  MISSING     ${f}`);
+  for (const f of unattested) out(`  UNATTESTED  ${f}   (new under a covered path; nobody has signed for it)`);
+  out(`\nIf these changes were reviewed, a human re-attests:\n  node .cursor/tools/self-audit.mjs integrity --write --by "<name>"\nIf they were not, this is the finding.`);
+  return 1;
+}
+
 /** Compose the three existing checkers rather than reimplementing any of them. */
 function others() {
   const rows = [];
@@ -569,6 +752,10 @@ const CMDS = {
     const w = report(list);
     return w || (rows.some((r) => r.ran && !r.ok) ? 1 : 0);
   },
+  integrity(args) {
+    if (args.includes("--write")) return integrityWrite(args);
+    return integrityCheck(args);
+  },
 };
 
 const [cmd, ...args] = process.argv.slice(2);
@@ -579,6 +766,10 @@ if (!cmd || !CMDS[cmd]) {
   wiring [--json]   only the wiring: hooks in both hosts and in the built plugin,
                     the data those tools read, gate reviewers, orphan tools, and
                     whether this audit itself runs in CI
+  integrity [--check | --write --by "<name>"] [--json]
+                    the enforcement surface (hooks, wiring, policies, gates,
+                    lifecycle.mjs) against lifecycle/integrity.json. --write is a
+                    human's command; --check is CI's
 
 It was written for a real defect: guard-phase.mjs was copied into the plugin and
 never wired into its hooks.json, so the design gate blocked nothing for every
@@ -587,4 +778,4 @@ plugin install while every document said it did.
 A missing control is noticed. A disconnected one is trusted.`);
   process.exit(cmd ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exit((await CMDS[cmd](args)) ?? 0);

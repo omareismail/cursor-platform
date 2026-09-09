@@ -39,8 +39,11 @@ Copy from platform source into **project root**:
 ```powershell
 # Run from D:\repos\MotorsReports
 Copy-Item -Recurse D:\repos\cursor\.cursor .
+Copy-Item -Recurse D:\repos\cursor\.claude .
 Copy-Item -Recurse D:\repos\cursor\memory-bank .
+Copy-Item -Recurse D:\repos\cursor\schemas .
 Copy-Item D:\repos\cursor\AGENTS.md .
+Copy-Item D:\repos\cursor\CLAUDE.md .
 ```
 
 If local platform path unavailable:
@@ -48,13 +51,18 @@ If local platform path unavailable:
 ```powershell
 git clone https://github.com/omareismail/cursor-platform.git $env:TEMP\cursor-platform
 Copy-Item -Recurse $env:TEMP\cursor-platform\.cursor .
+Copy-Item -Recurse $env:TEMP\cursor-platform\.claude .
 Copy-Item -Recurse $env:TEMP\cursor-platform\memory-bank .
+Copy-Item -Recurse $env:TEMP\cursor-platform\schemas .
 Copy-Item $env:TEMP\cursor-platform\AGENTS.md .
+Copy-Item $env:TEMP\cursor-platform\CLAUDE.md .
 ```
 
 **Verify (must all pass):**
-- [ ] `.cursor/skills/` contains 66 subfolders
-- [ ] `.cursor/rules/` contains 11 `.mdc` files
+- [ ] `.cursor/skills/` contains 98 subfolders
+- [ ] `.cursor/rules/` contains 12 `.mdc` files
+- [ ] `.claude/hooks/` contains `guard-write.mjs`, `guard-phase.mjs`, `guard-bash.mjs`, `guard-mcp.mjs`, `_lib.mjs`
+- [ ] `schemas/` contains `finding.schema.json`
 - [ ] `memory-bank/` contains 24 `.md` files
 - [ ] `AGENTS.md` at project root
 - [ ] `.cursor/cache/.gitkeep` exists

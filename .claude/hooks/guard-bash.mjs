@@ -24,6 +24,12 @@ const HUMAN_ONLY = [
   [/\blifecycle\.mjs\b[^|;&]*\boverride\b/i, "lifecycle.mjs override", "acceptance of a named risk by its owner"],
   [/\blifecycle\.mjs\b[^|;&]*\binit\b[^|;&]*--existing\b/i, "lifecycle.mjs init --existing", "the declaration that phases 1-3 were done before the lifecycle was adopted"],
   [/\brelease-evidence\.mjs\b[^|;&]*\bsign\b/i, "release-evidence.mjs sign", "the signature on a release"],
+  // The manifest attests to the enforcement surface. An agent that could change
+  // a hook and then re-attest it would have closed the loop on itself.
+  [/\bself-audit\.mjs\b[^|;&]*\bintegrity\b[^|;&]*--write\b/i, "self-audit.mjs integrity --write", "the attestation that the hooks, policies and gates are what a human last reviewed"],
+  // A broken evidence chain is the one refusal no override reaches. Resealing it
+  // is a person accepting, by name, that the records are what they now are.
+  [/\blifecycle\.mjs\b[^|;&]*\bevidence\b[^|;&]*\breseal\b/i, "lifecycle.mjs evidence reseal", "acceptance that the record of every lifecycle decision is what it is now, after something changed it"],
 ];
 for (const [re, what, means] of HUMAN_ONLY) {
   if (re.test(cmd)) {

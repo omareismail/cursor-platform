@@ -32,7 +32,8 @@ and how the one story everything else depends on gets built last.
 node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs status
 ```
 
-If the DESIGN row is anything other than `APPROVED` or `INHERITED`, stop. A
+If the DESIGN row is anything other than `APPROVED`, `INHERITED` or
+`INHERITED_UNVERIFIED`, stop. A
 `STALE` there means the design changed after it was approved — the features you
 are about to build were planned against a document that no longer says what it
 said.

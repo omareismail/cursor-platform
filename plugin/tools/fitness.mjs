@@ -57,11 +57,13 @@
  *   node .cursor/tools/fitness.mjs all [--json]          every violation, baseline ignored
  *   node .cursor/tools/fitness.mjs baseline [--accept]   record today's, or show the drift
  *
- * Exit codes:  0 = no new violation   1 = new violations / no promoted architecture
- *              2 = usage
+ * Exit codes:  0 = no new violation   1 = new violations
+ *              2 = usage / no promoted architecture (nothing to check)
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
+import { writeJsonAtomic } from "./_state.mjs";
+import { report as findingReport, emit, block, info } from "./_findings.mjs";
 import { join, extname, relative, dirname, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -327,7 +329,11 @@ function collect() {
 
 const readBaseline = () => { try { return JSON.parse(readFileSync(BASELINE(), "utf8")); } catch { return null; } };
 
-const unpromoted = (r) => {
+const unpromoted = (r, args = [], command = "check") => {
+  // Exit 2, like every sibling checker's "nothing to check": an un-promoted
+  // architecture is a skipped gate, not a violation, and a release record or an
+  // approval that ran this should say "skipped", not "FAILED".
+  if (args.includes("--json")) return emit(findingReport({ tool: "fitness.mjs", command, skipped: true, summary: `no promoted architecture: ${r.why}`, data: null }));
   out(`No promoted architecture to check against.`);
   out(`  ${r.why}\n`);
   out(`Gate 3 ends with a promotion step, and this is what it is for: the layering`);
@@ -335,7 +341,7 @@ const unpromoted = (r) => {
   out(`is written, there are no rules here to enforce — and inventing some would mean`);
   out(`enforcing an architecture nobody agreed to.`);
   out(`\n  node .cursor/tools/lifecycle.mjs gate DESIGN`);
-  return 1;
+  return 2;
 };
 
 const CMDS = {
@@ -368,7 +374,7 @@ const CMDS = {
 
   check(args) {
     const { rules: r, violations } = collect();
-    if (!violations) return unpromoted(r);
+    if (!violations) return unpromoted(r, args);
     const base = readBaseline();
     const known = new Set(base?.violations || []);
     const now = new Set(violations.map(fingerprint));
@@ -376,8 +382,13 @@ const CMDS = {
     const fixed = [...known].filter((k) => !now.has(k));
 
     if (args.includes("--json")) {
-      out(JSON.stringify({ total: violations.length, new: fresh, fixed: fixed.length, baseline: base ? { at: base.at, count: base.violations.length } : null }, null, 2));
-      return fresh.length ? 1 : 0;
+      const findings = fresh.map((v) => block(String(v.rule || "violation").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "violation", `${v.rule}: ${v.detail}`, { file: v.file, line: v.line, detail: v.detail }));
+      if (fixed.length) findings.push(info("baseline-fixed", `${fixed.length} baselined violation(s) no longer exist - lower the ratchet with \`baseline --accept\``));
+      return emit(findingReport({
+        tool: "fitness.mjs", command: "check", findings,
+        summary: fresh.length ? `${fresh.length} NEW architectural violation(s) since the baseline` : `OK: no new architectural violation`,
+        data: { total: violations.length, new: fresh, fixed: fixed.length, baseline: base ? { at: base.at, count: base.violations.length } : null },
+      }));
     }
     if (base) {
       const days = Math.floor((Date.now() - Date.parse(base.at)) / 86400000);
@@ -436,8 +447,7 @@ const CMDS = {
       note: "Architectural debt accepted at this date. `check` fails only on violations not in this list. The count may fall and must never rise.",
       violations: violations.map(fingerprint).sort(),
     };
-    mkdirSync(dirname(BASELINE()), { recursive: true });
-    writeFileSync(BASELINE(), JSON.stringify(rec, null, 2) + "\n", "utf8");
+    writeJsonAtomic(BASELINE(), rec);
     out(`Baseline recorded: ${rec.violations.length} violation(s)${base ? ` (was ${base.violations.length}: ${gone.length} fixed, ${added.length} newly accepted)` : ""}.`);
     out(`  ${relative(ROOT, BASELINE()).split("\\").join("/")}`);
     out(`\nCommit it. It is a dated record of architectural debt, not a suppression file.`);

@@ -49,6 +49,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs";
+import { report, emit, block, info } from "./_findings.mjs";
 import { join } from "node:path";
 
 const AC = await import(new URL("./ac-trace.mjs", import.meta.url).href);
@@ -191,7 +192,11 @@ function layerOf(file) {
 
 async function build(args) {
   const { acs, claims } = AC.load(args);
-  if (!acs.size) fail(`No acceptance criteria found. Nothing to profile.\nNumber them AC-1, AC-2, ... in the spec; the test generators already emit the matching comments.`, 2);
+  if (!acs.size) {
+    // Same exit 2 either way; in JSON the reader gets the envelope, not stderr.
+    if (args.includes("--json")) process.exit(emit(report({ tool: "risk-profile.mjs", command: "check", skipped: true, summary: "no acceptance criteria found - nothing to profile", data: null })));
+    fail(`No acceptance criteria found. Nothing to profile.\nNumber them AC-1, AC-2, ... in the spec; the test generators already emit the matching comments.`, 2);
+  }
   const cen = await centrality();
 
   const byAc = new Map();
@@ -203,7 +208,7 @@ async function build(args) {
   for (const ac of acs.values()) { if (!bySpec.has(ac.spec)) bySpec.set(ac.spec, []); bySpec.get(ac.spec).push(ac); }
   for (const list of bySpec.values()) {
     list.sort((a, b) => a.line - b.line);
-    list.forEach((ac, i) => boundary.set(ac.id, list[i + 1]?.line ?? null));
+    list.forEach((ac, i) => boundary.set(ac.key, list[i + 1]?.line ?? null));
   }
 
   const rows = [];
@@ -274,8 +279,15 @@ const CMDS = {
     const t1gaps = rows.filter((r) => r.tier === 1 && r.missing.length);
 
     if (args.includes("--json")) {
-      out(JSON.stringify({ criteria: rows.length, gaps, t1gaps: t1gaps.length, centralityNote }, null, 2));
-      return gaps.length ? 1 : 0;
+      const findings = [
+        ...gaps.map((r) => block(`t${r.tier}-under-evidenced`, `${r.id} (T${r.tier}, ${r.rule}) is missing: ${r.missing.join("; ")}`, { ref: r.id, file: r.spec, line: r.line, detail: { tier: r.tier, missing: r.missing } })),
+        ...t1gaps.map((r) => info("t1-uncovered", `${r.id} (T1) is uncovered - ac-trace.mjs check reports it`, { ref: r.id, file: r.spec, line: r.line })),
+      ];
+      return emit(report({
+        tool: "risk-profile.mjs", command: "check", findings,
+        summary: gaps.length ? `FAILED: ${gaps.length} criterion/criteria tested as if being wrong were cheap` : `OK: every T2 and T3 criterion carries the evidence its tier requires`,
+        data: { criteria: rows.length, gaps, t1gaps: t1gaps.length, centralityNote },
+      }));
     }
     out(`# Risk-based coverage — ${rows.length} acceptance criteria\n`);
     if (centralityNote) out(`  Structural centrality not used: ${centralityNote}\n`);

@@ -44,7 +44,7 @@ const lifecycle = await import(new URL("./lifecycle.mjs", import.meta.url));
 lifecycle.setRoot(ROOT);
 const {
   readState, deriveAll, derivePhase, governance, gateMeta, gateVersion, gateFile,
-  PHASES, CLEARED, approveRefusals,
+  PHASES, CLEARED, RELEASE_CLEARED, approveRefusals,
 } = lifecycle;
 
 const artifacts = await import(new URL("./artifact-schema.mjs", import.meta.url));
@@ -142,7 +142,7 @@ function runTool(name, args, { timeout = 25_000 } = {}) {
   } catch (e) {
     const out = String(e.stdout || "");
     const parsed = parseToolOut(out, e.status ?? 1);
-    if (parsed.ok) return parsed;
+    if (parsed.ok || parsed.report) return parsed;
     const err = String(e.stderr || e.message || "").slice(0, 400);
     return {
       ok: false,
@@ -157,8 +157,17 @@ function parseToolOut(stdout, exit) {
   const start = t.startsWith("{") || t.startsWith("[") ? t
     : t.slice(Math.max(t.indexOf("{"), t.indexOf("[")));
   try {
-    const data = JSON.parse(t.startsWith("{") || t.startsWith("[") ? t : start);
-    return { ok: true, data, exit };
+    const parsed = JSON.parse(t.startsWith("{") || t.startsWith("[") ? t : start);
+    // The finding-report envelope (schemas/finding.schema.json): the tool's own
+    // shape is under `data`, so every renderer written against that shape keeps
+    // working, and the normalised findings ride alongside for the Findings panel.
+    // A skipped tool (nothing to check) has no data, and the empty-box hint is the
+    // right thing to show for it.
+    if (parsed && typeof parsed === "object" && parsed.schema === "finding-report/1" && Array.isArray(parsed.findings)) {
+      if (parsed.data === null || parsed.data === undefined) return { ok: false, empty: true, hint: parsed.summary, report: parsed };
+      return { ok: true, data: parsed.data, exit, report: parsed };
+    }
+    return { ok: true, data: parsed, exit };
   } catch { return { ok: false, empty: true }; }
 }
 
@@ -586,7 +595,7 @@ function cutPreflight() {
   if (s) {
     const derived = deriveAll(s);
     for (const p of ["DEVELOPMENT", "TESTING"]) {
-      if (!CLEARED.has(derived[p]?.status)) {
+      if (!RELEASE_CLEARED.has(derived[p]?.status)) {
         refusals.push(`${p} is ${derived[p]?.status || "unknown"}, not cleared.`);
       }
     }
@@ -614,9 +623,13 @@ function signPreflight(version) {
   if (s) {
     const derived = deriveAll(s);
     for (const p of ["DEVELOPMENT", "TESTING", "PRODUCTION"]) {
-      if (!CLEARED.has(derived[p]?.status)) {
+      if (!RELEASE_CLEARED.has(derived[p]?.status)) {
         refusals.push(`${p} is ${derived[p]?.status || "unknown"}, not cleared.`);
       }
+    }
+    const unverified = PHASES.filter((p) => derived[p]?.status === "INHERITED_UNVERIFIED");
+    if (unverified.length) {
+      refusals.push(`${unverified.length} inherited phase(s) nobody has verified must be accepted with --accept-inherited: ${unverified.join(", ")}`);
     }
     const now = Date.now();
     const ovs = PHASES.map((p) => s.phases?.[p]?.override)
@@ -628,7 +641,10 @@ function signPreflight(version) {
   return { ok: refusals.length === 0, refusals, unchecked };
 }
 
-function collectActions() {
+// Async because approveRefusals() is: it runs the traceability graph and the
+// phase's computed checks, exactly as the CLI does, so the composer's green
+// light and the CLI's refusal come from one function rather than two copies.
+async function collectActions() {
   const s = readState();
   const knownIds = [];
   try {
@@ -653,10 +669,12 @@ function collectActions() {
       command: "init",
       group: "lifecycle",
       title: "Initialise lifecycle",
-      description: "Create lifecycle/state.json. Greenfield starts at REQUIREMENTS; --existing marks phases 1–3 INHERITED.",
+      description: "Create lifecycle/state.json. Greenfield starts at REQUIREMENTS; --existing marks phases 1–3 INHERITED (by whom, checked by whom).",
       fields: [
         field("--name", "text", { required: false, placeholder: "product name" }),
-        field("--existing", "flag", { required: false, hint: "Brownfield: phases 1–3 inherited, start at DEVELOPMENT" }),
+        field("--existing", "flag", { required: false, hint: "Brownfield: phases 1–3 inherited, start at DEVELOPMENT. Needs --by; refuses an empty repo." }),
+        field("--by", "text", { required: false, placeholder: "who claims phases 1–3 happened (required with --existing)" }),
+        field("--review-by", "text", { required: false, placeholder: "who checked that claim — without it the phases are INHERITED_UNVERIFIED" }),
       ],
       preflight: {
         ok: true,
@@ -669,7 +687,7 @@ function collectActions() {
   const byPhase = {};
   for (const p of PHASES) {
     const meta = gateMeta(p);
-    const approve = s ? approveRefusals(s, p, "") : { refusals: ["No lifecycle/state.json."], reapproval: false, override: null };
+    const approve = s ? await approveRefusals(s, p, "") : { refusals: ["No lifecycle/state.json."], reapproval: false, override: null };
     const rec = recordGatePreflight(p, meta.reviewer);
     byPhase[p] = {
       reviewer: meta.reviewer,
@@ -714,6 +732,7 @@ function collectActions() {
       fields: [
         field("PHASE", "enum", { options: PHASES, positional: true }),
         field("--by", "text", { hint: "A different party from the recorded verdict. Same name is one consent." }),
+        field("--accept-check", "text", { required: false, repeatable: true, placeholder: "ac-trace.mjs", hint: "Take a FAILED computed check on by name (TESTING runs ac-trace)." }),
         field("--note", "text", { required: false }),
       ],
     });
@@ -790,6 +809,7 @@ function collectActions() {
         field("VERSION", "text", { positional: true, pattern: VERSION_RE, placeholder: unsigned[0] || "v1.2.0", options: unsigned.length ? unsigned : undefined }),
         field("--by", "text"),
         field("--accept-override", "text", { required: false, repeatable: true, placeholder: "OV-XXXX" }),
+        field("--accept-inherited", "enum", { required: false, repeatable: true, options: PHASES, hint: "Accept, by name, an inherited phase nobody verified." }),
         field("--note", "text", { required: false }),
       ],
       preflight: signPreflight(unsigned[0] || ""),
@@ -890,6 +910,41 @@ function collectActions() {
   };
 }
 
+/**
+ * Every checker, one list. Each tool's --json is a finding report
+ * (schemas/finding.schema.json), so this does not know eight shapes - it knows
+ * one, and a ninth tool joins by emitting it. Tools that are not installed or
+ * produce no report are listed as such rather than dropped: "not run" is a
+ * different fact from "clean".
+ */
+const FINDING_TOOLS = [
+  ["ac-trace.mjs", ["check", "--json"]],
+  ["risk-profile.mjs", ["check", "--json"]],
+  ["fitness.mjs", ["check", "--json"]],
+  ["failure-modes.mjs", ["check", "--json"]],
+  ["incidents.mjs", ["check", "--json"]],
+  ["flag-debt.mjs", ["scan", "--json"]],
+  ["artifact-schema.mjs", ["check", "--json"]],
+  ["docs-lint.mjs", ["check", "--json"]],
+  ["self-audit.mjs", ["integrity", "--json"]],
+];
+
+function collectFindings() {
+  const reports = [], findings = [];
+  for (const [tool, args] of FINDING_TOOLS) {
+    const r = runTool(tool, args, { timeout: 30_000 });
+    const rep = r.report;
+    if (!rep) { reports.push({ tool, command: args[0], ran: false, hint: r.hint || `no finding report from ${tool}`, commandLine: `node .cursor/tools/${tool} ${args.join(" ")}` }); continue; }
+    reports.push({ tool, command: rep.command, ran: true, ok: rep.ok, skipped: !!rep.skipped, exit: rep.exit, summary: rep.summary, counts: rep.counts, at: rep.at });
+    for (const f of rep.findings) findings.push({ tool, ...f });
+  }
+  const order = { block: 0, warn: 1, info: 2 };
+  findings.sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9) || a.tool.localeCompare(b.tool));
+  const counts = { block: 0, warn: 0, info: 0 };
+  for (const f of findings) if (counts[f.severity] !== undefined) counts[f.severity]++;
+  return { schema: "finding-report/1", reports, counts, findings, ok: counts.block === 0 };
+}
+
 const COLLECTORS = {
   overview: collectOverview,
   lifecycle: collectLifecycle,
@@ -897,24 +952,27 @@ const COLLECTORS = {
   traceability: collectTraceability,
   quality: collectQuality,
   delivery: collectDelivery,
+  findings: collectFindings,
   memory: collectMemory,
   platform: collectPlatform,
   actions: collectActions,
 };
 
-function cached(name, fresh) {
+// Collectors may be sync or async; awaiting a plain value is a no-op, so every
+// one of them is awaited and none has to care which kind it is.
+async function cached(name, fresh) {
   if (!fresh) {
     const hit = cache.get(name);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
   }
-  const value = COLLECTORS[name]();
+  const value = await COLLECTORS[name]();
   cache.set(name, { at: Date.now(), value });
   return value;
 }
 
-function snapshot() {
+async function snapshot() {
   const out = { generatedAt: new Date().toISOString(), root: ROOT };
-  for (const name of Object.keys(COLLECTORS)) out[name] = COLLECTORS[name]();
+  for (const name of Object.keys(COLLECTORS)) out[name] = await COLLECTORS[name]();
   return out;
 }
 
@@ -942,6 +1000,7 @@ const API = {
   "/api/traceability": "traceability",
   "/api/quality": "quality",
   "/api/delivery": "delivery",
+  "/api/findings": "findings",
   "/api/memory": "memory",
   "/api/platform": "platform",
   "/api/actions": "actions",
@@ -962,12 +1021,11 @@ function onRequest(req, res) {
   // is unavailable is worse than one that says the number is unavailable.
   const fail = (e) => json(res, 500, { error: String(e.message || e).slice(0, 400) });
   if (path === "/api/snapshot") {
-    try { return json(res, 200, snapshot()); } catch (e) { return fail(e); }
+    return snapshot().then((d) => json(res, 200, d)).catch(fail);
   }
   const name = API[path];
   if (!name) return json(res, 404, { error: "Unknown route." });
-  try { return json(res, 200, cached(name, fresh)); }
-  catch (e) { return fail(e); }
+  return cached(name, fresh).then((d) => json(res, 200, d)).catch(fail);
 }
 
 function openBrowser(url) {
@@ -1127,6 +1185,7 @@ button.act:hover, .btn:hover { border-color:var(--accent); color:var(--accent); 
     <button data-panel="traceability">Traceability</button>
     <button data-panel="quality">Quality</button>
     <button data-panel="delivery">Delivery</button>
+    <button data-panel="findings">Findings</button>
     <button data-panel="memory">Memory-bank</button>
     <button data-panel="platform">Platform</button>
     <button data-panel="actions">Actions</button>
@@ -1497,6 +1556,36 @@ button.act:hover, .btn:hover { border-color:var(--accent); color:var(--accent); 
     return frag;
   }
 
+  function renderFindings(d) {
+    title.textContent = "Findings";
+    subtitle.textContent = "Every checker, one list, one shape (schemas/finding.schema.json). Loaded on demand; runs nine tools.";
+    var frag = document.createDocumentFragment();
+    var c = d.counts || { block: 0, warn: 0, info: 0 };
+    var g = el("div", { class: "grid" });
+    g.appendChild(card("Blocking", c.block, c.block ? "bad" : "ok"));
+    g.appendChild(card("Warnings", c.warn, c.warn ? "warn" : "ok"));
+    g.appendChild(card("Info", c.info));
+    frag.appendChild(g);
+
+    frag.appendChild(el("h3", { text: "Tools" }));
+    frag.appendChild(table(["Tool", "Result", "Summary"], (d.reports || []).map(function (r) {
+      var verdict = !r.ran ? badge("not run", "") : r.skipped ? badge("skipped", "") : r.ok ? badge("ok", "ok") : badge("FAIL", "bad");
+      return [r.tool + " " + (r.command || ""), verdict, r.ran ? (r.summary || "") : (r.hint || "")];
+    })));
+
+    frag.appendChild(el("h3", { text: "Findings" }));
+    var list = d.findings || [];
+    if (!list.length) frag.appendChild(el("p", { class: "muted", text: "No findings from any tool that ran." }));
+    else {
+      frag.appendChild(table(["Severity", "Tool", "Code", "Where", "Message"], list.slice(0, 200).map(function (f) {
+        var where = f.file ? f.file + (f.line ? ":" + f.line : "") : (f.ref || "");
+        return [badge(f.severity, f.severity === "block" ? "bad" : f.severity === "warn" ? "warn" : ""), f.tool, f.code, where, f.message];
+      })));
+      if (list.length > 200) frag.appendChild(el("p", { class: "muted", text: "… and " + (list.length - 200) + " more. Run the tool for the full list." }));
+    }
+    return frag;
+  }
+
   function renderMemory(d) {
     title.textContent = "Memory-bank";
     subtitle.textContent = "Tier 1 is regenerated; Tier 2 is human-authored. Templates are flagged, not trusted.";
@@ -1588,6 +1677,7 @@ button.act:hover, .btn:hover { border-color:var(--accent); color:var(--accent); 
     traceability: renderTrace,
     quality: renderQuality,
     delivery: renderDelivery,
+    findings: renderFindings,
     memory: renderMemory,
     platform: renderPlatform,
     actions: renderActions,
@@ -1907,9 +1997,7 @@ function main() {
   if (!cmd || cmd === "--help" || cmd === "-h") { usage(); process.exit(cmd ? 0 : 2); }
   if (cmd === "serve") return serve(args);
   if (cmd === "snapshot") {
-    const data = snapshot();
-    console.log(JSON.stringify(data, null, 2));
-    return;
+    return snapshot().then((data) => console.log(JSON.stringify(data, null, 2)));
   }
   usage();
   process.exit(2);
@@ -1917,3 +2005,6 @@ function main() {
 
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly || process.env.DASHBOARD_FORCE_CLI) main();
+
+// For the test suite: the envelope reader and the one collector built on it.
+export { parseToolOut, collectFindings, FINDING_TOOLS };

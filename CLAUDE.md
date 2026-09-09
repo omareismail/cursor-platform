@@ -53,7 +53,7 @@ reformatting, no drive-by refactors, no scope creep. Minimise the diff.
 **`11-lifecycle-gate`** — On a repo with `lifecycle/state.json`, the product is in
 one of six phases and you may not run work belonging to a later one. The
 `SessionStart` hook injects the current phase. Until the DESIGN gate is
-`APPROVED` or `INHERITED`, `guard-phase.mjs` blocks every write under `src/`,
+`APPROVED`, `INHERITED` or `INHERITED_UNVERIFIED`, `guard-phase.mjs` blocks every write under `src/`,
 `backend/` and `frontend/` — tests, specs and docs are never blocked. Never
 approve a gate on the user's behalf; `approve` requires `--by "name"` for that
 reason. Never judge a gate for a phase you wrote: each gate file names the
@@ -193,6 +193,23 @@ in `docs/design/architecture.md` is a document, the same decision in
 is human-authored and `guard-write.mjs` blocks agent writes, so promotion is
 explicit — show the diff, get the user's word, apply with
 `CLAUDE_ALLOW_TIER2_EDIT=1`.
+
+**Brownfield is a claim with a claimant.** `init --existing --by "<name>"` marks
+phases 1-3 inherited; add `--review-by "<a second person>"` and they derive
+`INHERITED`, leave it off and they derive `INHERITED_UNVERIFIED` — source writes
+open either way, but a release cannot be signed on an unverified phase until the
+signer names it (`sign ... --accept-inherited PHASE`). It refuses an empty repo:
+no commits and no source is nothing to inherit. Both are human-only commands;
+print them, do not run them.
+
+**What an approval is bound to.** Directory artifacts hash by content,
+recursively (`dir2:`), so a rewritten `src/` stales `DEVELOPMENT` even when no
+file name changed. Every required artifact has a type and must pass *as* that
+type — `tests/` holding only fixtures is not a `test-suite`. `approve` runs the
+id-chain check for the phase and `ac-trace.mjs check` for `TESTING`; a failure
+is a refusal unless the signer names it with `--accept-check <tool>`. All of
+this is in the record, beside `recordedBy` — who the environment says typed the
+command, printed as a warning when it disagrees with `--by`.
 
 A repo with no `lifecycle/state.json` never adopted this. That is valid; say so
 and carry on. Full detail: `.cursor/docs/LIFECYCLE.md`,
@@ -551,6 +568,36 @@ tree; `run` invokes all three so there is one command. What it adds:
 - and that this audit itself runs in CI, since an audit nobody runs is exactly
   the defect it exists to find
 
+Wiring says a guard is reachable; nothing above says it is still the guard
+somebody reviewed. `lifecycle/integrity.json` does:
+
+```bash
+node .cursor/tools/self-audit.mjs integrity                        # CI, and you: CHANGED / MISSING / UNATTESTED
+node .cursor/tools/self-audit.mjs integrity --write --by "<name>"  # human-only: attest after reviewing a change
+```
+
+It is sha256 over every hook, both hook wirings, both policy files, the gate
+definitions, `lifecycle.mjs` and `_state.mjs`. `--write` is refused from the
+agent's shell — an agent that can change a hook and re-sign for it has no hook.
+When `--check` fails, that is the finding; show it, do not re-attest.
+
+Each record under `lifecycle/` vouches for itself; `lifecycle/index.jsonl` vouches
+for the *set*. Every write appends one line naming the file, its sha256, and the
+hash of the line before it:
+
+```bash
+node .cursor/tools/lifecycle.mjs evidence
+node .cursor/tools/lifecycle.mjs evidence reseal --by "<name>" --reason "..."
+```
+
+`approve` and `release-evidence.mjs sign` refuse on a broken chain, and no
+override reaches it. `reseal` is human-only. Do not offer it.
+
+`--json` from every checking tool is one shape (`schemas/finding.schema.json`):
+`ok`, `exit`, a one-line `summary`, and a flat `findings[]` of `block` | `warn`
+| `info`. The dashboard Findings panel is that list. A tool with nothing to
+check says `skipped: true` and exits 2.
+
 ---
 
 ## Hooks — what is enforced mechanically
@@ -562,7 +609,7 @@ Prose rules are advisory; hooks are not. `.claude/settings.json` wires:
 | `SessionStart` | Injects the current lifecycle phase, memory-bank Tier 1 digest + `repo-map.json` freshness. Rules `00` and `11` become automatic. |
 | `PreToolUse` (Write/Edit/Delete) | **Blocks** hand-edits to `.cursor/cache/repo-map.json` and `lifecycle/state.json`, writes to `.env`/secret files, hardcoded connection-string passwords — and every write to the **enforcement surface**: the hooks, `.claude/settings.json`, `.cursor/hooks.json`, `.cursor/mcp-policy.json`, `.cursor/lifecycle/`, `lifecycle.mjs`, `.mcp.json` and every record under `lifecycle/`. The list is `protected.paths` in `.cursor/lifecycle/write-policy.json`. An agent that can edit the rule instead of obeying it has no rule. Escape for a human developing the platform: `CURSOR_PLATFORM_DEV=1`. |
 | `PreToolUse` (Write/Edit) | **Blocks** every write under `src/`, `backend/`, `frontend/` while the lifecycle DESIGN gate is unapproved. A `lifecycle/state.json` that cannot be read is treated as **closed**, not absent. Escape: `LIFECYCLE_OVERRIDE=1`, set by a human on purpose. |
-| `PreToolUse` (Bash) | **Blocks** `dotnet add package`, `npm/yarn/pnpm install <pkg>`, `git push --force`, `ef database update` against non-local connections; shell writes (redirects, `Set-Content`, `rm`, `sed -i`, `git checkout --`, interpreter one-liners…) to any protected path; `psql -f` and any `psql -c` that is not a single read; and the **human-only commands** `lifecycle.mjs approve`, `override`, `init --existing` and `release-evidence.mjs sign` — a consent typed by the agent is not a consent. No escape for those. |
+| `PreToolUse` (Bash) | **Blocks** `dotnet add package`, `npm/yarn/pnpm install <pkg>`, `git push --force`, `ef database update` against non-local connections; shell writes (redirects, `Set-Content`, `rm`, `sed -i`, `git checkout --`, interpreter one-liners…) to any protected path; `psql -f` and any `psql -c` that is not a single read; and the **human-only commands** `lifecycle.mjs approve`, `override`, `init --existing`, `lifecycle.mjs evidence reseal`, `release-evidence.mjs sign` and `self-audit.mjs integrity --write` — a consent typed by the agent is not a consent. No escape for those. |
 | `PreToolUse` (`mcp__.*`) | **Blocks** MCP calls that violate `.cursor/mcp-policy.json`. A server with no entry is **denied** (v2; `unlisted:"allow"` is honoured but reported). Each server has an access level — `deny`, `read-only`, `restricted-write`, `full` — and on read-only anything not recognisably a read (`deleteRows`, `truncate_table`, `frobnicate`) is refused. SQL in **any** argument field is classified by a tokenizer, not a first-word regex: a `DELETE` inside a CTE, `EXPLAIN ANALYZE`, a second statement behind a comment or literal, `FOR UPDATE`, `SELECT INTO` and `pg_sleep`/`lo_import`/`set_config` are all refused. A missing or unparseable policy denies everything. Cursor attaches the same guard to `beforeMCPExecution`. The client-side lock is defence in depth; the boundary is the role in `templates/postgres/readonly-role.sql`. |
 | `PostToolUse` (Write/Edit) | Runs `dotnet format` / `eslint --fix` on the touched file and feeds failures back. |
 | `Stop` | Warns if source changed but `memory-bank/activeContext.md` was not updated. |

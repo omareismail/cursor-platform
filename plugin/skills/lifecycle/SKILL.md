@@ -66,13 +66,20 @@ practice:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs init --name "<product>"            # greenfield
-node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs init --name "<product>" --existing # brownfield
+node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs init --name "<product>" --existing --by "<claimant>" --review-by "<second person>"  # brownfield
 ```
 
 Brownfield marks phases 1-3 `INHERITED`, which clears the design gate. That is
 deliberate: an existing system did not skip those phases, it did them informally
 years ago, and blocking all work on a live codebase would be absurd. Say this
 plainly rather than letting the user think the gates were approved.
+
+The inheritance is a claim, so it needs a name: `--by` is required, and without
+`--review-by` (a different person) the phases derive `INHERITED_UNVERIFIED` —
+work continues, but `release-evidence.mjs sign` will refuse until the signer
+accepts each one with `--accept-inherited PHASE`. It is refused on a repository
+with no commits and no source. `init --existing` is a human-only command:
+`guard-bash.mjs` blocks it from your shell. Print it and let the user run it.
 
 Then hand off to the phase owner — `/product-brief` for greenfield,
 `/feature-inventory` then `/context-sync` for brownfield.

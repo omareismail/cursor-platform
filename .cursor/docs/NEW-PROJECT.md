@@ -26,15 +26,20 @@ agent [APPLY-TO-PROJECT.md](APPLY-TO-PROJECT.md) to run the full bootstrap.
 
 ## Step 2 — Install cursor-platform
 
-Clone the platform and copy into your **project root**:
+The supported install is the **plugin** (see `plugin/README.md`): it ships hooks, tools, schemas and wiring together. A copy of `.cursor` alone is not a working install — `.cursor/hooks.json` invokes `.claude/hooks/*.mjs`, and the tools read `schemas/`.
+
+If you are copying from a checkout instead of installing the plugin, take the complete set:
 
 **Linux / macOS:**
 
 ```bash
 git clone https://github.com/omareismail/cursor-platform.git /tmp/cursor-platform
 cp -r /tmp/cursor-platform/.cursor .
+cp -r /tmp/cursor-platform/.claude .
 cp -r /tmp/cursor-platform/memory-bank .
+cp -r /tmp/cursor-platform/schemas .
 cp /tmp/cursor-platform/AGENTS.md .
+cp /tmp/cursor-platform/CLAUDE.md .
 ```
 
 **Windows (PowerShell):**
@@ -42,16 +47,21 @@ cp /tmp/cursor-platform/AGENTS.md .
 ```powershell
 git clone https://github.com/omareismail/cursor-platform.git $env:TEMP\cursor-platform
 Copy-Item -Recurse $env:TEMP\cursor-platform\.cursor .
+Copy-Item -Recurse $env:TEMP\cursor-platform\.claude .
 Copy-Item -Recurse $env:TEMP\cursor-platform\memory-bank .
+Copy-Item -Recurse $env:TEMP\cursor-platform\schemas .
 Copy-Item $env:TEMP\cursor-platform\AGENTS.md .
+Copy-Item $env:TEMP\cursor-platform\CLAUDE.md .
 ```
 
 Verify:
 
 - [ ] `.cursor/skills/` — 98 skill folders
-- [ ] `.cursor/rules/` — 11 `.mdc` rule files
+- [ ] `.cursor/rules/` — 12 `.mdc` rule files
+- [ ] `.claude/hooks/` — guard scripts (`guard-write.mjs`, `guard-phase.mjs`, `guard-bash.mjs`, `guard-mcp.mjs`, `_lib.mjs`, `_sql.mjs`)
+- [ ] `schemas/` — finding and id-grammar schemas the copied tools read
 - [ ] `memory-bank/` — 24 files
-- [ ] `AGENTS.md` at project root (agent session instructions)
+- [ ] `AGENTS.md` and `CLAUDE.md` at project root
 - [ ] Create `.cursor/settings.local.json` locally (not committed) — see
       [mcp-ecosystem.md](mcp-ecosystem.md)
 

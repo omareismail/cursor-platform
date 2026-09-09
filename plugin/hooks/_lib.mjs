@@ -21,7 +21,7 @@
 //   inject           hookSpecificOutput.additionalContext   additional_context
 //   workspace root   $CLAUDE_PROJECT_DIR                workspace_roots[0]
 
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync, statSync, writeSync } from "node:fs";
 import { resolve, relative, isAbsolute, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -123,8 +123,14 @@ export const PROTECTED_FALLBACK = [
   ".cursor/mcp-policy.json",
   ".cursor/lifecycle/**",
   ".cursor/tools/lifecycle.mjs",
+  ".cursor/tools/_state.mjs",
+  ".cursor/tools/_evidence.mjs",
+  ".cursor/tools/self-audit.mjs",
+  ".cursor/tools/release-evidence.mjs",
   ".mcp.json",
   "lifecycle/state.json",
+  "lifecycle/integrity.json",
+  "lifecycle/index.jsonl",
   "lifecycle/evidence/**",
   "lifecycle/releases/**",
   "lifecycle/overrides/**",
@@ -134,6 +140,15 @@ export const PROTECTED_FALLBACK = [
   ".cursor/cache/repo-map.json",
   ".cursor/cache/feature-map.json",
 ];
+
+/**
+ * Cursor fires preToolUse for every tool. A Read payload carries the same
+ * file_path a Write does, so a guard that treats "has a path" as "is a write"
+ * refuses the reads rule 00 requires. Shared here so guard-write and
+ * guard-phase cannot disagree about what a read is.
+ */
+export const READ_TOOLS = /^(Read|ReadFile|read_file|Grep|grep|grep_search|Glob|glob|glob_file_search|file_search|ReadLints|read_lints|ListDir|list_dir|codebase_search|SemanticSearch|view_file|WebFetch|WebSearch)$/i;
+export const isReadTool = (p) => READ_TOOLS.test(p?.tool_name || "");
 
 /** The write policy, from the project or the copy shipped beside the hooks; null when neither is readable. */
 export function writePolicy() {
@@ -186,6 +201,23 @@ export function ageInDays(p) {
 }
 
 /**
+ * Write the whole answer, then exit - in that order, guaranteed.
+ *
+ * `process.stdout.write(json); process.exit(0)` is a race. When stdout is a
+ * pipe, as it is under a hook runner, the write is ASYNCHRONOUS on Windows and
+ * `exit` can run before the bytes leave the process. The answer is then empty,
+ * and with `failClosed` an empty answer is a denial - the same tool call was
+ * refused twice and then allowed unchanged, which is the signature. `writeSync`
+ * on the raw descriptor blocks until the kernel has the bytes; the fallback is
+ * for the rare EAGAIN on a non-blocking pipe, where exiting from the write's
+ * callback is the only safe order. Either way this function does not return.
+ */
+function emit(fd, text, code) {
+  try { writeSync(fd, text); process.exit(code); }
+  catch { (fd === 2 ? process.stderr : process.stdout).write(text, () => process.exit(code)); }
+}
+
+/**
  * Refuse the action.
  *
  * Cursor accepts exit 2 as a deny, but the JSON form carries two messages: one
@@ -195,15 +227,13 @@ export function ageInDays(p) {
 export function block(reason) {
   const text = reason.trim();
   if (HOST === "cursor") {
-    process.stdout.write(JSON.stringify({
+    emit(1, JSON.stringify({
       permission: "deny",
       user_message: text.split("\n")[0],
       agent_message: text,
-    }));
-    process.exit(0);
+    }), 0);
   }
-  process.stderr.write(text + "\n");
-  process.exit(2);
+  emit(2, text + "\n", 2);
 }
 
 /**
@@ -216,16 +246,14 @@ export function block(reason) {
  * stderr and exits clean.
  */
 export function warn(reason) {
-  process.stderr.write(reason.trim() + "\n");
-  process.exit(HOST === "cursor" ? 0 : 2);
+  emit(2, reason.trim() + "\n", HOST === "cursor" ? 0 : 2);
 }
 
 /** Inject text into the session context (SessionStart / sessionStart). */
 export function inject(hookEventName, additionalContext) {
-  process.stdout.write(HOST === "cursor"
+  emit(1, HOST === "cursor"
     ? JSON.stringify({ additional_context: additionalContext })
-    : JSON.stringify({ hookSpecificOutput: { hookEventName, additionalContext } }));
-  process.exit(0);
+    : JSON.stringify({ hookSpecificOutput: { hookEventName, additionalContext } }), 0);
 }
 
 /**
@@ -242,7 +270,7 @@ const ADVISORY = /^(sessionStart|afterFileEdit|stop|afterAgentResponse|afterAgen
 export function ok() {
   if (HOST === "cursor") {
     const ev = PAYLOAD?.hook_event_name;
-    if (typeof ev !== "string" || DECIDING.test(ev) || !ADVISORY.test(ev)) process.stdout.write(JSON.stringify({ permission: "allow" }));
+    if (typeof ev !== "string" || DECIDING.test(ev) || !ADVISORY.test(ev)) emit(1, JSON.stringify({ permission: "allow" }), 0);
   }
   process.exit(0);
 }

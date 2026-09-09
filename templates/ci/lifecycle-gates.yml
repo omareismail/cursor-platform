@@ -62,7 +62,7 @@ jobs:
         run: |
           STATUS=$(node .cursor/tools/lifecycle.mjs status --json | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).derived.DESIGN.status))")
           echo "DESIGN gate: $STATUS"
-          if [ "$STATUS" = "APPROVED" ] || [ "$STATUS" = "INHERITED" ]; then
+          if [ "$STATUS" = "APPROVED" ] || [ "$STATUS" = "INHERITED" ] || [ "$STATUS" = "INHERITED_UNVERIFIED" ]; then
             echo "Cleared. Source is allowed."
             exit 0
           fi
@@ -132,14 +132,15 @@ jobs:
           node -e "
             const s=require('./lifecycle/state.json');
             const ov=Object.entries(s.phases||{}).filter(([,v])=>v.override).map(([p,v])=>({p,...v.override}));
-            if(!ov.length) return;
-            const now=Date.now();
-            for(const o of ov){
-              const expired=Date.parse(o.expiresAt)<now;
-              const lvl=expired?'error':(o.risk==='HIGH'?'warning':'notice');
-              console.log(\`::\${lvl}::\${o.id} \${o.p} risk=\${o.risk} by \${o.by} \${expired?'EXPIRED':'expires'} \${o.expiresAt.slice(0,10)} - \${o.reason}\`);
+            if (ov.length) {
+              const now=Date.now();
+              for (const o of ov) {
+                const expired=Date.parse(o.expiresAt)<now;
+                const lvl=expired?'error':(o.risk==='HIGH'?'warning':'notice');
+                console.log('::'+lvl+'::'+o.id+' '+o.p+' risk='+o.risk+' by '+o.by+' '+(expired?'EXPIRED':'expires')+' '+o.expiresAt.slice(0,10)+' - '+o.reason);
+              }
+              if (ov.some(o=>Date.parse(o.expiresAt)<now)) process.exit(1);
             }
-            if(ov.some(o=>Date.parse(o.expiresAt)<now)) process.exit(1);
           "
 
   # An open change request is fine. One whose forecast said a phase needed
@@ -188,7 +189,8 @@ jobs:
       - name: Layering, boundaries and cycles
         run: |
           [ -f memory-bank/architecture.md ] || { echo "::notice::No promoted architecture."; exit 0; }
-          node .cursor/tools/fitness.mjs check
+          # Exit 2 is "architecture.md is still the template": a skipped gate, not a violation.
+          node .cursor/tools/fitness.mjs check || { rc=$?; [ "$rc" -eq 2 ] && { echo "::notice::Architecture not promoted yet - nothing to check."; exit 0; }; exit "$rc"; }
 
   # Release records are evidence, and evidence that nobody re-checks is a claim.
   # This catches the two things that actually happen to them: a record edited
@@ -208,6 +210,47 @@ jobs:
         run: |
           [ -d lifecycle/releases ] || { echo "::notice::No releases cut yet."; exit 0; }
           node .cursor/tools/release-evidence.mjs verify
+
+  # The enforcement surface. guard-write and guard-bash refuse an AGENT's edit to
+  # a hook or a policy; nothing refuses a human's, a web editor's, or a clone with
+  # no hooks installed. lifecycle/integrity.json is a human's sha256 attestation
+  # of every enforcing file. This fails when one changed and the manifest did not
+  # change with it - so a PR that weakens a guard has to say so in its diff.
+  #
+  # Skips cleanly with a notice until the manifest exists. Do not make it
+  # required before a human has written the first one:
+  #   node .cursor/tools/self-audit.mjs integrity --write --by "<name>"
+  enforcement-integrity:
+    name: the guards are what a human attested
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Hooks, policies, gates and lifecycle.mjs vs lifecycle/integrity.json
+        run: |
+          [ -f lifecycle/integrity.json ] || { echo "::notice::No lifecycle/integrity.json yet. A human writes it: node .cursor/tools/self-audit.mjs integrity --write --by \"<name>\""; exit 0; }
+          node .cursor/tools/self-audit.mjs integrity
+
+  # The evidence chain. Every record the lifecycle writes - verdict, approval,
+  # override, release, incident, change request - is appended to
+  # lifecycle/index.jsonl with the hash of the line before it. A record edited,
+  # deleted or added by hand shows up here as CHANGED, MISSING or UNINDEXED, and
+  # a removed line as LINK_BROKEN. `approve` and `sign` already refuse on this;
+  # CI is where a rewrite that arrived in a pull request gets seen.
+  evidence-chain:
+    name: the lifecycle records are the ones that were written
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Walk lifecycle/index.jsonl
+        run: |
+          [ -f lifecycle/index.jsonl ] || { echo "::notice::No evidence chain yet. It starts with the first record the lifecycle writes."; exit 0; }
+          node .cursor/tools/lifecycle.mjs evidence
 
   # Platform integrity. Cheap, and it catches the drift that makes the agent
   # quietly wrong: a renamed skill still referenced, a stale count, a dead link.

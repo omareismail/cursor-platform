@@ -2,9 +2,19 @@
 // Claude Code: PreToolUse (Write | Edit | MultiEdit | NotebookEdit)   |   Cursor: preToolUse (every tool, incl. Delete)
 // Turns four prose rules into hard blocks, and keeps the hands off the enforcement surface.
 
-import { readPayload, relPath, targetPath, writtenContent, isProtected, platformDev, block, ok } from "./_lib.mjs";
+import { readPayload, relPath, targetPath, writtenContent, isProtected, platformDev, isReadTool, block, ok } from "./_lib.mjs";
 
 const p = await readPayload();
+
+// Reading is not writing. Cursor fires preToolUse for EVERY tool, and a Read
+// payload carries the same file_path a Write does - so this hook was refusing
+// to let an agent READ the standards rule 00 tells it to read, and, once the
+// protected list landed, to read lifecycle.mjs at all. Known read tools pass;
+// anything else that names a file is treated as a write, because the unknown
+// tool that turns out to write is the one that matters. The matcher lives in
+// _lib.mjs so guard-phase cannot classify the same payload differently.
+if (isReadTool(p)) ok();
+
 const file = relPath(targetPath(p));
 const body = writtenContent(p);
 if (!file) ok();
