@@ -179,6 +179,24 @@ before SQL read \`06\`; \`04-security-guard\` applies to all of them.
 Prefer the subagents in \`.claude/agents/\` for multi-file reads - \`pattern-scout\`
 before any \`*-gen\` skill, and the \`*-auditor\` agents for reviews.`);
 
+// --- skills index -----------------------------------------------------------
+// One line. The catalog is the long form; this is the shape of the library so
+// the agent can route without loading it. Missing means sync-skills was not run.
+const skillsIdx = await (async () => {
+  for (const rel of ["../../.cursor/tools/_skills-index.mjs", "../tools/_skills-index.mjs"]) {
+    try { return await import(new URL(rel, import.meta.url).href); } catch { /* try the next */ }
+  }
+  return null;
+})();
+if (skillsIdx) {
+  const idx = skillsIdx.loadForSession(root, import.meta.url);
+  if (!idx) {
+    problems.push("`.cursor/skills.index.json` is missing — run `node .claude/hooks/sync-skills.mjs`.");
+  } else {
+    out.push(`\n**Skills index:** ${skillsIdx.summarize(idx)}`);
+  }
+}
+
 if (problems.length) {
   out.push(`\n## Attention required\n\n${problems.map(p => "- " + p).join("\n")}`);
 } else if (anyContent) {

@@ -33,7 +33,7 @@ const HOOKS = ["_lib.mjs", "_sql.mjs", "guard-write.mjs", "guard-phase.mjs", "gu
 // ac-trace.mjs; release-evidence and change-request import lifecycle.mjs. A
 // fixture that copied lifecycle.mjs alone would fail on the import and every
 // state case would be testing the error path instead of the tool.
-const TOOLS = ["memory-bank.mjs", "lifecycle.mjs", "_state.mjs", "_evidence.mjs", "_findings.mjs", "artifact-schema.mjs", "ac-trace.mjs", "release-evidence.mjs", "change-request.mjs", "incidents.mjs", "feature-map.mjs", "self-audit.mjs", "fitness.mjs", "failure-modes.mjs", "flag-debt.mjs", "risk-profile.mjs", "docs-lint.mjs"];
+const TOOLS = ["memory-bank.mjs", "lifecycle.mjs", "_state.mjs", "_evidence.mjs", "_findings.mjs", "artifact-schema.mjs", "ac-trace.mjs", "release-evidence.mjs", "change-request.mjs", "incidents.mjs", "feature-map.mjs", "self-audit.mjs", "fitness.mjs", "failure-modes.mjs", "flag-debt.mjs", "risk-profile.mjs", "docs-lint.mjs", "_skills-index.mjs"];
 
 /**
  * A project that has a memory bank, the hooks, and (by default) the tools and

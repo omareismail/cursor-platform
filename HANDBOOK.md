@@ -102,7 +102,9 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 > **Editing rule: always edit `.cursor/skills/`, never `.claude/skills/`.**
 > After adding, renaming or deleting a skill, run
-> `node .claude/hooks/sync-skills.mjs`. CI fails the PR if you forget.
+> `node .claude/hooks/sync-skills.mjs`. That regenerates the Claude shims **and**
+> `.cursor/skills.index.json` (category, phase, capability). CI fails the PR if
+> you forget.
 
 #### Understanding existing code
 
@@ -221,7 +223,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 22 validators
+### `.cursor/tools/` — 23 validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.
@@ -269,7 +271,7 @@ the command. The server never writes state.
 | Doc | Read it when |
 |---|---|
 | `START-HERE.md` | **"I want to do X" → which skill.** The one to keep open. |
-| `skill-catalog.md` | Full 76-skill catalog with auto-routing categories |
+| `skill-catalog.md` | Full 98-skill catalog with auto-routing categories |
 | `skill-graph.md` | Which skills call which |
 | `shared-execution-pipeline.md` | Canonical order: discovery → pattern → generate → validate |
 | `NEW-PROJECT.md` | Bootstrapping a brand-new app repo |

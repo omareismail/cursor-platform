@@ -212,7 +212,7 @@ node .cursor/tools/docs-lint.mjs check                     # broken links, ghost
 
 **Why this matters here specifically.** DORA's 2025/2026 research found AI
 adoption raises throughput 2–18% while stability degrades — change failure rate
-rising from 8% to 14% in one study, PR size +154%, review time +91%. A 75-skill
+rising from 8% to 14% in one study, PR size +154%, review time +91%. A 98-skill
 platform is a throughput amplifier, which is exactly the configuration that
 finding describes. `/delivery-metrics` exists so you can tell which way yours is
 going instead of assuming.
@@ -315,7 +315,7 @@ matching files are in context (globs). None are slash commands.
 
 - `AGENTS.md` — agent session instructions (copy to each app repo root)
 - `.cursor/docs/NEW-PROJECT.md` — bootstrap a new application repo
-- `.cursor/docs/skill-catalog.md` — full 66-skill catalog and routing categories
+- `.cursor/docs/skill-catalog.md` — full 98-skill catalog and routing categories
 - `.cursor/docs/skill-graph.md` — who depends on whom
 - `.cursor/docs/shared-execution-pipeline.md` — canonical execution order
 - `.cursor/docs/MIGRATION_NOTES_PASS1.md` — full change history + what was deliberately NOT built

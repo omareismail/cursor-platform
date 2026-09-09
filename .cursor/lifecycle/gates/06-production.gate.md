@@ -127,7 +127,7 @@ forever.
 | A new feature | `rollback DEVELOPMENT --reason "..."`, then the feature pipeline |
 
 DORA's 2025/2026 research found AI adoption raises throughput while stability
-degrades — change failure rate 8% to 14% in one study. A 96-skill platform is a
+degrades — change failure rate 8% to 14% in one study. A 98-skill platform is a
 throughput amplifier, which is exactly that configuration. Run
 `/delivery-metrics` rather than assuming which way this one is going.
 

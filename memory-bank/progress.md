@@ -1,20 +1,20 @@
 # Progress
-**Last Updated:** [YYYY-MM-DD]
-**Generated/updated by:** `/context-sync` (initial scan), `00-memory-think.mdc` (ongoing)
+**Last Updated:** 2026-09-09
+**Generated/updated by:** Phase D implementation
 
 ## Done
+- [x] 2026-09-09 — Phase D (E-20 generated skill index + E-21 docs-lint hyphenated/mdc/Arabic).
 - [x] 2026-09-09 — Independently reviewed committed A–C/R1–R14 work: full suite 15/723/0, self-audit PASS, integrity PASS (26 files). Follow-up report: `.cursor/cache/followup-review-2026-09-09.md`.
 - [x] 2026-09-09 — Full-project review of the current working tree. Findings: `.cursor/cache/project-review-2026-09-09.md`.
 - [x] 2026-09-09 — Follow-up review F1–F3 implemented (CR close no longer absorbs CHANGED; skipped-suite strings; PayTests.cs scoped AC match).
-- [ ] [Feature/task — link to spec or PR]
 
 ## In Progress
-- [ ] [Feature] — branch `[name]`, spec `specs/features/[slug].md`
+- [ ] Phase E (E-22, E-23) when requested.
 
 ## Backlog (known, not started)
-- [ ] [Feature]
+- [ ] Phase E — feature-map lineage (E-22), write-policy extra roots (E-23)
+- [ ] Phase F — signed commits, remaining bash gaps, dashboard Host, advisory agents
 
 ## Blocked
-- [ ] Follow-up review: fix change-request evidence drift absorption, skipped-suite brace parsing, and scoped/global C# AC attribution mismatch. Original fixes are present, but these three isolated reproductions still fail the intended guarantees.
+- [ ] Integrity re-attest required after `session-start.mjs` / `sync-skills.mjs` (human-only `--write`).
 - [ ] Decide whether `CURSOR_PLATFORM_DEV=1` stays global. Right for this repo; wrong for an adopter repo in the same editor.
-- [ ] [Feature] — blocked by [reason]

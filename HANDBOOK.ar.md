@@ -96,7 +96,7 @@ cursor/
 │   └── settings.local.json  إعدادات Cursor المحلية (غير مُلتزَم بها)
 │
 ├── .claude/               ← طبقة Claude Code
-│   ├── skills/            96 shim مولّد — يشير لـ .cursor/skills/ (لا تعدّله يدوياً)
+│   ├── skills/            98 shim مولّد — يشير لـ .cursor/skills/ (لا تعدّله يدوياً)
 │   ├── skills/_descriptions.json   أوصاف مكتوبة يدوياً تتفوّق على الاستخراج التلقائي
 │   ├── agents/            14 وكيلاً فرعياً للقراءة فقط (عزل السياق)
 │   ├── hooks/             7 خطّافات إنفاذ + sync-skills.mjs + _lib.mjs
@@ -388,7 +388,7 @@ node .cursor/tools/lifecycle.mjs init --name "المنتج" --existing
 
 ---
 
-## 6. المهارات الـ97
+## 6. المهارات الـ98
 
 ### كيف تُستدعى المهارة
 
@@ -858,7 +858,7 @@ node .cursor/tools/delivery-metrics.mjs trend  --days 180   # اتجاه الس�
 > **لماذا يهمّ هذا هنا تحديداً:** أبحاث DORA لعامَي 2025/2026 وجدت أن تبنّي
 > الذكاء الاصطناعي يرفع الإنتاجية 2–18% بينما يتدهور الاستقرار — معدّل فشل
 > التغيير من 8% إلى 14% في إحدى الدراسات، وحجم الـ PR +154%، ووقت المراجعة
-> +91%. منصة من 96 مهارة **مُضخِّم إنتاجية**، وهي بالضبط ذلك التكوين.
+> +91%. منصة من 98 مهارة **مُضخِّم إنتاجية**، وهي بالضبط ذلك التكوين.
 > شغّل `/delivery-metrics` بدل افتراض أي اتجاه تسير فيه.
 
 ### `artifact-schema.mjs` — مصفوفة التتبّع
@@ -879,7 +879,7 @@ FR ← ── S ── → UC ── → EP, SC          NFR ── → ADR, EP
 **لماذا لم أجعل Markdown مُولَّداً من JSON.** القراءة البديهية لـ«أضف schemas»
 هي: اكتب المتطلبات JSON وارسم منها Markdown. وهذا خطأ هنا: قيمة المنصة أن
 وكيلاً يكتب هذه المستندات **نثراً** بخيارات ومقايضات وتعليل، وPRD مضغوط في
-كائن JSON يفقد بالضبط الجزء الذي يستحق القراءة — والـ96 مهارة كلها تنتج
+كائن JSON يفقد بالضبط الجزء الذي يستحق القراءة — والـ98 مهارة كلها تنتج
 Markdown.
 
 فالنمط المتَّبع هو ما تفعله `ac-trace` عندك أصلاً وينجح: **وسم مقروء آلياً
@@ -1378,7 +1378,7 @@ node .cursor/tools/platform-metadata.mjs check --all    # مسح استشاري 
 ```
 
 `docs-lint` يقرأ Markdown فقط — ولهذا ظلّ `.claude-plugin/plugin.json` يعلن
-«77 مهارة، 8 وكلاء، 5 خطّافات» طويلاً بعد أن توقّف كل ذلك عن الصحّة، لأنه JSON.
+«77 مهارة، 8 وكلاء، 5 خطّافات» طويلاً بعد أن توقّف كل ذلك عن الصحّة، لأنه JSON. <!-- count-ok: historical plugin.json drift example -->
 هذه الأداة تقرأ الاثنين.
 
 `check` الافتراضي يفحص **ملفات البيان فقط** (README, AGENTS, CLAUDE, HANDBOOK,
@@ -1786,7 +1786,7 @@ node .cursor/tools/lifecycle.mjs init --name "المنتج" --existing
 
 ### قبل إضافة مهارة جديدة — اقرأ هذا
 
-**96 مهارة تكلّف ~9 آلاف رمز من السياق دائم التفعيل** في Claude Code، ودقّة
+**98 مهارة تكلّف ~9 آلاف رمز من السياق دائم التفعيل** في Claude Code، ودقّة
 التوجيه **تتدهور** مع الأوصاف شبه المتطابقة. المهارة الجديدة ليست مجانية.
 
 قبل الإضافة:
@@ -1830,7 +1830,7 @@ node .cursor/tools/lifecycle.mjs init --name "المنتج" --existing
 | [.cursor/docs/LIFECYCLE.md](.cursor/docs/LIFECYCLE.md) | المراحل الست وبواباتها ومُلّاكها ومُخرَجاتها |
 | [.cursor/docs/IDEA-TO-PRODUCTION.md](.cursor/docs/IDEA-TO-PRODUCTION.md) | الدليل التشغيلي: فكرة واحدة، كل الأوامر بالترتيب |
 | [.cursor/docs/START-HERE.md](.cursor/docs/START-HERE.md) | "أريد أن أفعل X" ← أي مهارة |
-| [.cursor/docs/skill-catalog.md](.cursor/docs/skill-catalog.md) | فهرس المهارات الـ96 والتوجيه التلقائي |
+| [.cursor/docs/skill-catalog.md](.cursor/docs/skill-catalog.md) | فهرس المهارات الـ98 والتوجيه التلقائي |
 | [.cursor/docs/skill-graph.md](.cursor/docs/skill-graph.md) | تبعيات المهارات وتوصيلاتها |
 | [.cursor/docs/shared-execution-pipeline.md](.cursor/docs/shared-execution-pipeline.md) | الترتيب القانوني: اكتشاف ← نمط ← توليد ← تحقّق |
 | [.cursor/docs/NEW-PROJECT.md](.cursor/docs/NEW-PROJECT.md) | تهيئة مستودع تطبيق جديد |

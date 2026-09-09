@@ -96,15 +96,6 @@ technical-debt-tracker → receives flagged findings from repo-discovery,
                       pattern-finder (convention drift), and the two
                       clean-code-guard skills, rather than re-detecting the
                       same issues independently
-refactor-assistant  → depends on dotnet-clean-code-guard, react-clean-code-guard,
-                      and technical-debt-tracker (scan mode); does no
-                      detection of its own — pure aggregation/prioritization
-security-perf-report → depends on 04-security-guard.mdc (audit mode),
-                      dotnet-perf-profile, react-perf-audit,
-                      react-accessibility-audit; same pure-aggregation
-                      pattern as refactor-assistant, kept as a separate
-                      skill since security/performance/accessibility need
-                      different responders, not flattened into one queue
 enterprise-report-gen (added Phase 5) → pure aggregation over every audit
                       skill above plus architecture/compliance findings;
                       produces the named report types (production-readiness,
@@ -122,8 +113,8 @@ skill-maturity-audit (added Phase 5) → meta-skill; audits this workspace's
 
 ```
 refactor-apply (added Phase 6) → depends on dotnet-clean-code-guard,
-                      react-clean-code-guard, and/or refactor-assistant's
-                      consolidated report for its input; never scans code
+                      react-clean-code-guard, and/or enterprise-report-gen
+                      refactor for its input; never scans code
                       itself. Depends on 09-minimal-changes.mdc for its
                       Tier 1/2 scoping rule (a finding that can't be fixed
                       within its own reported location is automatically
@@ -132,9 +123,15 @@ refactor-apply (added Phase 6) → depends on dotnet-clean-code-guard,
                       disappear. This is the only skill in the workspace
                       that both reads audit findings AND modifies source —
                       keep it that way; do not add write capability to
-                      dotnet-clean-code-guard, react-clean-code-guard, or
-                      refactor-assistant themselves, or detection and
-                      execution start coupling again.
+                      the audit skills, or detection and execution start
+                      coupling again.
+```
+
+## Retired (absorbed, not live skills)
+
+```
+refactor-assistant   → absorbed by enterprise-report-gen refactor
+security-perf-report → absorbed by enterprise-report-gen security-perf
 ```
 
 ## Guard rules (`.mdc`, always-apply)

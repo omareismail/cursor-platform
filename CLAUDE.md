@@ -493,7 +493,7 @@ the word "trend" below five data points.
 
 **Why this matters in this repo specifically.** DORA's 2025/2026 research found
 AI adoption raises throughput 2–18% while stability degrades — change failure
-rate 8% → 14% in one study, PR size +154%, review time +91%. A 75-skill platform
+rate 8% → 14% in one study, PR size +154%, review time +91%. A 98-skill platform
 is a throughput amplifier, which is exactly that configuration. Run
 `/delivery-metrics` rather than assuming which way this one is going.
 

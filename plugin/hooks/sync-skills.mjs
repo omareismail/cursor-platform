@@ -8,6 +8,13 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, rmSync
 import { join } from "node:path";
 import { projectDir } from "./_lib.mjs";
 
+const skillsIndex = await (async () => {
+  for (const rel of ["../../.cursor/tools/_skills-index.mjs", "../tools/_skills-index.mjs"]) {
+    try { return await import(new URL(rel, import.meta.url).href); } catch { /* plugin vs repo layout */ }
+  }
+  return null;
+})();
+
 const root = projectDir();
 const SRC = join(root, ".cursor", "skills");
 const DST = join(root, ".claude", "skills");
@@ -52,25 +59,10 @@ function describe(md, name) {
   return `Runs the ${name} workflow from the cursor-platform skill library.`;
 }
 
-const HOUSEKEEPING = new Set(["repo-discovery", "context-builder", "context-sync", "pattern-finder"]);
-const GENERATORS = new Set(["refactor-apply", "dotnet-migration", "work-breakdown", "postmortem", "release-safety",
-                            // Lifecycle phase skills: each writes a phase artifact the next
-                            // phase depends on, so they announce and wait like any generator.
-                            "lifecycle", "product-brief", "product-requirements", "user-story-map",
-                            "risk-register", "solution-architecture", "api-contract-design",
-                            "data-model-design", "ux-design-bridge", "test-strategy",
-                            "feature-pipeline", "go-live", "change-request"]);
-// Read-only analysis of code that already exists. Announce, then proceed.
-const ANALYSIS = new Set(["feature-trace", "impact-analysis", "feature-inventory",
-                          "production-readiness-review", "delivery-metrics", "threat-model",
-                          "task-verify",
-                          // Judges a phase's artifacts and returns GO/NO-GO. Writes nothing.
-                          "lifecycle-gate"]);
 function category(n) {
+  if (skillsIndex) return skillsIndex.categoryLabel(n);
   if (n.startsWith("speckit-")) return "E (spec pipeline) - announce, then wait for go-ahead";
-  if (HOUSEKEEPING.has(n)) return "D (housekeeping) - run silently, no announcement";
-  if (n.endsWith("-gen") || GENERATORS.has(n)) return "A (generates/modifies files) - announce, then wait for go-ahead";
-  if (/audit|guard/.test(n) || ANALYSIS.has(n)) return "B (read-only analysis) - announce, then proceed";
+  if (n.endsWith("-gen")) return "A (generates/modifies files) - announce, then wait for go-ahead";
   return "C (docs/diagrams) - announce, then proceed";
 }
 
@@ -133,6 +125,12 @@ for (const d of readdirSync(DST)) {
 }
 
 console.log(`sync-skills: ${written} shim(s) written (${overridden} from _descriptions.json), ${removed} orphan(s) removed.`);
+if (skillsIndex) {
+  const idx = skillsIndex.write(root);
+  console.log(`skills.index.json: ${idx.count} skill(s).`);
+} else {
+  console.warn("WARNING: _skills-index.mjs not found — skills.index.json was not written.");
+}
 const missing = Object.keys(OVERRIDES).filter(k => k !== "//" && !keep.has(k));
 if (missing.length) console.warn(`WARNING: _descriptions.json has entries with no matching skill: ${missing.join(", ")}`);
 console.log(`Auto-extracted descriptions come from each skill's Overview paragraph. Review any that`);

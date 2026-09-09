@@ -47,6 +47,7 @@ issue: `dotnet-migration`").
 | `data-model-design` | **Phase 3.** Physical schema, indexes, provider roles, live-migration path |
 | `ux-design-bridge` | **Phase 3.** Screen inventory, every state, RTL/i18n contract, design tokens; reads the Figma MCP server |
 | `feature-pipeline` | **Phase 4.** Walk the story map in dependency order, running the speckit chain one feature at a time |
+| `change-request` | **Phase 4+.** Record a change to something already approved and name the blast radius from the id graph |
 | `test-strategy` | **Phase 5.** What each test layer owns and, more usefully, what it does not |
 | `e2e-test-gen` | **Phase 5.** Browser E2E for the critical journeys, generated from acceptance criteria with `// AC-N:` traces |
 | `deployment-pipeline-gen` | **Phase 6.** CI/CD workflows that make the guard rules hold outside the editor |

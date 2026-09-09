@@ -1,0 +1,758 @@
+{
+  "version": 1,
+  "count": 98,
+  "retired": {
+    "refactor-assistant": "Absorbed by enterprise-report-gen refactor",
+    "security-perf-report": "Absorbed by enterprise-report-gen security-perf"
+  },
+  "skills": {
+    "api-consistency-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "api-contract-design": {
+      "category": "A",
+      "phase": "DESIGN",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "architecture-map-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "platform",
+      "requires": []
+    },
+    "business-rules-gen": {
+      "category": "A",
+      "phase": "ANALYSIS",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "change-request": {
+      "category": "A",
+      "phase": "DEVELOPMENT",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "changelog-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "platform",
+      "requires": []
+    },
+    "code-review-assistant": {
+      "category": "C",
+      "phase": null,
+      "capability": "docs",
+      "workflow": "platform",
+      "requires": []
+    },
+    "compliance-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": []
+    },
+    "context-builder": {
+      "category": "D",
+      "phase": null,
+      "capability": "housekeeping",
+      "workflow": "platform",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "context-sync": {
+      "category": "D",
+      "phase": null,
+      "capability": "housekeeping",
+      "workflow": "platform",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "dashboard": {
+      "category": "C",
+      "phase": null,
+      "capability": "docs",
+      "workflow": "platform",
+      "requires": []
+    },
+    "data-model-design": {
+      "category": "A",
+      "phase": "DESIGN",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "database-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "dotnet",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "delivery-metrics": {
+      "category": "B",
+      "phase": "PRODUCTION",
+      "capability": "audit",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "dependency-upgrade-guard": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": []
+    },
+    "deployment-pipeline-gen": {
+      "category": "A",
+      "phase": "PRODUCTION",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "devops-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "docs-guard": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": []
+    },
+    "domain-model-gen": {
+      "category": "A",
+      "phase": "ANALYSIS",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "dotnet-background-job-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "dotnet-caching-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "dotnet-clean-code-guard": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "dotnet",
+      "requires": []
+    },
+    "dotnet-dapper-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "dotnet-dependency-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "dotnet",
+      "requires": []
+    },
+    "dotnet-endpoint-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "dotnet-iac-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "dotnet-messaging-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "dotnet-migration": {
+      "category": "A",
+      "phase": "DEVELOPMENT",
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": []
+    },
+    "dotnet-multi-db-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "dotnet-observability-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "dotnet-perf-profile": {
+      "category": "C",
+      "phase": null,
+      "capability": "docs",
+      "workflow": "dotnet",
+      "requires": []
+    },
+    "dotnet-query-optimizer": {
+      "category": "C",
+      "phase": null,
+      "capability": "docs",
+      "workflow": "dotnet",
+      "requires": []
+    },
+    "dotnet-schema-diff": {
+      "category": "C",
+      "phase": null,
+      "capability": "docs",
+      "workflow": "dotnet",
+      "requires": []
+    },
+    "dotnet-test-gen": {
+      "category": "A",
+      "phase": "TESTING",
+      "capability": "generate",
+      "workflow": "dotnet",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "e2e-test-gen": {
+      "category": "A",
+      "phase": "TESTING",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "enterprise-report-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "platform",
+      "requires": []
+    },
+    "feature-inventory": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "feature-pipeline": {
+      "category": "A",
+      "phase": "DEVELOPMENT",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "feature-trace": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "go-live": {
+      "category": "A",
+      "phase": "PRODUCTION",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "impact-analysis": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "lifecycle": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "lifecycle-gate": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "load-test-gen": {
+      "category": "A",
+      "phase": "TESTING",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "onboarding-doc-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "platform",
+      "requires": []
+    },
+    "operability-gen": {
+      "category": "A",
+      "phase": "PRODUCTION",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "pattern-finder": {
+      "category": "D",
+      "phase": null,
+      "capability": "housekeeping",
+      "workflow": "platform",
+      "requires": [
+        "repo-discovery"
+      ]
+    },
+    "persona-gen": {
+      "category": "A",
+      "phase": "REQUIREMENTS",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "platform-health-validator": {
+      "category": "C",
+      "phase": null,
+      "capability": "docs",
+      "workflow": "platform",
+      "requires": []
+    },
+    "postmortem": {
+      "category": "A",
+      "phase": "PRODUCTION",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "product-brief": {
+      "category": "A",
+      "phase": "REQUIREMENTS",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "product-requirements": {
+      "category": "A",
+      "phase": "REQUIREMENTS",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "production-readiness-review": {
+      "category": "B",
+      "phase": "PRODUCTION",
+      "capability": "audit",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "prompt-quality-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": []
+    },
+    "react-accessibility-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "react",
+      "requires": []
+    },
+    "react-api-layer-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "react",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "react-clean-code-guard": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "react",
+      "requires": []
+    },
+    "react-component-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "react",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "react-hook-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "react",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "react-i18n-rtl-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "react",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "react-module-federation-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "react",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "react-perf-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "react",
+      "requires": []
+    },
+    "react-state-machine-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "react",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "react-storybook-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "react",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "react-test-gen": {
+      "category": "A",
+      "phase": "TESTING",
+      "capability": "generate",
+      "workflow": "react",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "refactor-apply": {
+      "category": "A",
+      "phase": "DEVELOPMENT",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "release-notes-gen": {
+      "category": "A",
+      "phase": null,
+      "capability": "generate",
+      "workflow": "platform",
+      "requires": []
+    },
+    "release-safety": {
+      "category": "A",
+      "phase": "PRODUCTION",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "repo-discovery": {
+      "category": "D",
+      "phase": null,
+      "capability": "housekeeping",
+      "workflow": "platform",
+      "requires": []
+    },
+    "risk-register": {
+      "category": "A",
+      "phase": "ANALYSIS",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "skill-maturity-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": []
+    },
+    "solution-architecture": {
+      "category": "A",
+      "phase": "DESIGN",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "spec-drift-audit": {
+      "category": "B",
+      "phase": null,
+      "capability": "audit",
+      "workflow": "platform",
+      "requires": []
+    },
+    "speckit-adr": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-analyze": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-checklist": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-clarify": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-constitution": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-git-commit": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-git-feature": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-git-initialize": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-git-remote": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-git-validate": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-implement": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": [
+        "pattern-finder"
+      ]
+    },
+    "speckit-options": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-plan": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-retro": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-specify": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-tasks": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "speckit-taskstoissues": {
+      "category": "E",
+      "phase": "DEVELOPMENT",
+      "capability": "specify",
+      "workflow": "speckit",
+      "requires": []
+    },
+    "task-verify": {
+      "category": "B",
+      "phase": "TESTING",
+      "capability": "audit",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "technical-debt-tracker": {
+      "category": "C",
+      "phase": null,
+      "capability": "docs",
+      "workflow": "platform",
+      "requires": []
+    },
+    "test-strategy": {
+      "category": "A",
+      "phase": "TESTING",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "threat-model": {
+      "category": "B",
+      "phase": "DESIGN",
+      "capability": "audit",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "use-case-gen": {
+      "category": "A",
+      "phase": "ANALYSIS",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "user-story-map": {
+      "category": "A",
+      "phase": "REQUIREMENTS",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "ux-design-bridge": {
+      "category": "A",
+      "phase": "DESIGN",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    },
+    "work-breakdown": {
+      "category": "A",
+      "phase": "DEVELOPMENT",
+      "capability": "generate",
+      "workflow": "lifecycle",
+      "requires": []
+    }
+  }
+}

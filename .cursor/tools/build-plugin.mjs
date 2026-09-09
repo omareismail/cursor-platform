@@ -31,6 +31,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, copyFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { createHash } from "node:crypto";
+import { build as buildSkillsIndex, serialize as serializeIndex } from "./_skills-index.mjs";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
 const SRC_SKILLS = join(ROOT, ".cursor", "skills");
@@ -284,6 +285,10 @@ ${rewritePaths(body)}
   // at the plugin root. Copying is cheaper than asking either host to be flexible.
   const mcp = join(ROOT, ".mcp.json");
   if (existsSync(mcp)) { emit(".mcp.json", read(mcp)); emit("mcp.json", read(mcp)); }
+
+  const idxFile = join(ROOT, ".cursor", "skills.index.json");
+  if (existsSync(idxFile)) emit("skills.index.json", read(idxFile));
+  else emit("skills.index.json", serializeIndex(buildSkillsIndex(ROOT)));
 
   // ---- two manifests, one tree ------------------------------------------
   //

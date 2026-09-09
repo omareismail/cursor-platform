@@ -24,7 +24,10 @@
  *   broken-link    a relative link whose target does not exist        FAIL
  *   ghost-skill    a /skill-name reference with no such skill         FAIL
  *   ghost-tool     a .cursor/tools/x.mjs reference with no such tool  FAIL
- *   stale-count    "N skills" where N is not the real count           FAIL
+ *   ghost-mdc      a .mdc rule cited that is not in .cursor/rules/   FAIL
+ *   stale-count    "N skills" / "N-skill" / Arabic مهارة counts      FAIL
+ *   index-stale    skills.index.json missing or not matching folders  FAIL
+ *   catalog-gap    a live skill with no row in skill-catalog.md     FAIL
  *   orphan         a doc nothing links to                             warn
  *   dup-heading    the same H1 in two docs - a sign of a fork         warn
  *   long-line      >120 chars outside code fences                     warn (--strict fails)
@@ -39,6 +42,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { report, emit, finding } from "./_findings.mjs";
+import { build as buildIndex, fingerprint, read as readIndex, RETIRED } from "./_skills-index.mjs";
 import { join, dirname, relative, normalize } from "node:path";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
@@ -201,7 +205,32 @@ function scan() {
       if (skills.has(name) || agents.has(name)) continue;
       if (tools.has(name + ".mjs")) continue;
       if (BUILTIN_COMMANDS.has(name) || URL_PATHS.has(name)) continue;
+      if (RETIRED[name]) {
+        const line = lines[lineOf(m.index) - 1] || "";
+        if (!/removed|absorbed|retired|merged/i.test(line)) {
+          E(rel, lineOf(m.index), "ghost-skill", `/${name} was retired (${RETIRED[name]}); cite it as removed/absorbed`);
+        }
+        continue;
+      }
       E(rel, lineOf(m.index), "ghost-skill", `/${name} is referenced but no such skill exists`);
+    }
+
+    // --- .mdc rule files --------------------------------------------------
+    // Backticks and path fragments both: `04-security-guard.mdc` and
+    // `.cursor/rules/04-security-guard.mdc`. Markdown links already go through
+    // broken-link; this catches the citations that are not links. Historical
+    // notes may name a file that was deleted on purpose — skip those.
+    if (!HISTORICAL.test(rel)) {
+      const rulesDir = existsSync(join(ROOT, ".cursor/rules")) ? join(ROOT, ".cursor/rules")
+        : existsSync(join(ROOT, "rules")) ? join(ROOT, "rules") : null;
+      if (rulesDir) {
+        for (const m of raw.matchAll(/(?:\.(?:cursor)\/rules\/|\$\{CLAUDE_PLUGIN_ROOT\}\/rules\/)?(\d{2}-[a-z0-9-]+\.mdc)/g)) {
+          const name = m[1];
+          if (!existsSync(join(rulesDir, name))) {
+            E(rel, lineOf(m.index), "ghost-mdc", `${name} is cited but is not a file in .cursor/rules/`);
+          }
+        }
+      }
     }
 
     // --- tool references --------------------------------------------------
@@ -210,14 +239,27 @@ function scan() {
     }
 
     // --- stated counts ----------------------------------------------------
+    // Hyphenated ("66-skill catalog") and Arabic handbook forms were invisible
+    // to the English "N skills" regex, which is how START-HERE and HANDBOOK.ar.md
+    // drifted while the English tables stayed green.
     if (!HISTORICAL.test(rel)) {
       const counts = [
-        [/\b(\d{2,3})\s+(?:slash-command\s+)?skills\b/gi, skills.size, "skills"],
+        [/\b(?<!E-)(\d{2,3})\s+(?:slash-command\s+)?skills\b/gi, skills.size, "skills"],
         [/\b(\d{1,2})\s+subagents\b/gi, agents.size, "subagents"],
         [/\ball\s+(\d{2,3})\s+skills\b/gi, skills.size, "skills"],
+        [/\b(\d{2,3})-skills?\b/gi, skills.size, "skills"],
+        // Arabic word characters are not `\w`, so `\b` never fires around مهارة.
+        [/المهارات الـ(\d{2,3})/g, skills.size, "skills"],
+        [/الـ(\d{2,3})\s*مهارات/g, skills.size, "skills"],
+        [/الـ(\d{2,3})\s*مهارة/g, skills.size, "skills"],
+        [/(\d{2,3})\s+مهارات/g, skills.size, "skills"],
+        [/(\d{2,3})\s+مهارة/g, skills.size, "skills"],
+        [/\b(\d{2,3})\s+shim\b/gi, skills.size, "skills"],
       ];
       for (const [re, actual, label] of counts) {
         for (const m of clean.matchAll(re)) {
+          const line = lines[lineOf(m.index) - 1] || "";
+          if (line.includes("count-ok")) continue;
           if (Number(m[1]) !== actual) {
             E(rel, lineOf(m.index), "stale-count", `says ${m[1]} ${label}, actual is ${actual}`);
           }
@@ -254,6 +296,32 @@ function scan() {
     const real = files.filter(f => !f.startsWith(".claude/skills/") && !f.startsWith(".cursor/skills/"));
     if (real.length > 1) {
       W(real[0], 1, "dup-heading", `"${title}" is also the H1 of ${real.slice(1).join(", ")} - a fork?`);
+    }
+  }
+
+  // --- skills.index.json ---------------------------------------------------
+  // Generated, not authored. Missing or stale means a skill shipped without a
+  // category/phase. Run `node .claude/hooks/sync-skills.mjs` (or
+  // `_skills-index.mjs write`) to refresh it.
+  const expected = buildIndex(ROOT);
+  const onDisk = readIndex(ROOT);
+  const indexRel = ".cursor/skills.index.json";
+  if (skills.size && !onDisk) {
+    E(indexRel, 1, "index-stale", "skills.index.json is missing — run node .claude/hooks/sync-skills.mjs");
+  } else if (onDisk && fingerprint(onDisk) !== fingerprint(expected)) {
+    E(indexRel, 1, "index-stale", "skills.index.json does not match .cursor/skills/ — run node .claude/hooks/sync-skills.mjs");
+  }
+
+  // --- catalog completeness -------------------------------------------------
+  const catalogRel = [".cursor/docs/skill-catalog.md", "docs/skill-catalog.md"]
+    .find((p) => existsSync(join(ROOT, p)));
+  if (catalogRel && skills.size) {
+    let catalog = "";
+    try { catalog = readFileSync(join(ROOT, catalogRel), "utf8"); } catch { catalog = ""; }
+    const named = new Set();
+    for (const m of catalog.matchAll(/`([a-z][a-z0-9-]{2,})`/g)) named.add(m[1]);
+    for (const n of [...skills].sort()) {
+      if (!named.has(n)) E(catalogRel, 1, "catalog-gap", `${n} exists under .cursor/skills/ but is not named in the catalog`);
     }
   }
 
