@@ -1,6 +1,6 @@
 # START HERE — Workspace Quick Reference
 
-97 skills, 12 rules, 14 subagents. This card tells you which to use for common tasks.
+98 skills, 12 rules, 14 subagents. This card tells you which to use for common tasks.
 Full skill catalog: `${CLAUDE_PLUGIN_ROOT}/docs/skill-catalog.md`
 New app repo bootstrap: `${CLAUDE_PLUGIN_ROOT}/docs/NEW-PROJECT.md`
 Existing repo bootstrap (give to model): `${CLAUDE_PLUGIN_ROOT}/docs/APPLY-TO-PROJECT.md`
@@ -15,6 +15,16 @@ Full execution sequence: `${CLAUDE_PLUGIN_ROOT}/docs/shared-execution-pipeline.m
 ```
 /repo-discovery quick        # Check cache freshness (fast if already current)
 ```
+
+To see lifecycle, features, gates and coverage in a browser — and to compose
+the exact CLI for a gate, release, change request or incident (you paste it;
+the page never runs it):
+
+```
+node ${CLAUDE_PLUGIN_ROOT}/tools/dashboard.mjs serve
+```
+# or /dashboard
+
 
 If you're about to start a feature spanning multiple files:
 
@@ -32,6 +42,7 @@ are. Full runbook: `${CLAUDE_PLUGIN_ROOT}/docs/IDEA-TO-PRODUCTION.md`.
 | Question | Skill |
 |---|---|
 | Where are we? What is allowed next? | `/lifecycle` |
+| See the whole project, or compose a governance command | `/dashboard` |
 | Start a new product | `/lifecycle start` |
 | Is this phase finished? | `/lifecycle-gate [PHASE]` |
 | **1** I have an idea | `/product-brief "<the idea>"` |

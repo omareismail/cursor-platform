@@ -17,7 +17,7 @@ decision requires their authority (secrets, production deploy, branch merge).
 **Companion docs (read after install):**
 - `AGENTS.md` — every-session agent brief
 - `.cursor/docs/START-HERE.md` — task → skill map
-- `.cursor/docs/skill-catalog.md` — all 97 skills
+- `.cursor/docs/skill-catalog.md` — all 98 skills
 
 ---
 

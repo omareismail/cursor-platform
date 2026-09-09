@@ -35,7 +35,10 @@ function describe(md, name) {
   const m = md.match(/^##\s+Overview\s*$/m);
   let body = m ? md.slice(m.index + m[0].length) : md;
   body = body.split(/^##\s+/m)[0];
-  const paras = body.split("\n\n").map(s => s.trim())
+  // CRLF sources separate paragraphs with \r\n\r\n, which contains no \n\n - without
+  // this the whole Overview stays one blob, gets filtered out, and the description
+  // silently degrades to the fallback below.
+  const paras = body.replace(/\r\n/g, "\n").split("\n\n").map(s => s.trim())
     .filter(s => s && !/^(---|#|\||```|>|-|\*|\d+\.)/.test(s));
   for (const p of paras) {                       // prefer the self-describing paragraph
     const c = clean(p);

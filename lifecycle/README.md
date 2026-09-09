@@ -127,5 +127,12 @@ blocked.
 Escape hatch, for a deliberate spike: `LIFECYCLE_OVERRIDE=1`. Same pattern as
 `CLAUDE_ALLOW_TIER2_EDIT` in `guard-write.mjs` — a human sets it on purpose.
 
+A `state.json` that exists but cannot be parsed closes the gate rather than
+opening it, and `lifecycle.mjs` says so instead of suggesting `init`. Every
+record in this directory — `state.json`, `evidence/`, `releases/`, `overrides/`,
+`incidents/`, `changes/`, `fitness-baseline.json` — is on the protected-path
+list in `.cursor/lifecycle/write-policy.json`: the tools write them, agents do
+not, by any editor tool or shell command.
+
 See `.cursor/docs/LIFECYCLE.md` for the phases and
 `.cursor/lifecycle/gates/` for what each gate requires.

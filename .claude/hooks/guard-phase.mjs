@@ -22,7 +22,7 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { readPayload, projectDir, relPath, targetPath, block, ok } from "./_lib.mjs";
+import { readPayload, projectDir, relPath, targetPath, block, ok, fileUrlPath } from "./_lib.mjs";
 
 const p = await readPayload();
 const file = relPath(targetPath(p));
@@ -46,7 +46,7 @@ if (process.env.LIFECYCLE_OVERRIDE) ok();
 // bitten by more than once.
 const POLICY_PATHS = [
   join(root, ".cursor", "lifecycle", "write-policy.json"),
-  new URL("../lifecycle/write-policy.json", import.meta.url).pathname,
+  fileUrlPath(new URL("../lifecycle/write-policy.json", import.meta.url)),
 ];
 
 /**
@@ -118,10 +118,27 @@ for (const rel of ["../../.cursor/tools/lifecycle.mjs", "../tools/lifecycle.mjs"
 
 let phase = "UNKNOWN", product = "unnamed", detail = "", required = null, cleared;
 
+/**
+ * A state file that exists and cannot be read is not "no lifecycle". It is a
+ * lifecycle whose phase nobody can see, and the write being asked for is one
+ * the policy says depends on that phase. Corrupt state used to open the gate;
+ * now it closes it, and says which file.
+ */
+function corruptState(why) {
+  block(`BLOCKED: ${file} is gated by the lifecycle phase, and lifecycle/state.json cannot be read.
+
+  ${why}
+
+Run \`node .cursor/tools/lifecycle.mjs status\` to see the error. Fix the file
+through the tool; do not delete or rewrite it to clear this - a phase-gated
+write with an unreadable phase is refused on purpose.`);
+}
+
 if (lc) {
   lc.setRoot(root);
-  const state = lc.readState();
-  if (!state) ok();
+  const info = lc.readStateInfo ? lc.readStateInfo() : null;
+  const state = info ? info.state : lc.readState();
+  if (!state) corruptState(info?.error ? `${info.status}: ${info.error}` : "state.json exists but did not parse as the lifecycle state");
   phase = state.phase || "UNKNOWN";
   product = state.product || "unnamed";
 
@@ -148,7 +165,7 @@ if (lc) {
     phase = s.phase || "UNKNOWN";
     product = s.product || "unnamed";
     detail = "unverified (degraded mode)";
-  } catch { ok(); }
+  } catch (e) { corruptState(`degraded mode, and the file did not parse: ${e.message}`); }
 }
 
 if (cleared) ok();

@@ -7,6 +7,8 @@
 
   "//matchers": "Deliberately absent on preToolUse. A matcher that does not match is a guard that silently never fires, and the scripts already exit 0 in microseconds when the payload is not theirs. Fail-safe beats fail-silent for a security guard.",
 
+  "//failClosed": "Cursor's default when a hook crashes, times out or returns malformed output is to let the tool call proceed. For a guard that is the wrong default: a node that is not on PATH, a syntax error from a bad merge, or a payload the script did not expect would each turn every guard off with nothing on screen. failClosed:true on the four guards makes those cases a denial the user can see. Two consequences: Cursor counts 'exit 0, no stdout' as a failure too, so _lib.ok() answers {permission:\"allow\"} explicitly on the deciding events (self-audit A10 checks that line is still there); and the advisory hooks (sessionStart, afterFileEdit, stop) stay fail-open, because blocking work over a digest that could not be built would be the opposite mistake.",
+
   "hooks": {
     "sessionStart": [
       {
@@ -18,11 +20,13 @@
     "preToolUse": [
       {
         "command": "node .claude/hooks/guard-write.mjs",
-        "timeout": 15
+        "timeout": 15,
+        "failClosed": true
       },
       {
         "command": "node .claude/hooks/guard-phase.mjs",
-        "timeout": 15
+        "timeout": 15,
+        "failClosed": true
       }
     ],
 
@@ -30,7 +34,8 @@
       {
         "//": "Cursor's purpose-built shell hook. Better than routing shell through preToolUse: it fires only for commands, carries the command at the top level, and can answer 'ask' as well as 'deny'.",
         "command": "node .claude/hooks/guard-bash.mjs",
-        "timeout": 15
+        "timeout": 15,
+        "failClosed": true
       }
     ],
 
@@ -38,7 +43,8 @@
       {
         "//": "The database and the GitHub account are reachable through MCP, and until now nothing in this repo had an opinion about that. Policy lives in .cursor/mcp-policy.json.",
         "command": "node .claude/hooks/guard-mcp.mjs",
-        "timeout": 15
+        "timeout": 15,
+        "failClosed": true
       }
     ],
 

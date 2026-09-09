@@ -22,7 +22,8 @@
 //   workspace root   $CLAUDE_PROJECT_DIR                workspace_roots[0]
 
 import { readFileSync, existsSync, statSync } from "node:fs";
-import { resolve, sep } from "node:path";
+import { resolve, relative, isAbsolute, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** The payload, kept so projectDir() can reach workspace_roots without threading it through. */
 let PAYLOAD = null;
@@ -66,13 +67,114 @@ export function projectDir() {
   return process.cwd();
 }
 
-/** Normalise any path to forward slashes, relative to the project root. */
+/**
+ * Normalise any path to forward slashes, relative to the project root.
+ *
+ * `path.relative`, not `startsWith`: the earlier prefix test treated
+ * `D:\repos\cursor2\x` as inside `D:\repos\cursor`, and on Windows a drive
+ * letter arriving as `c:` when the root said `C:` made every anchored pattern
+ * (`^memory-bank/...`) miss, so a Tier 2 write went through. A path outside
+ * the root comes back absolute (forward slashes) so a caller can see it is not
+ * ours; it never comes back as a plausible-looking relative path.
+ */
 export function relPath(p) {
   if (!p) return "";
   const root = resolve(projectDir());
   const abs = resolve(p);
-  const r = abs.startsWith(root) ? abs.slice(root.length) : abs;
-  return r.split(sep).join("/").replace(/^\/+/, "");
+  const r = relative(root, abs);
+  const outside = !r || r.startsWith("..") || isAbsolute(r);
+  if (outside) {
+    // Same drive, different case, is still the same tree on Windows.
+    if (process.platform === "win32" && abs.toLowerCase().startsWith(root.toLowerCase() + sep)) {
+      return abs.slice(root.length + 1).split(sep).join("/");
+    }
+    return abs.split(sep).join("/");
+  }
+  return r.split(sep).join("/");
+}
+
+/** Minimal glob: `**` spans separators, `*` does not, `?` is one character. Case-insensitive. */
+export function globMatch(pattern, s) {
+  const rx = pattern
+    .split(/(\*\*\/|\*\*|\*|\?)/)
+    .map((part) => {
+      if (part === "**/") return "(?:.*/)?";
+      if (part === "**") return ".*";
+      if (part === "*") return "[^/]*";
+      if (part === "?") return "[^/]";
+      return part.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("");
+  return new RegExp(`^${rx}$`, "i").test(s);
+}
+
+/**
+ * The enforcement surface: files that, if an agent could edit them, would let
+ * it edit the rules it is being held to. The list is owned by
+ * .cursor/lifecycle/write-policy.json under "protected"; this is the FAIL-CLOSED
+ * fallback, the same arrangement as TIER2_FALLBACK in guard-write.mjs, and
+ * self-audit checks the two still agree. Union at runtime, never replacement:
+ * a policy may protect more, never less.
+ */
+export const PROTECTED_FALLBACK = [
+  ".claude/hooks/**",
+  ".claude/settings.json",
+  ".cursor/hooks.json",
+  ".cursor/mcp-policy.json",
+  ".cursor/lifecycle/**",
+  ".cursor/tools/lifecycle.mjs",
+  ".mcp.json",
+  "lifecycle/state.json",
+  "lifecycle/evidence/**",
+  "lifecycle/releases/**",
+  "lifecycle/overrides/**",
+  "lifecycle/incidents/**",
+  "lifecycle/changes/**",
+  "lifecycle/fitness-baseline.json",
+  ".cursor/cache/repo-map.json",
+  ".cursor/cache/feature-map.json",
+];
+
+/** The write policy, from the project or the copy shipped beside the hooks; null when neither is readable. */
+export function writePolicy() {
+  const candidates = [
+    resolve(projectDir(), ".cursor", "lifecycle", "write-policy.json"),
+    fileUrlPath(new URL("../lifecycle/write-policy.json", import.meta.url)),
+  ];
+  for (const c of candidates) {
+    try { if (existsSync(c)) return { policy: JSON.parse(readFileSync(c, "utf8")), source: c }; } catch { /* malformed: try the next, then fall back */ }
+  }
+  return null;
+}
+
+/** Every protected pattern in force: the policy's list unioned with the fallback. */
+export function protectedPatterns() {
+  const fromPolicy = writePolicy()?.policy?.protected?.paths;
+  return [...new Set([...PROTECTED_FALLBACK, ...(Array.isArray(fromPolicy) ? fromPolicy : [])])];
+}
+
+/** The pattern a project-relative path is protected by, or null. */
+export function isProtected(rel) {
+  if (!rel) return null;
+  const s = String(rel).replace(/\\/g, "/").replace(/^\.\//, "");
+  return protectedPatterns().find((g) => globMatch(g, s)) || null;
+}
+
+/**
+ * The one escape for the protected list. Set in the editor's environment by a
+ * human who is developing the platform itself - the hooks, the policies, the
+ * state machine. It is an environment variable and not a file because a file
+ * is something an agent can write.
+ */
+export const platformDev = () => process.env.CURSOR_PLATFORM_DEV === "1";
+
+/**
+ * A `file:` URL as a filesystem path. `new URL(...).pathname` is `/D:/x` on
+ * Windows, which existsSync cannot open - so every plugin-install fallback that
+ * used it resolved to nothing and the hook governed nothing, silently.
+ */
+export function fileUrlPath(url) {
+  try { return fileURLToPath(url); } catch { return String(url); }
 }
 
 export function readIfExists(p) {
@@ -126,7 +228,24 @@ export function inject(hookEventName, additionalContext) {
   process.exit(0);
 }
 
-export const ok = () => process.exit(0);
+/**
+ * "Allowed" has to be SAID, not implied. Cursor with `failClosed: true` treats a
+ * hook that exits 0 with nothing on stdout as a hook that failed, and denies the
+ * call - which turned every guard into a wall the moment fail-closed was
+ * switched on. So on Cursor a deciding hook answers {permission:"allow"}
+ * explicitly. Advisory events (sessionStart, afterFileEdit, stop) have their own
+ * output shapes and stay silent; an unknown or missing event name is answered,
+ * because the events that can be fail-closed are the deciding ones.
+ */
+const DECIDING = /^(preToolUse|beforeShellExecution|beforeMCPExecution|beforeReadFile|beforeSubmitPrompt|beforeTabFileRead)$/;
+const ADVISORY = /^(sessionStart|afterFileEdit|stop|afterAgentResponse|afterAgentThought|afterTabFileEdit|subagentStart|subagentStop|preCompact|postToolUse)$/i;
+export function ok() {
+  if (HOST === "cursor") {
+    const ev = PAYLOAD?.hook_event_name;
+    if (typeof ev !== "string" || DECIDING.test(ev) || !ADVISORY.test(ev)) process.stdout.write(JSON.stringify({ permission: "allow" }));
+  }
+  process.exit(0);
+}
 
 /** The file a tool is about to write, or has just written. */
 export function targetPath(payload) {

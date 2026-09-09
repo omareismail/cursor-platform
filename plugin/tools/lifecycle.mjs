@@ -145,7 +145,7 @@ const sha = (s) => createHash("sha256").update(s).digest("hex").slice(0, 16);
  * rewriting one test should not invalidate the design gate. For a file, hash the
  * bytes: change what you promised and the promise lapses.
  */
-function artifactHash(rel) {
+export function artifactHash(rel) {
   const abs = join(ROOT, rel);
   try {
     const st = statSync(abs);
@@ -352,10 +352,30 @@ function blankState(name, mode) {
 }
 
 export function readState() {
-  if (!existsSync(STATE())) return null;
+  return readStateInfo().state;
+}
+
+/**
+ * The state file with its condition named, because "null" used to mean both
+ * "never adopted the lifecycle" and "adopted it, and the file is now
+ * unreadable" - and those two deserve opposite treatment. A hook that sees
+ * `missing` has no opinion; a hook that sees `corrupt` refuses the write, and
+ * `status` says which file failed to parse instead of suggesting `init` over
+ * the top of a product's history.
+ *
+ *   { status: "missing" }                               no file
+ *   { status: "corrupt", error }                        exists, not JSON / not an object
+ *   { status: "ok", state }                             readable, migrated if v1
+ */
+export function readStateInfo() {
+  if (!existsSync(STATE())) return { status: "missing", state: null };
   let s;
-  try { s = JSON.parse(readFileSync(STATE(), "utf8")); } catch { return null; }
-  return (s.schemaVersion || 1) < SCHEMA_VERSION ? migrate(s) : s;
+  try { s = JSON.parse(readFileSync(STATE(), "utf8")); }
+  catch (e) { return { status: "corrupt", state: null, error: `not valid JSON: ${e.message}` }; }
+  if (!s || typeof s !== "object" || Array.isArray(s)) return { status: "corrupt", state: null, error: "not a JSON object" };
+  if (s.phases !== undefined && (typeof s.phases !== "object" || s.phases === null)) return { status: "corrupt", state: null, error: '"phases" is not an object' };
+  if (s.phase !== undefined && !PHASES.includes(s.phase)) return { status: "corrupt", state: null, error: `"phase" is ${JSON.stringify(s.phase)}, not one of ${PHASES.join("/")}` };
+  return { status: "ok", state: (s.schemaVersion || 1) < SCHEMA_VERSION ? migrate(s) : s };
 }
 
 /**
@@ -385,7 +405,7 @@ function writeState(s) {
 
 /* ------------------------------------------------------------------ commands */
 
-function checkPhase(phase) {
+export function checkPhase(phase) {
   const reqs = REQUIRED[phase] || [];
   const rows = reqs.map((r) => {
     if (r.anyOf) {
@@ -592,13 +612,14 @@ function cmdRecordGate(args) {
   else { console.log(`NO-GO recorded. The phase cannot be approved until a GO replaces it.`); process.exit(1); }
 }
 
-function cmdApprove(args) {
-  const s = mustState();
-  const phase = (args.find((a) => PHASES.includes(a.toUpperCase())) || "").toUpperCase();
-  if (!phase) die(`approve needs a phase: approve DESIGN --by "name"`, 2);
-  const by = valueOf(args, "--by");
-  if (!by) die(`approve needs --by "name" — a gate with no named approver is a form, not a control.`, 2);
-
+/**
+ * The ten refusal conditions `approve` applies, computed without writing.
+ * The dashboard composer imports this so a green light and a CLI refusal
+ * cannot silently disagree.
+ *
+ * Returns { refusals, reapproval, override, mechanical }. Writes nothing.
+ */
+export function approveRefusals(state, phase, by) {
   const refusals = [];
 
   // --- order. A phase approved out of turn is a gate that gates nothing.
@@ -610,13 +631,13 @@ function cmdApprove(args) {
   // between phases 4 and 5. The alternative was `rollback DEVELOPMENT`, which
   // also resets TESTING and PRODUCTION and throws away two approvals that are
   // still true. Nobody does that twice; they route around the lifecycle instead.
-  const reapproval = PHASES.indexOf(phase) < PHASES.indexOf(s.phase) && !!s.phases[phase]?.human;
-  if (phase !== s.phase && !reapproval) {
-    refusals.push(`${phase} is not the current phase (${s.phase}). Approving out of order defeats the sequence.`);
+  const reapproval = PHASES.indexOf(phase) < PHASES.indexOf(state.phase) && !!state.phases[phase]?.human;
+  if (phase !== state.phase && !reapproval) {
+    refusals.push(`${phase} is not the current phase (${state.phase}). Approving out of order defeats the sequence.`);
   }
   const prev = PHASES[PHASES.indexOf(phase) - 1];
   if (prev) {
-    const pd = derivePhase(s, prev);
+    const pd = derivePhase(state, prev);
     if (!CLEARED.has(pd.status)) refusals.push(`${prev} is ${pd.status}, not approved. ${pd.reasons[0] || ""}`.trim());
   }
 
@@ -628,7 +649,7 @@ function cmdApprove(args) {
   }
 
   // --- judgement. The consent the first version of this file forgot. --------
-  const j = s.phases[phase]?.judgement;
+  const j = state.phases[phase]?.judgement;
   const gv = gateVersion(phase);
   if (!j) {
     refusals.push(`No /lifecycle-gate verdict recorded. Run the gate, then:`);
@@ -655,9 +676,21 @@ function cmdApprove(args) {
   }
 
   // --- and the two consents must be two parties. -----------------------------
-  if (j && String(j.by).trim().toLowerCase() === by.trim().toLowerCase()) {
+  if (j && by && String(j.by).trim().toLowerCase() === String(by).trim().toLowerCase()) {
     refusals.push(`The verdict was recorded by "${j.by}" and you are signing as the same party. Two consents held by one signature is one consent.`);
   }
+
+  return { refusals, reapproval, override: activeOverride(state, phase), mechanical: mech };
+}
+
+function cmdApprove(args) {
+  const s = mustState();
+  const phase = (args.find((a) => PHASES.includes(a.toUpperCase())) || "").toUpperCase();
+  if (!phase) die(`approve needs a phase: approve DESIGN --by "name"`, 2);
+  const by = valueOf(args, "--by");
+  if (!by) die(`approve needs --by "name" — a gate with no named approver is a form, not a control.`, 2);
+
+  const { refusals, reapproval, override: ov, mechanical: mech } = approveRefusals(s, phase, by);
 
   if (refusals.length) {
     const ov = activeOverride(s, phase);
@@ -956,9 +989,14 @@ const gateLabel = (phase) => {
 const valueOf = (args, flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
 function die(msg, code) { console.error(msg); process.exit(code); }
 function mustState() {
-  const s = readState();
-  if (!s) die(`No lifecycle/state.json. Run: node .cursor/tools/lifecycle.mjs init --name "<product>"\n(or --existing on a codebase that already exists)`, 1);
-  return s;
+  const info = readStateInfo();
+  if (info.status === "corrupt") {
+    die(`lifecycle/state.json exists but cannot be read: ${info.error}\n` +
+        `This is a product's lifecycle history, not a missing file - do not run 'init' over it.\n` +
+        `Restore it from git (git log -- lifecycle/state.json) or repair the JSON by hand with the user.`, 1);
+  }
+  if (!info.state) die(`No lifecycle/state.json. Run: node .cursor/tools/lifecycle.mjs init --name "<product>"\n(or --existing on a codebase that already exists)`, 1);
+  return info.state;
 }
 
 /* ---------------------------------------------------------------------- main */

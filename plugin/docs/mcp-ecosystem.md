@@ -36,6 +36,21 @@ context) is a worse outcome than not having the integration yet.
 Point the connection string at a **read-only** role, never the application's
 write credentials — this server has no built-in write guard of its own, the
 read-only-ness comes entirely from which database user you give it.
+`templates/postgres/readonly-role.sql` creates that role: `SELECT` on the app
+schema and nothing else, `default_transaction_read_only = on`, a 30s
+`statement_timeout` (the database's answer to `pg_sleep`), no `TEMP`, no `CREATE`.
+
+Two locks, and it is worth knowing which is which. `guard-mcp.mjs` is the
+client-side one: it tokenizes every string in the call's arguments and refuses
+anything that is not a single read — a `DELETE` inside a CTE, `EXPLAIN ANALYZE`,
+a second statement behind a comment or a `';'` literal, `FOR UPDATE`, `SELECT
+INTO`, and calls to `pg_sleep`, `lo_import`, `pg_read_file`, `set_config`,
+`nextval`, `dblink_*`. It is a hook, so it holds only while the hook runs. The
+role is the boundary: it holds when the hook is disabled, the server is swapped,
+or the SQL arrives by a path nobody wrote a guard for. Run both. The policy for
+the client side is `.cursor/mcp-policy.json`, where a server with no entry is
+**denied** — register it with an explicit access level (`deny`, `read-only`,
+`restricted-write`, `full`) before it runs anything.
 
 **Example workflow:** running `/dotnet-schema-diff` against Postgres, the agent
 can query `information_schema` live through this server instead of you

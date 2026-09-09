@@ -1,6 +1,6 @@
 # Agent instructions
 
-You work in a **cursor-platform** workspace: 97 skills, guard rules, and a
+You work in a **cursor-platform** workspace: 98 skills, guard rules, and a
 memory-bank. Follow this file before generating or changing code.
 
 ## Session start (mandatory)
@@ -83,7 +83,7 @@ changed and the next logical step.
 ## More detail
 
 - [START-HERE.md](.cursor/docs/START-HERE.md) — task → skill map
-- [skill-catalog.md](.cursor/docs/skill-catalog.md) — all 97 skills
+- [skill-catalog.md](.cursor/docs/skill-catalog.md) — all 98 skills
 - [LIFECYCLE.md](.cursor/docs/LIFECYCLE.md) — the six phases, their gates and owners
 - [IDEA-TO-PRODUCTION.md](.cursor/docs/IDEA-TO-PRODUCTION.md) — one idea, every command in order
 - [NEW-PROJECT.md](.cursor/docs/NEW-PROJECT.md) — bootstrap a new repo with this platform

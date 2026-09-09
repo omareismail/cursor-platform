@@ -560,15 +560,21 @@ Prose rules are advisory; hooks are not. `.claude/settings.json` wires:
 | Event | Effect |
 |---|---|
 | `SessionStart` | Injects the current lifecycle phase, memory-bank Tier 1 digest + `repo-map.json` freshness. Rules `00` and `11` become automatic. |
-| `PreToolUse` (Write/Edit) | **Blocks** hand-edits to `.cursor/cache/repo-map.json` and `lifecycle/state.json`, writes to `.env`/secret files, and hardcoded connection-string passwords. |
-| `PreToolUse` (Write/Edit) | **Blocks** every write under `src/`, `backend/`, `frontend/` while the lifecycle DESIGN gate is unapproved. Escape: `LIFECYCLE_OVERRIDE=1`, set by a human on purpose. |
-| `PreToolUse` (Bash) | **Blocks** `dotnet add package`, `npm/yarn/pnpm install <pkg>`, `git push --force`, and `ef database update` against non-local connections. |
-| `PreToolUse` (`mcp__.*`) | **Blocks** MCP calls that violate `.cursor/mcp-policy.json`: writes to a read-only server, anything on a deny list (`merge_*`, `delete_*`, `*force*`), a non-SELECT statement or a second statement after a `;`, and tools used outside their allowed lifecycle phase. Cursor attaches the same guard to `beforeMCPExecution`. |
+| `PreToolUse` (Write/Edit/Delete) | **Blocks** hand-edits to `.cursor/cache/repo-map.json` and `lifecycle/state.json`, writes to `.env`/secret files, hardcoded connection-string passwords — and every write to the **enforcement surface**: the hooks, `.claude/settings.json`, `.cursor/hooks.json`, `.cursor/mcp-policy.json`, `.cursor/lifecycle/`, `lifecycle.mjs`, `.mcp.json` and every record under `lifecycle/`. The list is `protected.paths` in `.cursor/lifecycle/write-policy.json`. An agent that can edit the rule instead of obeying it has no rule. Escape for a human developing the platform: `CURSOR_PLATFORM_DEV=1`. |
+| `PreToolUse` (Write/Edit) | **Blocks** every write under `src/`, `backend/`, `frontend/` while the lifecycle DESIGN gate is unapproved. A `lifecycle/state.json` that cannot be read is treated as **closed**, not absent. Escape: `LIFECYCLE_OVERRIDE=1`, set by a human on purpose. |
+| `PreToolUse` (Bash) | **Blocks** `dotnet add package`, `npm/yarn/pnpm install <pkg>`, `git push --force`, `ef database update` against non-local connections; shell writes (redirects, `Set-Content`, `rm`, `sed -i`, `git checkout --`, interpreter one-liners…) to any protected path; `psql -f` and any `psql -c` that is not a single read; and the **human-only commands** `lifecycle.mjs approve`, `override`, `init --existing` and `release-evidence.mjs sign` — a consent typed by the agent is not a consent. No escape for those. |
+| `PreToolUse` (`mcp__.*`) | **Blocks** MCP calls that violate `.cursor/mcp-policy.json`. A server with no entry is **denied** (v2; `unlisted:"allow"` is honoured but reported). Each server has an access level — `deny`, `read-only`, `restricted-write`, `full` — and on read-only anything not recognisably a read (`deleteRows`, `truncate_table`, `frobnicate`) is refused. SQL in **any** argument field is classified by a tokenizer, not a first-word regex: a `DELETE` inside a CTE, `EXPLAIN ANALYZE`, a second statement behind a comment or literal, `FOR UPDATE`, `SELECT INTO` and `pg_sleep`/`lo_import`/`set_config` are all refused. A missing or unparseable policy denies everything. Cursor attaches the same guard to `beforeMCPExecution`. The client-side lock is defence in depth; the boundary is the role in `templates/postgres/readonly-role.sql`. |
 | `PostToolUse` (Write/Edit) | Runs `dotnet format` / `eslint --fix` on the touched file and feeds failures back. |
 | `Stop` | Warns if source changed but `memory-bank/activeContext.md` was not updated. |
 
 If a hook blocks you, **stop and tell the user why**. Do not route around it
 with a different tool.
+
+The four guards are wired `failClosed` in Cursor: a guard that crashes, times
+out or returns something malformed **denies** rather than disappearing. That is
+why `_lib.ok()` answers `{"permission":"allow"}` out loud — Cursor counts
+"exit 0, nothing on stdout" as a failed hook. `self-audit` A10 checks both
+halves; `tests/run.mjs` runs the adversarial suites that pin every bypass above.
 
 ---
 

@@ -204,18 +204,23 @@ ${rewritePaths(body)}
     // Cursor wiring, same scripts. Its events are camelCase and it has a
     // purpose-built shell hook, so this is not a rename of the block above -
     // beforeShellExecution replaces the Bash matcher entirely.
+    // failClosed on the four guards: Cursor's default on a crashed, timed-out or
+    // malformed hook is to let the call through, which turns a guard off with
+    // nothing on screen. Same setting as .cursor/hooks.json; self-audit A10
+    // checks the two agree. (Cursor also counts "exit 0, no stdout" as a failure,
+    // which is why _lib.ok() answers {permission:"allow"} explicitly.)
     const CP = "${PLUGIN_ROOT}";
     emit("hooks/cursor-hooks.json", JSON.stringify({
-      "//": "GENERATED. Cursor hook wiring for the installed plugin. Matchers are deliberately absent: a matcher that does not match is a guard that silently never fires, and each script exits in microseconds when the payload is not its own.",
+      "//": "GENERATED. Cursor hook wiring for the installed plugin. Matchers are deliberately absent: a matcher that does not match is a guard that silently never fires, and each script exits in microseconds when the payload is not its own. failClosed on the guards: a hook that crashes must deny, not disappear.",
       version: 1,
       hooks: {
         sessionStart: [{ command: `node ${CP}/hooks/session-start.mjs`, timeout: 20 }],
         preToolUse: [
-          { command: `node ${CP}/hooks/guard-write.mjs`, timeout: 15 },
-          { command: `node ${CP}/hooks/guard-phase.mjs`, timeout: 15 },
+          { command: `node ${CP}/hooks/guard-write.mjs`, timeout: 15, failClosed: true },
+          { command: `node ${CP}/hooks/guard-phase.mjs`, timeout: 15, failClosed: true },
         ],
-        beforeShellExecution: [{ command: `node ${CP}/hooks/guard-bash.mjs`, timeout: 15 }],
-        beforeMCPExecution: [{ command: `node ${CP}/hooks/guard-mcp.mjs`, timeout: 15 }],
+        beforeShellExecution: [{ command: `node ${CP}/hooks/guard-bash.mjs`, timeout: 15, failClosed: true }],
+        beforeMCPExecution: [{ command: `node ${CP}/hooks/guard-mcp.mjs`, timeout: 15, failClosed: true }],
         afterFileEdit: [{ command: `node ${CP}/hooks/post-edit-verify.mjs`, timeout: 120 }],
         stop: [{ command: `node ${CP}/hooks/stop-memory-check.mjs`, timeout: 20 }],
       },
@@ -326,9 +331,9 @@ ${rewritePaths(body)}
   }, null, 2) + "\n");
 
   // ---- what the consuming repo still has to provide ----------------------
-  // _lib.mjs is a helper and sync-skills.mjs is a generator; neither is a hook.
+  // `_*.mjs` are helpers (_lib, _sql) and sync-skills.mjs is a generator; none is a hook.
   const HOOK_COUNT = existsSync(SRC_HOOKS)
-    ? readdirSync(SRC_HOOKS).filter(f => f.endsWith(".mjs") && !["_lib.mjs", "sync-skills.mjs"].includes(f)).length
+    ? readdirSync(SRC_HOOKS).filter(f => f.endsWith(".mjs") && !f.startsWith("_") && f !== "sync-skills.mjs").length
     : 0;
 
   emit("README.md",

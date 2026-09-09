@@ -95,7 +95,7 @@ into compiler errors.
 
 ## 4. `.cursor/` — the source of truth
 
-### `.cursor/skills/` — 97 skills
+### `.cursor/skills/` — 98 skills
 
 **This is where skills live.** Each is a directory containing `skill.md`. Cursor
 reads them directly; Claude Code reads generated shims in `.claude/skills/`.
@@ -221,7 +221,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 17 validators
+### `.cursor/tools/` — 19 validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.
@@ -243,11 +243,24 @@ checkable rather than hopeful.
 | `fitness.mjs` | *Does the promoted architecture still hold?* Derives the layering from `memory-bank/architecture.md` and asserts it against `using` directives and project references. Ratchets against a committed baseline. | `rules` · `check` · `all` · `baseline --accept` |
 | `incidents.mjs` | *Is the guard that incident bought still standing?* Records the incident-to-guard link `/postmortem` never had, and fails when a guard is deleted, commented out, or sitting in a skipped test. | `open` · `check` · `learned` · `show` |
 | `delivery-intel.mjs` | *Is the process producing anything, or being performed?* Cross-references gate verdicts, overrides, releases, incidents and the debt baseline. Scores nothing — each observation gets both readings and the evidence that separates them. | `report` · `questions` |
-| `self-audit.mjs` | *Is every control actually reachable?* Hook scripts wired in both hosts and in the built plugin, gate reviewers that exist, tools nothing runs — the class of defect where a control exists but fires for nobody. | `run` · `wiring` |
+| `self-audit.mjs` | *Is every control actually reachable?* Hook scripts wired in both hosts and in the built plugin, gate reviewers that exist, tools nothing runs, every deliberate fail-closed copy still matching the file that owns it, and every check this repo owns actually running in `.github/workflows/` rather than only in a template for somebody else — the class of defect where a control exists but fires for nobody. | `run` · `wiring` |
+| `dashboard.mjs` | *Can I see the whole project on one screen?* Localhost UI over lifecycle, features, traceability, coverage, delivery and memory-bank. GET only; binds 127.0.0.1. Actions compose a command you paste — the server never runs it. | `serve` · `snapshot --json` |
+| `memory-bank.mjs` | *What does the memory bank actually contain, and is any of it real?* Owns the two tiers, the SessionStart digest and the template heuristic that `guard-write`, `session-start` and `dashboard` used to each write down for themselves. A file that exists and says nothing is reported apart from one that is absent. | `status` · `tiers` · `check` |
 | `platform-metadata.mjs` | *Does any document still claim a count that stopped being true?* | `show` · `write` · `check [--fix]` |
 | `build-plugin.mjs` | *Builds the distributable plugin.* Inlines full skill bodies and rewrites every path to `${CLAUDE_PLUGIN_ROOT}`, because a shim pointing at `.cursor/` breaks the moment the plugin is installed elsewhere. | `build` · `check` |
 
 All exit non-zero on failure, so CI can gate on them.
+
+`dashboard.mjs` is the one that is not a checker: it **serves** the others.
+
+```bash
+node .cursor/tools/dashboard.mjs serve              # http://127.0.0.1:7777 — GET only
+node .cursor/tools/dashboard.mjs snapshot --json    # every panel, headless
+```
+
+Empty panels name the command that would fill them. The Actions panel
+composes `approve` / `record-gate` / `cut` / `sign` and the rest; you paste
+the command. The server never writes state.
 
 ---
 
@@ -289,7 +302,7 @@ Your local Cursor settings and MCP servers. Mirrors `.mcp.json`. The
 
 ## 5. `.claude/` — the Claude Code layer
 
-### `.claude/skills/` — 77 generated shims
+### `.claude/skills/` — 98 generated shims
 
 Each `SKILL.md` is frontmatter plus "read `.cursor/skills/<name>/skill.md`".
 Claude Code needs YAML frontmatter to discover a skill; the `.cursor` files have
@@ -321,12 +334,13 @@ running out of context mid-refactor.
 | Hook | Fires | Does |
 |---|---|---|
 | `session-start.mjs` | session start | Injects memory-bank digest + cache freshness. **Makes rule 00 automatic.** |
-| `guard-write.mjs` | before Write/Edit | Blocks edits to the caches, `.env`, Tier 2 memory-bank, and hardcoded credentials |
-| `guard-bash.mjs` | before Bash | Blocks `dotnet add package`, `npm install <pkg>`, `ef database update`, force-push, `DROP TABLE` |
+| `guard-write.mjs` | before Write/Edit/Delete | Blocks edits to the caches, `.env`, Tier 2 memory-bank, hardcoded credentials — and to the enforcement surface itself (hooks, wiring, policies, lifecycle records; `protected.paths` in `write-policy.json`) |
+| `guard-bash.mjs` | before Bash | Blocks `dotnet add package`, `npm install <pkg>`, `ef database update`, force-push, `DROP TABLE`, shell writes to protected paths, `psql` writes, and the human-only `lifecycle.mjs approve` / `override` / `init --existing` / `release-evidence.mjs sign` |
 | `post-edit-verify.mjs` | after Write/Edit | Fast tripwires on the file just written — money as `double`, `DateTime.Now`, sync-over-async, interpolated SQL, `fetch` in a component, physical CSS |
 | `stop-memory-check.mjs` | on stop | Blocks once if source changed but `activeContext.md` did not |
 | `sync-skills.mjs` | manual | Regenerates the shims |
-| `_lib.mjs` | — | Shared helpers |
+| `_lib.mjs` | — | Shared helpers: payload normalisation, path resolution, the protected-path list |
+| `_sql.mjs` | — | The SQL tokenizer and classifier `guard-mcp` and `guard-bash` judge statements with |
 
 Optional heavier checks:
 
@@ -411,6 +425,39 @@ produces hundreds of errors and someone disables the lot. Order is in
 
 ---
 
+## 7b. `.github/workflows/` and `tests/` — the platform's own checks
+
+`templates/ci/` is for the repositories that adopt the platform. Nothing there
+ever runs here. Until now, neither did anything else: every check this repo owns
+— `self-audit`, `docs-lint`, `platform-metadata`, `build-plugin check` — ran only
+when somebody remembered to type it, and `self-audit`'s own **A7** counted those
+templates as evidence that the audit ran. It did not. That is the defect A7 was
+written to find, sitting inside A7.
+
+| File | Runs |
+|---|---|
+| `.github/workflows/platform-checks.yml` | `syntax` (every `.mjs` parses) · `guards` (the guards still refuse) · `audit` (`self-audit run`) · `plugin` (a fresh build is identical to what is committed) |
+| `tests/run.mjs` | every suite: `tests/guards.test.mjs` (the refusals and their exemptions) and `tests/adversarial/*` — one suite per guard, each case a confirmed bypass turned regression test. Run locally with `node tests/run.mjs` |
+
+**Why a behavioural suite, when `self-audit` already exists.** They answer two
+different questions. `self-audit` is static: it proves each guard is *reachable*
+— wired in both hosts, present in the built plugin, pointing at a file that
+exists. Nothing proved a guard still *refuses*. A regex that stops matching is
+silent: the hook runs, exits 0, and the wiring audit still says PASS.
+
+It found one immediately. `guard-bash`'s dependency rule gave up on its match at
+the first flag, so `npm install --save lodash`, `npm i --save-dev jest`, `yarn
+add -D vite` and `pnpm add -w foo` all went through — which is how anyone
+actually adds a dev dependency. Rule 10 was unenforced for the common case, and
+nothing anywhere said so.
+
+**The suite was checked by breaking things on purpose.** Its first version
+passed every mutation — the Tier 2 fallback losing a file, the npm rule reverted,
+the force-push exemption removed — because it ran the hooks from this repository,
+so their imports reached the real tools and the fail-closed case never happened.
+A suite that cannot go red is a green light wired to nothing.
+
+---
 ## 8. How the pieces fit
 
 ```
@@ -616,6 +663,7 @@ node .cursor/tools/ac-trace.mjs lint
 node .cursor/tools/flag-debt.mjs scan
 
 # Health
+node .cursor/tools/dashboard.mjs serve
 node .cursor/tools/feature-map.mjs list
 node .cursor/tools/delivery-metrics.mjs trend --days 180
 node .cursor/tools/docs-lint.mjs check
@@ -640,7 +688,7 @@ node .cursor/tools/docs-lint.mjs check
 
 ## 14. Gotchas
 
-**97 skills costs ~7k tokens of always-on context** in Claude Code, and routing
+**98 skills costs ~7k tokens of always-on context** in Claude Code, and routing
 accuracy drops as near-duplicate descriptions accumulate. `/skill-maturity-audit all`
 shows the overlaps. Prune rather than keep adding.
 

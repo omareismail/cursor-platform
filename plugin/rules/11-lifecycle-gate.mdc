@@ -142,7 +142,10 @@ phase's work instead.
 
 **Never mark a gate approved on the user's behalf.** `approve` requires
 `--by "name"`. A gate a machine can clear is not a gate. Recording a review
-verdict with `record-gate` is the agent's job; granting approval is not.
+verdict with `record-gate` is the agent's job; granting approval is not. This
+is enforced, not requested: `guard-bash.mjs` refuses `lifecycle.mjs approve`,
+`override`, `init --existing` and `release-evidence.mjs sign` from the agent's
+shell, with no escape variable. Print the command; the human runs it.
 
 **Never review your own phase.** Run `lifecycle.mjs gate PHASE` and launch the
 reviewer it names as a fresh subagent. If you wrote any of the artifacts, you are
@@ -170,6 +173,15 @@ code 2 on any write the current phase does not permit. The policy is data, in
 
 `earliest: X` means the phase **before** X must be `APPROVED` or `INHERITED` —
 `STALE` included, so an edited design document re-blocks source on the next call.
+A `lifecycle/state.json` that exists but cannot be read is a **closed** gate, not
+an absent one: the hook refuses and says the file is corrupt. Do not `init` over
+it; that would erase the product's approval history.
+
+The same file carries `protected.paths`: the hooks, their wiring, both policy
+files, `lifecycle.mjs`, `.mcp.json` and every record under `lifecycle/`.
+`guard-write.mjs` and `guard-bash.mjs` refuse agent writes to all of them, by
+any tool and by any shell command. An agent that can edit the rule instead of
+obeying it has no rule. Propose the change in chat; a human applies it.
 
 Never blocked: `tests/`, `specs/`, `docs/`, `memory-bank/`, `.cursor/`,
 `.claude/`, `*.md`. Writing a test or a spec early is good practice, not a

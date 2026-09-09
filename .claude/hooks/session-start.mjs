@@ -12,8 +12,39 @@ await readPayload();
 const root = projectDir();
 const mb = (f) => join(root, "memory-bank", f);
 
-const TIER1 = ["activeContext.md", "progress.md", "techContext.md", "systemPatterns.md"];
-const STALE_DAYS = 7;
+// The digest list, the template convention and the staleness threshold are
+// owned by .cursor/tools/memory-bank.mjs. They used to be restated here, in
+// dashboard.mjs and in lifecycle.mjs, and two of the copies already disagreed:
+// this file checked four files for staleness while the dashboard checked eight,
+// so the two gave different answers to "is the memory bank fresh?".
+//
+// DIGEST is a deliberate SUBSET of Tier 1 - four files, not eight. This runs on
+// every session and its output is read in full every time, so its size is a
+// design decision. Fallbacks below keep the hook working if the import fails;
+// a SessionStart hook that throws costs the agent its orientation.
+let DIGEST = ["activeContext.md", "progress.md", "techContext.md", "systemPatterns.md"];
+let STALE_DAYS = 7;
+let placeholderMarker = /^\s*(>\s*)?(EXAMPLE|TODO|TBD|PLACEHOLDER|_?fill me in_?)/im;
+let isUnfilledTemplate = (str) => {
+  const ls = String(str).split("\n").filter((l) => l.trim());
+  if (!ls.length) return true;
+  return ls.filter((l) => /\[[^\]]{3,}\]/.test(l) && !/\]\(/.test(l)).length / ls.length > 0.3;
+};
+// Two paths: .claude/hooks/ in a repo, plugin/hooks/ in an installed plugin.
+// Note `mbTool`, not `mb` - this file already has an `mb(f)` path helper, and
+// shadowing it inside the block would work today and confuse somebody later.
+const mbTool = await (async () => {
+  for (const rel of ["../../.cursor/tools/memory-bank.mjs", "../tools/memory-bank.mjs"]) {
+    try { return await import(new URL(rel, import.meta.url).href); } catch { /* try the next */ }
+  }
+  return null;
+})();
+if (mbTool) {
+  mbTool.setRoot(root);
+  DIGEST = mbTool.DIGEST; STALE_DAYS = mbTool.STALE_DAYS;
+  placeholderMarker = mbTool.PLACEHOLDER; isUnfilledTemplate = mbTool.isUnfilled;
+}
+
 const MAX_CHARS = 1400; // per file, keeps the digest bounded
 
 const out = ["# Session context (auto-injected by .claude/hooks/session-start.mjs)"];
@@ -73,16 +104,10 @@ try {
 // --- Tier 1 digest ----------------------------------------------------------
 // A file full of [square-bracket] template slots is not context - it is the
 // unfilled template. Flag it rather than injecting noise the agent will trust.
-const placeholderMarker = /^\s*(>\s*)?(EXAMPLE|TODO|TBD|PLACEHOLDER|_?fill me in_?)/im;
-const isUnfilledTemplate = (s) => {
-  const lines = s.split("\n").filter(l => l.trim());
-  if (!lines.length) return true;
-  const slots = lines.filter(l => /\[[^\]]{3,}\]/.test(l) && !/\]\(/.test(l)).length;
-  return slots / lines.length > 0.3;
-};
+// (Convention owned by memory-bank.mjs; see the import at the top.)
 let anyContent = false;
 
-for (const f of TIER1) {
+for (const f of DIGEST) {
   const body = readIfExists(mb(f));
   if (body === null) { problems.push(`\`memory-bank/${f}\` not found.`); continue; }
   const trimmed = body.trim();

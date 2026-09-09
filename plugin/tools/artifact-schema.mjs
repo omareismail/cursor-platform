@@ -37,7 +37,15 @@
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+
+// The template convention (which markers mean 'unfilled', and how many
+// [square-bracket] slots make a document a form rather than a document) is
+// owned by memory-bank.mjs. It is a LEAF - it imports nothing - so importing
+// it here cannot create the cycle that kept this file from importing
+// lifecycle.mjs. self-audit A9 found the copy below had already drifted.
+const mb = await import(new URL("./memory-bank.mjs", import.meta.url));
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
 function repoRoot() {
@@ -52,8 +60,10 @@ function repoRoot() {
  */
 const SCHEMA_DIRS = [
   join(ROOT, "schemas"),                                    // the project's own, which may extend the grammar
-  new URL("../../schemas/", import.meta.url).pathname,      // repo layout:   .cursor/tools/ -> schemas/
-  new URL("../schemas/", import.meta.url).pathname,         // plugin layout: tools/         -> schemas/
+  // fileURLToPath, not .pathname: the latter is "/D:/..." on Windows, which
+  // existsSync cannot open, so neither fallback ever resolved there.
+  fileURLToPath(new URL("../../schemas/", import.meta.url)),   // repo layout:   .cursor/tools/ -> schemas/
+  fileURLToPath(new URL("../schemas/", import.meta.url)),      // plugin layout: tools/         -> schemas/
 ];
 function load(f) {
   for (const d of SCHEMA_DIRS) {
@@ -368,11 +378,16 @@ function cmdTrace(args) {
 /**
  * Does a required design document exist with real content?
  *
- * lifecycle.mjs has a richer version of this, but importing it here would make
+ * lifecycle.mjs has a richer version of this, and importing IT here would make
  * the two tools import each other - lifecycle.mjs already imports buildGraph()
- * from this file to fold traceability into the mechanical consent. Eight lines
- * of duplication beats a circular dependency between the two tools that grade
- * everything else.
+ * from this file. So the convention is taken from memory-bank.mjs instead,
+ * which imports nothing and therefore cannot close that loop.
+ *
+ * The copy that used to live here had already drifted: it was missing the
+ * `fill me in` marker and had no slot heuristic at all, so a requirements
+ * document that was 80% [square brackets] passed this presence check while
+ * failing lifecycle.mjs's. The 120-byte floor stays local - that is this
+ * file's own policy about its own documents, not a shared convention.
  */
 function docPresent(rel) {
   const abs = join(ROOT, rel);
@@ -380,7 +395,7 @@ function docPresent(rel) {
   let body = "";
   try { body = readFileSync(abs, "utf8").trim(); } catch { return { ok: false, reason: "unreadable" }; }
   if (body.length < 120) return { ok: false, reason: "too short to be real content" };
-  if (/^\s*(>\s*)?(EXAMPLE|TODO|TBD|PLACEHOLDER)/im.test(body)) return { ok: false, reason: "still a template" };
+  if (mb.PLACEHOLDER.test(body) || mb.isUnfilled(body)) return { ok: false, reason: "still a template" };
   return { ok: true };
 }
 

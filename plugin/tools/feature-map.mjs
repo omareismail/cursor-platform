@@ -37,7 +37,12 @@ import { join, dirname, resolve, sep } from "node:path";
 const ROOT = process.env.CLAUDE_PROJECT_DIR || findRepoRoot() || process.cwd();
 const MAP_PATH = join(ROOT, ".cursor", "cache", "feature-map.json");
 const SCHEMA_VERSION = 1;
-const STALE_DAYS = 14;
+// TRACE_STALE_DAYS, not STALE_DAYS: this is how old a feature TRACE may get
+// before it is called aged out, which is a different question from
+// memory-bank.mjs's 7-day file staleness and deliberately a different number.
+// Two facts sharing one name is how a reader - or a drift check - conflates
+// them; the qualified name is the whole fix.
+const TRACE_STALE_DAYS = 14;
 
 // ---------------------------------------------------------------- helpers ---
 
@@ -166,7 +171,7 @@ function assess(feature, shas) {
   const stale = changed.length > 0 || missing.length > 0;
   return {
     stale, changed, missing,
-    agedOut: age > STALE_DAYS,
+    agedOut: age > TRACE_STALE_DAYS,
     ageDays: Number.isFinite(age) ? Math.floor(age) : null,
     fileCount: (feature.files || []).length,
   };

@@ -9,6 +9,28 @@
 
   "//not-blind": "This is deliberately narrow. Writing a test, a spec, a document or a memory-bank entry early is good practice, not a violation, so those are never blocked. Only artifacts that encode a decision from a later phase are gated.",
 
+  "//protected": "The enforcement surface. An agent that can edit the hooks, their wiring, the policies they read or the records they produce can edit the rules it is being held to - and every one of these files was writable by the same Write tool the hooks govern. guard-write.mjs refuses the editor's Write/Edit/Delete on them; guard-bash.mjs refuses shell writes to them (redirects, Set-Content, rm, sed -i, node -e, git checkout -- ...). The list is unioned with the fallback in .claude/hooks/_lib.mjs, never replaced by it, so a project may protect more and never less. The single escape is CURSOR_PLATFORM_DEV=1 in the editor's environment, set by a human developing the platform itself; it is an environment variable and not a file because a file is something an agent can write.",
+  "protected": {
+    "paths": [
+      ".claude/hooks/**",
+      ".claude/settings.json",
+      ".cursor/hooks.json",
+      ".cursor/mcp-policy.json",
+      ".cursor/lifecycle/**",
+      ".cursor/tools/lifecycle.mjs",
+      ".mcp.json",
+      "lifecycle/state.json",
+      "lifecycle/evidence/**",
+      "lifecycle/releases/**",
+      "lifecycle/overrides/**",
+      "lifecycle/incidents/**",
+      "lifecycle/changes/**",
+      "lifecycle/fitness-baseline.json",
+      ".cursor/cache/repo-map.json",
+      ".cursor/cache/feature-map.json"
+    ]
+  },
+
   "alwaysAllow": [
     "docs/**",
     "specs/**",

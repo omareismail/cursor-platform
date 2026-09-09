@@ -135,7 +135,10 @@ node .cursor/tools/lifecycle.mjs approve <PHASE> --by "<a human — not you>"
 ```
 
 `approve` refuses a signature from the same party that recorded the verdict. Two
-consents held by one name is one consent.
+consents held by one name is one consent. And `guard-bash.mjs` refuses the
+command itself when it comes from the agent's shell — `approve`, `override`,
+`init --existing`, `release-evidence.mjs sign` — so typing it with the user's
+name is not a shortcut, it is a refusal with a log line.
 
 On GO for `DESIGN`, add one line: approving this unblocks `guard-phase.mjs` and
 source writes become possible. The user should know what they are authorising.

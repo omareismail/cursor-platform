@@ -5,7 +5,7 @@ prose in `.cursor/rules/*.mdc` into compiler errors, failing tests, and red CI.
 
 ## Why this layer exists
 
-The platform already has 12 guard rules and 97 skills. Those work on the agent —
+The platform already has 12 guard rules and 98 skills. Those work on the agent —
 they shape what it generates. But a rule that only exists in a prompt has three
 failure modes:
 
@@ -41,6 +41,7 @@ the analyzer tells you a build failed, the rule file tells you what to do instea
 | — (new) untested acceptance criteria | `ac-trace check` — fails on an AC with no test that can fail | `ci/quality-gates.yml`, `.cursor/tools/ac-trace.mjs` |
 | — (new) tests that cannot fail | `ac-trace lint` + Stryker mutation score | `ci/quality-gates.yml`, `mutation/` |
 | — (new) documentation rot | `docs-lint check` — broken links, ghost skills, stale counts | `ci/quality-gates.yml`, `.cursor/tools/docs-lint.mjs` |
+| MCP policy — postgres is read-only | a database role that **cannot** write, with `statement_timeout` and `default_transaction_read_only` — the boundary behind `guard-mcp`'s statement classifier | `postgres/readonly-role.sql` |
 
 `DateTime.Now`, `Task.Wait()`, `System.Data.SqlClient`, `BinaryFormatter` and
 friends are banned outright via `dotnet/BannedSymbols.txt` +

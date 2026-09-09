@@ -30,7 +30,7 @@ found 43% of AI-generated changes still needed manual debugging in production
 after passing QA and staging. DORA's own summary: *"AI improves outcomes only
 when the underlying delivery system is already working well."*
 
-This workspace is 97 skills of throughput amplification. That is exactly the
+This workspace is 98 skills of throughput amplification. That is exactly the
 configuration the research warns about. Without a number, "is this helping?" gets
 answered by whoever is most confident — which is not a control system.
 

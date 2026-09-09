@@ -1,18 +1,23 @@
 {
-  "version": 1,
+  "version": 2,
 
-  "//": "Policy for what an agent may do THROUGH an MCP server. Enforced by .claude/hooks/guard-mcp.mjs on Cursor's beforeMCPExecution and Claude Code's PreToolUse. Hand-edited on purpose - this is a policy, not a generated artifact.",
+  "//": "Policy for what an agent may do THROUGH an MCP server. Enforced by .claude/hooks/guard-mcp.mjs on Cursor's beforeMCPExecution and Claude Code's PreToolUse. Hand-edited on purpose - this is a policy, not a generated artifact - and on guard-write's protected list, so an agent cannot edit it to get past it.",
 
   "//why": "Two locks already exist and both are somebody else's to keep: the github server's X-MCP-Readonly header, and postgres-mcp's --access-mode=restricted. .mcp.json says it plainly - the access mode is defence in depth, not the boundary. Drop a header, point at a role with more grants, add a server on a Friday, and the lock is gone with nothing in this repo objecting. This is the lock that lives with the code and fails the build.",
 
-  "//unlisted": "A server nobody wrote a policy for is allowed, and reported. Denying by default sounds stricter and is worse: the first unlisted server breaks the workspace, someone disables the hook, and every server becomes unlisted.",
-  "unlisted": "allow",
+  "//unlisted": "A server nobody wrote a policy for is DENIED. Version 1 allowed it and reported it, on the theory that denying would make someone disable the hook; what it actually made was a lock with the key in it - any server an agent could reach ran unreviewed. Registering a server is one block below. Setting this to \"allow\" is honoured, and every call through an unlisted server is then reported on stderr as unreviewed.",
+  "unlisted": "deny",
+
+  "//access": "Every server has one of four levels. deny: nothing runs. read-only: tools whose name reads as a read run; writes, and names the guard cannot classify, do not - unless listed under allow. restricted-write: reads run, writes run only when listed under allow. full: everything except the deny list. A v1 `write: true|false` is still understood (false -> read-only, true -> full).",
+
+  "//sql": "For a server with sqlAllow, every string argument of every call is classified by .claude/hooks/_sql.mjs: one statement, leading keyword in sqlAllow, no data-modifying keyword anywhere (CTEs and subqueries included), no EXPLAIN ANALYZE, no FOR UPDATE, no SELECT INTO, no function from the deny list (pg_sleep, lo_import, pg_read_file, set_config, nextval ... plus sqlDenyFunctions here). The database role is the boundary - templates/postgres/readonly-role.sql creates it - and this is the lock that runs before the query leaves.",
 
   "servers": {
     "github": {
       "trust": "high",
-      "write": false,
-      "//write": "Mirrors X-MCP-Readonly on the server. Reads, searches and listings pass; anything that changes a repo does not.",
+      "access": "read-only",
+      "//access": "Mirrors X-MCP-Readonly on the server. Reads, searches and listings pass; anything that changes a repo does not.",
+      "allow": [],
       "deny": [
         "merge_*",
         "delete_*",
@@ -22,30 +27,31 @@
         "create_release",
         "update_release"
       ],
-      "//deny": "Denied even if someone sets write:true. Merging a PR and force-pushing are not 'writes' in the ordinary sense - they are the two operations no review can undo.",
+      "//deny": "Denied even at access:full. Merging a PR and force-pushing are not 'writes' in the ordinary sense - they are the two operations no review can undo.",
       "phases": {
         "create_pull_request": ["DEVELOPMENT", "TESTING", "PRODUCTION"]
       },
-      "//phases": "Opening a PR during REQUIREMENTS or DESIGN means code exists that the design gate never approved. NOTE: dormant while write is false - create_pull_request is denied as a write before the phase is ever consulted. That is the strictest rule winning, which is correct, but do not read this line as active governance until someone sets write:true."
+      "//phases": "Opening a PR during REQUIREMENTS or DESIGN means code exists that the design gate never approved. NOTE: dormant while access is read-only - create_pull_request is refused as a write before the phase is consulted. That is the strictest rule winning, which is correct, but do not read this line as active governance until someone raises the access level and lists the tool under allow."
     },
 
     "postgres": {
       "trust": "high",
-      "write": false,
-      "sqlAllow": ["SELECT", "WITH", "EXPLAIN", "ANALYZE", "SHOW", "TABLE", "VALUES"],
-      "//sqlAllow": "The leading keyword of any sql/query/statement argument must be one of these. postgres-mcp's own read-only mode was bypassed once by a SQL-injection flaw in its predecessor; this checks the statement the agent actually sent."
+      "access": "read-only",
+      "sqlAllow": ["SELECT", "WITH", "EXPLAIN", "SHOW", "TABLE", "VALUES"],
+      "sqlDenyFunctions": [],
+      "//sqlAllow": "The leading keyword of a statement must be one of these, and the rest of the statement must carry no write. ANALYZE was removed from this list: on its own it rewrites planner statistics, and inside EXPLAIN it executes the statement. postgres-mcp's own read-only mode was bypassed once by a SQL-injection flaw in its predecessor; this checks the statement the agent actually sent."
     },
 
     "context7": {
       "trust": "medium",
-      "write": false,
+      "access": "read-only",
       "//": "Documentation lookups. Nothing it returns should ever be executed unread, but nothing it does can change state either."
     },
 
     "playwright": {
       "trust": "medium",
-      "write": true,
-      "//write": "It drives a browser; that is the whole point. The risk here is not mutation but reach - a browser can log into things. Keep it off for backend-only sessions, as .mcp.json already advises."
+      "access": "full",
+      "//access": "It drives a browser; that is the whole point. The risk here is not mutation but reach - a browser can log into things. Keep it off for backend-only sessions, as .mcp.json already advises."
     }
   }
 }

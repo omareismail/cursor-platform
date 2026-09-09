@@ -1,0 +1,121 @@
+# The platform's own CI. Not a template — this one runs on THIS repository.
+#
+# WHY IT DID NOT EXIST UNTIL NOW
+#
+# Every check this repo owns — self-audit, docs-lint, platform-metadata,
+# build-plugin check — ran only when a human remembered to type it. The repo
+# shipped two CI templates for the applications that adopt the platform, and
+# `self-audit`'s own A7 check counted those templates as "the audit runs in CI".
+# It does not: a template is a file that runs in somebody else's repository one
+# day. That is the exact defect A7 was written to find, sitting inside A7.
+#
+# WHAT EACH JOB IS FOR
+#
+#   syntax   Every .mjs parses. Cheap, and it has caught real breakage more than
+#            once: a nested backtick inside a template literal took out two
+#            tools that were "finished".
+#   guards   The guards actually refuse. self-audit proves they are WIRED;
+#            nothing proved they still say no. tests/run.mjs runs every suite:
+#            tests/guards.test.mjs (the refusals and exemptions) and
+#            tests/adversarial/* (one suite per guard, each case a confirmed
+#            bypass that is now a regression test - the CTE that hid a DELETE,
+#            the camelCase write, the redirect into a policy file, the corrupt
+#            state that opened the design gate).
+#   audit    self-audit run — wiring, plus docs-lint, platform-metadata and
+#            build-plugin check, which it composes rather than reimplements.
+#   plugin   The distributable is rebuilt from source and must come out
+#            identical. A plugin built by hand months ago is a second, silently
+#            diverging copy of the platform.
+#
+# Jobs are independent on purpose. A docs count that drifted should not hide
+# whether the guards still refuse.
+
+name: platform-checks
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  syntax:
+    name: every script parses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: node --check every .mjs
+        run: |
+          set -euo pipefail
+          bad=0
+          while IFS= read -r f; do
+            if ! node --check "$f" 2>/tmp/err; then
+              echo "::error file=$f::$(head -3 /tmp/err | tr '\n' ' ')"
+              bad=$((bad+1))
+            fi
+          done < <(find .cursor/tools .claude/hooks tests plugin -name '*.mjs' -type f 2>/dev/null | sort)
+          echo "checked $(find .cursor/tools .claude/hooks tests plugin -name '*.mjs' -type f 2>/dev/null | wc -l) file(s)"
+          exit $bad
+
+  guards:
+    name: the guards still refuse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Same command a human runs locally. A test that only exists inside a YAML
+      # step is as unrunnable as a check that only exists in someone's memory.
+      - name: node tests/run.mjs
+        run: node tests/run.mjs
+
+  audit:
+    name: every control is reachable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # self-audit run composes docs-lint, platform-metadata and build-plugin
+      # check, so this one command is the whole static surface.
+      - name: node .cursor/tools/self-audit.mjs run
+        run: node .cursor/tools/self-audit.mjs run
+
+  plugin:
+    name: the built plugin matches its source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Rebuild and diff
+        run: |
+          set -euo pipefail
+          node .cursor/tools/build-plugin.mjs build
+          if ! git diff --quiet -- plugin; then
+            echo "::error::plugin/ is not what building from source produces."
+            echo "Run: node .cursor/tools/build-plugin.mjs build, then commit the result."
+            git diff --stat -- plugin
+            exit 1
+          fi
+          echo "plugin/ is identical to a fresh build."

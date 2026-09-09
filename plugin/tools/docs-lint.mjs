@@ -53,7 +53,7 @@ const SKIP = /(^|\/)(node_modules|\.git|bin|obj|dist|coverage)(\/|$)/;
 const GENERATED = /^(\.claude\/skills|plugin)\//;
 
 /** Docs written as point-in-time records. Their counts are deliberately frozen. */
-const HISTORICAL = /(ENTERPRISE_MATURITY_REPORT|GOVERNANCE_REPORT|MIGRATION_NOTES|PHASE\d)/i;
+const HISTORICAL = /(ENTERPRISE_MATURITY_REPORT|GOVERNANCE_REPORT|MIGRATION_NOTES|PHASE\d|PROPOSAL-REVIEW)/i;
 
 /**
  * `/word` in backticks is not always a skill. Two other things look identical:

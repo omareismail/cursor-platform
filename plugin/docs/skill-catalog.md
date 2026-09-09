@@ -3,10 +3,10 @@
 Referenced by `${CLAUDE_PLUGIN_ROOT}/rules/00-memory-think.mdc` Step 2.5. Kept as a
 separate doc (not inlined in the rule) on purpose — this file is read
 on-demand, only at the moment the agent is actually routing a request to
-a skill, instead of loading all 97 skills' descriptions into every single
+a skill, instead of loading all 98 skills' descriptions into every single
 message. If you edit skill descriptions, edit them here, not in the rule.
 
-## Step 2.5 — Skill Auto-Routing (all 97 skills, announce before running)
+## Step 2.5 — Skill Auto-Routing (all 98 skills, announce before running)
 
 Skills are written as slash commands (`/dotnet-migration`, `/database-audit`,
 etc.) for manual invocation, but the user should not have to know or type
@@ -160,6 +160,7 @@ trace reads 30-50 files and will otherwise fill the main context window.
 | `onboarding-doc-gen` | Generate/refresh `README.md` and `CONTRIBUTING.md` from the actual repo |
 | `changelog-gen` | Generate a Keep-a-Changelog-format entry |
 | `release-notes-gen` | Generate customer-facing release notes in plain language |
+| `dashboard` | Localhost UI of lifecycle, features, coverage and delivery; Actions panel composes governance CLIs you paste |
 
 ### Category D — Workspace/session housekeeping → run silently, no announcement needed
 

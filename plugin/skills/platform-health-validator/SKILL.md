@@ -184,7 +184,7 @@ where all skills are individually well-formed can still have a misleading
 **Context:** Post-Phase-6 pass, before marking the workspace done.
 
 Actual findings from the pre-build health check run during Phase 6:
-- All 97 skills: correctly kebab-cased ✓
+- All 98 skills: correctly kebab-cased ✓
 - All 12 rules: consistent `description`/`alwaysApply` frontmatter ✓
 - Skill headers: `Overview / Steps / Example Invocation / Output` consistent ✓
 - `MIGRATION_NOTES_PASS1.md` in `${CLAUDE_PLUGIN_ROOT}/docs/`: orphaned (0 inbound
