@@ -1,12 +1,12 @@
 # Progress
 **Last Updated:** 2026-09-10
-**Generated/updated by:** Next increment of ideas 1–14 plus H01–H22
+**Generated/updated by:** Commit `6b551ac`; integrity PASS (26 files)
 
 Durable reviews: [docs/reviews/README.md](../docs/reviews/README.md). Owners and
 completion evidence: [docs/reviews/findings-tracker.md](../docs/reviews/findings-tracker.md).
 
 ## Done
-- [x] 2026-09-10 — Next increment of ideas 1–14 plus optional H01–H22 from `docs/reviews/project-review-2026-09-10.md`. Full suite: 24 suites, 0 failed. Plugin rebuilt (`01d0a9b23424e47b`). Self-audit `run` PASS. Integrity FAIL until a human attests.
+- [x] 2026-09-10 — Next increment of ideas 1–14 plus optional H01–H22 from `docs/reviews/project-review-2026-09-10.md`. Full suite: 24 suites, 0 failed. Plugin rebuilt (`01d0a9b23424e47b`). Self-audit `run` PASS. Integrity PASS (26 files). Committed as `6b551ac`.
 - [x] 2026-09-10 — First useful releases for all 14 items in `docs/reviews/platform-improvement-ideas-2026-09-10.md`. Full suite: 23 suites, 0 failed. Plugin rebuilt (`48ba58d7490a0f7e`). Self-audit `run` PASS. Integrity FAIL until a human attests.
 - [x] 2026-09-10 — Sequence A first useful releases: skill output classes + `_policy.mjs`, plugin-only smoke, read-only `doctor.mjs`. Full suite: 22 suites, 0 failed. Plugin rebuilt (`60acd23ac0019940`). Self-audit PASS. Integrity FAIL until a human attests `guard-bash.mjs` and `lifecycle.mjs`.
 - [x] 2026-09-10 — Implemented V01–V04 from `docs/reviews/verification-290791f-2026-09-10.md`. Full suite: 19 suites, 0 failed. Plugin rebuilt (`67de04736089fdc8`). Self-audit PASS. Integrity FAIL until a human attests `guard-bash.mjs`.
@@ -22,15 +22,16 @@ completion evidence: [docs/reviews/findings-tracker.md](../docs/reviews/findings
 - [x] 2026-09-09 — Follow-up review F1–F3 implemented (CR close no longer absorbs CHANGED; skipped-suite strings; PayTests.cs scoped AC match).
 
 ## In Progress
-- [ ] Human review of this wave, then `integrity --write --by "<name>"`, then commit.
+- [ ] Push `platform-ui` when you want it on the remote.
 
 ## Backlog (known, not started)
-- [ ] Later milestones of ideas 1–14 (full L-sized visions) after this increment is reviewed.
+- [ ] Later milestones of ideas 1–14 (full L-sized visions).
+- [ ] H01 remaining: quoting / alias bash matrices.
+- [ ] H02 remaining: installed-host smoke that Write is actually withheld.
 - [ ] H14 remaining: execute extracted workflow steps against fixtures (locked restore is already strict).
 - [ ] H15 remaining: compiled minimal adopter apps (templates are text-checked, not built).
 - [ ] H16 remaining: disposable live-database checks (out of scope here; SQL template is asserted).
 - [ ] H12 remaining: owner chooses a license file.
 
 ## Blocked
-- Integrity FAIL: `.claude/hooks/guard-bash.mjs`, `.claude/hooks/session-start.mjs`, `.cursor/tools/release-evidence.mjs` differ from the 2026-09-10 attestation. A human must run `node .cursor/tools/self-audit.mjs integrity --write --by "<name>"`. The agent must not attest.
-- Development escape observed in this process only; user/machine environment values were not enabled when checked. Do not infer that adopter projects should enable it.
+- None for this wave. Integrity PASS: 26 enforcement files match the 2026-09-10 attestation.

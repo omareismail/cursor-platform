@@ -4,16 +4,15 @@ Status of the platform hardening work started 2026-09-09.
 Source of the backlog: the analysis report (items E-01 … E-27) and the
 2026-09-10 project review (`docs/reviews/project-review-2026-09-10.md`).
 
-**Last updated:** 2026-09-10 (ideas 1–14 next increment + H01–H22 slices; integrity attestation pending)
+**Last updated:** 2026-09-10 (ideas 1–14 next increment + H01–H22 slices; committed `6b551ac`; integrity PASS)
 
 Statuses are separate on purpose: **implemented** is code in the tree,
 **verified** is a passing behavioural suite, **attested** is a human
 `integrity --write`, **committed** is on the branch.
 
 Latest independent report: `docs/reviews/verification-290791f-2026-09-10.md`.
-V01–V04 from that report are implemented with regression tests. The suite
-passes (19 suites, 0 failed). Integrity is **not** current: `guard-bash.mjs`
-differs from the 2026-09-10 attestation.
+V01–V04 from that report are implemented with regression tests. The current
+tree is 24 suites, 0 failed. Integrity verification is **green** (26 files).
 
 | Phase | Scope | Implemented | Verified | Attested | Committed |
 |---|---|---|---|---|---|
@@ -25,15 +24,12 @@ differs from the 2026-09-10 attestation.
 | E — Brownfield intelligence | E-22, E-23 + R04, R06–R08 | yes | yes | 2026-09-10 surface | yes |
 | F — Enterprise governance | E-17, E-18, E-25, E-26 + R01, R02, R05 | yes | yes | 2026-09-10 surface | yes (`290791f`) |
 | 2026-09-10 review | R01–R13 | yes | original cases pass | 2026-09-10 surface | yes (`290791f`) |
-| 2026-09-10 follow-up | V01–V04 | yes | yes (suite) | pending | not yet |
-| 2026-09-10 ideas | first useful 1–14 | yes | yes (23 suites) | pending | not yet |
-| 2026-09-10 H01–H22 | next increment + optional review items | yes (focused slices) | yes (24 suites) | pending | not yet |
+| 2026-09-10 follow-up | V01–V04 | yes | yes (suite) | 2026-09-10 | yes (`6b551ac`) |
+| 2026-09-10 ideas | first useful 1–14 | yes | yes (23 suites) | 2026-09-10 | yes (`6b551ac`) |
+| 2026-09-10 H01–H22 | next increment + optional review items | yes (focused slices) | yes (24 suites) | 2026-09-10 | yes (`6b551ac`) |
 
-Integrity verification is **red**: `.claude/hooks/guard-bash.mjs`,
-`.claude/hooks/session-start.mjs`, and `.cursor/tools/release-evidence.mjs`
-no longer match the manifest written by omar ismail on 2026-09-10. A human
-must review and run `integrity --write` after this change. The agent must not
-attest.
+Integrity verification is **green**: 26 enforcement files match the manifest
+written by omar ismail on 2026-09-10.
 
 Verify locally:
 
@@ -47,9 +43,9 @@ node .cursor/tools/self-audit.mjs integrity
 
 ## Work still open
 
-1. Human attestation of `guard-bash.mjs`, `session-start.mjs`, and `release-evidence.mjs`, then commit.
+1. Push `platform-ui` when you want this on the remote.
 2. Keep the development escape scoped to platform maintenance.
-3. Wave 2 (ideas 4, 5, 6, 9) after adopter evidence from this wave.
+3. Remaining H slices and later idea visions — see `docs/reviews/findings-tracker.md`.
 
 ---
 

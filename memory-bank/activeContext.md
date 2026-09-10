@@ -8,8 +8,8 @@
 
 Implemented the next increment of the 14 improvement ideas and the focused
 H01–H22 slices from the project review. Full suite: 24 suites, zero failures.
-Self-audit `run` PASS. Plugin rebuilt (`01d0a9b23424e47b`). Integrity FAIL
-until a human attests. This session did not run `integrity --write`.
+Self-audit `run` PASS. Plugin rebuilt (`01d0a9b23424e47b`). Committed as
+`6b551ac`. Integrity PASS (26 attested files).
 
 Durable reviews live under `docs/reviews/` (see `docs/reviews/README.md` and
 `docs/reviews/findings-tracker.md`). Do not treat `derived-status.mjs` output
@@ -44,11 +44,8 @@ node .cursor/tools/self-audit.mjs integrity
 
 ## Next logical step
 
-Human review, then:
-
-```
-node .cursor/tools/self-audit.mjs integrity --write --by "<name>"
-```
+Push `platform-ui` if you want this on the remote. Remaining work is the
+leftover H slices and the larger idea visions (see `progress.md` backlog).
 
 Do not treat derived-status output as replacing human commentary.
 
