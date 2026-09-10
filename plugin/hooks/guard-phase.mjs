@@ -51,11 +51,15 @@ const POLICY_PATHS = [
 ];
 
 /**
- * If no policy file is reachable, fall back to the original built-in rule rather
- * than allowing everything. An upgraded hook with a missing policy must not be
- * weaker than the hook it replaced.
+ * Shared evaluator lives in `_policy.mjs`. The relative path differs between
+ * layouts, same as lifecycle.mjs below. A missing module must not open the
+ * gate — keep the original built-in as last resort.
  */
-const BUILTIN = {
+let policyMod = null;
+for (const rel of ["../../.cursor/tools/_policy.mjs", "../tools/_policy.mjs"]) {
+  try { policyMod = await import(new URL(rel, import.meta.url).href); break; } catch { /* other layout */ }
+}
+const BUILTIN = policyMod?.BUILTIN_WRITE_POLICY || {
   version: 0,
   alwaysAllow: ["docs/**", "specs/**", "memory-bank/**", "lifecycle/**", "templates/**",
                 "scripts/**", "tests/**", "test/**", "e2e/**", ".cursor/**", ".claude/**", ".github/**", "*.md"],
@@ -82,6 +86,7 @@ for (const c of POLICY_PATHS) {
 
 /** Minimal glob: `**` spans separators, `*` does not, `?` is one character. */
 function glob(pattern, s) {
+  if (policyMod?.policyGlob) return policyMod.policyGlob(pattern, s);
   const rx = pattern
     .split(/(\*\*\/|\*\*|\*|\?)/)
     .map((part) => {

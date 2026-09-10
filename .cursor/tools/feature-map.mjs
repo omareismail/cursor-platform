@@ -25,17 +25,21 @@
  *   node .cursor/tools/feature-map.mjs query --endpoint <method /path>
  *   node .cursor/tools/feature-map.mjs query --object <schema.name>
  *   node .cursor/tools/feature-map.mjs lineage <feature-id|object|table>
+ *   node .cursor/tools/feature-map.mjs edges [--json]
+ *   node .cursor/tools/feature-map.mjs impact --file <path>|--object <id> [--json]
  *   node .cursor/tools/feature-map.mjs upsert <file.json>     # written by the skills
  *   node .cursor/tools/feature-map.mjs reindex
  *   node .cursor/tools/feature-map.mjs rm <feature-id>
+ *   node .cursor/tools/feature-map.mjs prune
  *
  * Exit codes:  0 = ok/fresh   1 = stale or missing   2 = usage/schema error
  */
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
-import { writeJsonAtomic } from "./_state.mjs";
+import { commitJson } from "./_state.mjs";
 import { join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || findRepoRoot() || process.cwd();
 const MAP_PATH = join(ROOT, ".cursor", "cache", "feature-map.json");
@@ -118,6 +122,7 @@ function emptyMap() {
     repo: norm(ROOT.split(sep).pop() || ""),
     features: {},
     dataObjects: {},
+    revision: 0,
     index: { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {}, byObject: {} },
   };
 }
@@ -154,12 +159,18 @@ function load({ required = true } = {}) {
   m.features ||= {};
   m.dataObjects ||= {};
   m.index ||= { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {}, byObject: {} };
+  if (!Number.isInteger(m.revision)) m.revision = 0;
   return m;
 }
 
 function save(m) {
   m.generatedAt = new Date().toISOString();
-  writeJsonAtomic(MAP_PATH, m);
+  try {
+    commitJson(MAP_PATH, m);
+  } catch (e) {
+    if (e.code === "ECONFLICT") fail(`feature-map.json revision conflict (read ${e.expected}, on disk ${e.actual}). Re-run so the write sees the current map.`, 1);
+    throw e;
+  }
 }
 
 const out = (s = "") => process.stdout.write(s + "\n");
@@ -196,12 +207,9 @@ function assess(feature, shas, objects = {}) {
     ...(feature.lineage?.firedBy || []),
   ];
   for (const raw of objectIds) {
-    const oid = objects[raw] ? raw : Object.keys(objects).find((k) => {
-      const o = objects[k];
-      return k.toLowerCase() === String(raw).toLowerCase()
-        || (o.name && String(o.name).toLowerCase() === String(raw).toLowerCase())
-        || (o.schema && o.name && `${o.schema}.${o.name}`.toLowerCase() === String(raw).toLowerCase());
-    });
+    const resolved = resolveObjectRef(objects, raw);
+    if (resolved.ambiguous) continue;
+    const oid = resolved.id;
     const o = oid ? objects[oid] : null;
     if (!o) continue;
     const defs = o.definitionFiles || [];
@@ -245,12 +253,18 @@ function reindex(m) {
   for (const [id, f] of Object.entries(m.features || {})) {
     for (const file of f.files || []) push("byFile", norm(file.path), id);
     for (const t of f.dataTouched?.tables || []) push("byTable", t, id);
-    for (const o of f.dataTouched?.objects || []) push("byObject", o, id);
+    for (const o of f.dataTouched?.objects || []) {
+      const key = canonicalObjectId(m.dataObjects, o);
+      if (key) push("byObject", key, id);
+    }
     for (const e of f.entryPoints || []) if (e.ref) push("byEndpoint", e.ref, id);
     for (const fl of f.featureFlags || []) push("byFlag", typeof fl === "string" ? fl : fl.name, id);
     const lin = f.lineage || {};
     for (const t of [...(lin.reads || []), ...(lin.writes || [])]) push("byTable", t, id);
-    for (const o of [...(lin.calls || []), ...(lin.firedBy || [])]) push("byObject", o, id);
+    for (const o of [...(lin.calls || []), ...(lin.firedBy || [])]) {
+      const key = canonicalObjectId(m.dataObjects, o);
+      if (key) push("byObject", key, id);
+    }
   }
   for (const [oid, o] of Object.entries(m.dataObjects || {})) {
     push("byObject", oid, oid);
@@ -424,6 +438,30 @@ const CMDS = {
     return 0;
   },
 
+  edges(args) {
+    const m = load();
+    const edges = collectEdges(m);
+    if (args.includes("--json")) { out(JSON.stringify(edges, null, 2)); return edges.length ? 0 : 1; }
+    out(`${edges.length} edge(s)`);
+    for (const e of edges) out(`  ${e.kind}\t${e.from} -> ${e.to || e.raw}${e.stale ? " STALE" : ""}${e.dataSource ? `\t[${e.dataSource}]` : ""}`);
+    return 0;
+  },
+
+  impact(args) {
+    const file = valueOf(args, "--file");
+    const object = valueOf(args, "--object");
+    if (!file && !object) fail("Usage: impact --file <path> | --object <id>", 2);
+    const m = load({ required: false }) || emptyMap();
+    const body = impactOf(m, { file, object });
+    if (args.includes("--json")) { out(JSON.stringify(body, null, 2)); return 0; }
+    out(`coverage: ${body.coverage}`);
+    out(`features: ${(body.features || []).join(", ") || "(none)"}`);
+    out(`objects: ${(body.objects || []).join(", ") || "(none)"}`);
+    out(`tests: ${(body.tests || []).join(", ") || "(none)"}`);
+    if (body.uninspected) out(`uninspected: ${body.uninspected}`);
+    return body.coverage === "insufficient" ? 1 : 0;
+  },
+
   upsert(args) {
     const src = args.find(a => !a.startsWith("--"));
     if (!src) fail("Usage: upsert <file.json>   (a single feature object, or {features:{...}})", 2);
@@ -475,10 +513,14 @@ const CMDS = {
           schema: o.schema || null,
           name: o.name || oid,
           provider: o.provider || null,
+          dataSource: o.dataSource || o.provider || "default",
           tables: [...new Set(o.tables || [])],
           on: o.on || null,
           features: [...new Set(o.features || [])],
           referencedBy: [...new Set((o.referencedBy || []).map(norm))],
+          dependsOn: [...new Set(o.dependsOn || [])],
+          catalogSnapshot: o.catalogSnapshot || o.snapshot || null,
+          catalogedAt: o.catalogedAt || new Date().toISOString(),
         };
         const defs = o.definitionFiles || o.files || [];
         if (Array.isArray(defs) && defs.length) {
@@ -500,6 +542,9 @@ const CMDS = {
 
     if (!n && !objects) fail("upsert: nothing to write. Pass a feature object (files[] required) and/or { dataObjects: { ... } }.", 2);
 
+    const aliasProblems = ambiguousAliasProblems(m);
+    if (aliasProblems.length) fail(aliasProblems.join("\n"), 2);
+
     reindex(m);
     save(m);
     out(`upserted ${n} feature(s)` + (objects ? `, ${objects} data object(s)` : "") + `; map now holds ${Object.keys(m.features).length} feature(s), ${Object.keys(m.dataObjects || {}).length} data object(s).`);
@@ -517,6 +562,21 @@ const CMDS = {
     delete m.features[id];
     reindex(m); save(m);
     out(`removed '${id}'; ${Object.keys(m.features).length} remain.`);
+    return 0;
+  },
+
+  prune() {
+    const m = load({ required: false }) || emptyMap();
+    const gone = [];
+    for (const [oid, o] of Object.entries(m.dataObjects || {})) {
+      const defs = o.definitionFiles || [];
+      if (!defs.length) continue;
+      const missing = defs.every((d) => !existsSync(join(ROOT, norm(typeof d === "string" ? d : d.path))));
+      if (missing) { delete m.dataObjects[oid]; gone.push(oid); }
+    }
+    reindex(m);
+    save(m);
+    out(gone.length ? `pruned ${gone.join(", ")}` : "nothing to prune");
     return 0;
   },
 };
@@ -540,15 +600,54 @@ function matchCI(bucket, needle) {
   return [...seen];
 }
 
-function resolveObject(objects, seed) {
-  if (objects[seed]) return seed;
-  const lower = String(seed).toLowerCase();
-  for (const [oid, o] of Object.entries(objects)) {
-    if (oid.toLowerCase() === lower) return oid;
-    if (o.name && String(o.name).toLowerCase() === lower) return oid;
-    if (o.schema && o.name && `${o.schema}.${o.name}`.toLowerCase() === lower) return oid;
+/**
+ * Map a name, schema.name, or catalog id to a single data-object id.
+ * A short name that matches more than one catalog object is refused rather
+ * than bound to whichever key happens to come first.
+ */
+function resolveObjectRef(objects, seed) {
+  if (seed == null || seed === "") return { missing: true };
+  const s = String(seed);
+  if (objects[s]) return { id: s };
+  const lower = s.toLowerCase();
+  const hits = [];
+  for (const [oid, o] of Object.entries(objects || {})) {
+    if (oid.toLowerCase() === lower) hits.push(oid);
+    else if (o?.name && String(o.name).toLowerCase() === lower) hits.push(oid);
+    else if (o?.schema && o.name && `${o.schema}.${o.name}`.toLowerCase() === lower) hits.push(oid);
   }
-  return null;
+  const uniq = [...new Set(hits)];
+  if (uniq.length === 1) return { id: uniq[0] };
+  if (uniq.length > 1) return { ambiguous: uniq.sort() };
+  return { missing: true };
+}
+
+function resolveObject(objects, seed) {
+  return resolveObjectRef(objects, seed).id || null;
+}
+
+function canonicalObjectId(objects, raw) {
+  const r = resolveObjectRef(objects, raw);
+  if (r.ambiguous) return null;
+  return r.id || String(raw);
+}
+
+function ambiguousAliasProblems(m) {
+  const problems = [];
+  for (const [id, f] of Object.entries(m.features || {})) {
+    const refs = [
+      ...(f.dataTouched?.objects || []),
+      ...(f.lineage?.calls || []),
+      ...(f.lineage?.firedBy || []),
+    ];
+    for (const raw of refs) {
+      const r = resolveObjectRef(m.dataObjects, raw);
+      if (r.ambiguous) {
+        problems.push(`'${id}' refers to '${raw}' which matches ${r.ambiguous.join(", ")} — use a schema-qualified name`);
+      }
+    }
+  }
+  return problems;
 }
 
 /**
@@ -599,6 +698,7 @@ function walkLineage(m, seed) {
         }
         for (const t of o.tables || []) addTable(t);
         if (o.on) addTable(o.on);
+        for (const dep of o.dependsOn || []) enqueueObj(dep);
       }
     }
   };
@@ -647,12 +747,96 @@ function walkLineage(m, seed) {
   };
 }
 
-// ------------------------------------------------------------------- main ---
-const [cmd, ...args] = process.argv.slice(2);
-if (!cmd || cmd === "--help" || cmd === "-h" || !CMDS[cmd]) {
-  out(readFileSync(new URL(import.meta.url)).toString()
-    .split("\n").slice(2, 34).join("\n")
-    .replace(/^\s*\*\/?\s?/gm, "").trim());
-  process.exit(cmd && !CMDS[cmd] ? 2 : 0);
+function valueOf(args, flag) {
+  const i = args.indexOf(flag);
+  return i >= 0 ? args[i + 1] : null;
 }
-process.exit(CMDS[cmd](args) ?? 0);
+
+function collectEdges(m) {
+  const edges = [];
+  const shas = worktreeShas(allPaths(Object.entries(m.features || {}), m.dataObjects));
+  for (const [id, f] of Object.entries(m.features || {})) {
+    const refs = [...(f.lineage?.calls || []), ...(f.dataTouched?.objects || [])];
+    for (const raw of refs) {
+      const r = resolveObjectRef(m.dataObjects, raw);
+      const to = r.id || null;
+      const files = (f.files || []).map((x) => ({
+        path: x.path, recorded: x.sha, current: shas.get(x.path) || null,
+      }));
+      const stale = files.some((e) => e.recorded && e.current && e.recorded !== e.current)
+        || !!r.missing || !!r.ambiguous;
+      edges.push({
+        from: id, to, raw, kind: "feature-calls",
+        dataSource: to ? (m.dataObjects[to]?.dataSource || m.dataObjects[to]?.provider || "default") : null,
+        evidence: { tracedAt: f.tracedAt || null, files },
+        stale, missing: !!r.missing, ambiguous: r.ambiguous || null,
+      });
+    }
+  }
+  for (const [oid, o] of Object.entries(m.dataObjects || {})) {
+    const callers = new Set([...(o.features || []), ...(m.index?.byObject?.[oid] || [])]);
+    for (const fid of callers) {
+      if (!m.features[fid]) continue;
+      edges.push({
+        from: oid, to: fid, kind: "object-called-by",
+        dataSource: o.dataSource || o.provider || "default",
+        evidence: { catalogedAt: o.catalogedAt || null, definitionFiles: o.definitionFiles || [] },
+        stale: false,
+      });
+    }
+  }
+  return edges;
+}
+
+function impactOf(m, { file, object }) {
+  let seed = object;
+  if (file) {
+    const normed = String(file).replace(/\\/g, "/");
+    const hits = m.index?.byFile?.[normed] || [];
+    seed = hits[0] || object || normed;
+  }
+  const walked = seed ? walkLineage(m, seed) : { features: [], objects: [], tables: [] };
+  const tests = [];
+  for (const fid of walked.features) {
+    for (const x of m.features[fid]?.files || []) {
+      if (/test|spec/i.test(x.path)) tests.push(x.path);
+    }
+  }
+  const traced = walked.features.length > 0 || walked.objects.length > 0;
+  return {
+    seed: seed || null,
+    file: file || null,
+    object: object || null,
+    features: walked.features,
+    objects: walked.objects,
+    tables: walked.tables,
+    tests: [...new Set(tests)],
+    coverage: traced ? "traced" : "insufficient",
+    uninspected: traced ? null : "No feature-map hit for this file or object. Empty impact is insufficient tracing, not proof of no blast radius.",
+    edges: collectEdges(m).filter((e) =>
+      walked.features.includes(e.from) || walked.features.includes(e.to)
+      || walked.objects.includes(e.from) || walked.objects.includes(e.to)),
+  };
+}
+
+export { collectEdges, impactOf, emptyMap };
+export { load as loadFeatureMap };
+
+// ------------------------------------------------------------------- main ---
+const invoked = (() => {
+  try {
+    const self = fileURLToPath(import.meta.url);
+    const arg = resolve(process.argv[1] || "");
+    return self === arg || self.toLowerCase() === arg.toLowerCase();
+  } catch { return false; }
+})();
+if (invoked) {
+  const [cmd, ...args] = process.argv.slice(2);
+  if (!cmd || cmd === "--help" || cmd === "-h" || !CMDS[cmd]) {
+    out(readFileSync(new URL(import.meta.url)).toString()
+      .split("\n").slice(2, 34).join("\n")
+      .replace(/^\s*\*\/?\s?/gm, "").trim());
+    process.exit(cmd && !CMDS[cmd] ? 2 : 0);
+  }
+  process.exit(CMDS[cmd](args) ?? 0);
+}

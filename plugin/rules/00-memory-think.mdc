@@ -112,8 +112,9 @@ in this exact shape before running:
 > **Matched skill:** `skill-name` — [one-line description].
 
 Category A/E skills (generate or modify files, or the spec pipeline) wait
-for a go-ahead after the announcement. Category B/C (read-only audits,
-diagrams/docs) proceed automatically after announcing. Category D
+for a go-ahead after the announcement. Category B/C (audits and docs; B may
+write reports/caches, never source or approvals) proceed automatically after
+announcing. Category D
 (housekeeping: `repo-discovery`, `context-builder`, `context-sync`,
 `pattern-finder`) runs silently, no announcement.
 

@@ -1,8 +1,17 @@
 # Progress
 **Last Updated:** 2026-09-10
-**Generated/updated by:** R01–R13 corrections from `docs/reviews/project-review-2026-09-10.md`
+**Generated/updated by:** Next increment of ideas 1–14 plus H01–H22
+
+Durable reviews: [docs/reviews/README.md](../docs/reviews/README.md). Owners and
+completion evidence: [docs/reviews/findings-tracker.md](../docs/reviews/findings-tracker.md).
 
 ## Done
+- [x] 2026-09-10 — Next increment of ideas 1–14 plus optional H01–H22 from `docs/reviews/project-review-2026-09-10.md`. Full suite: 24 suites, 0 failed. Plugin rebuilt (`01d0a9b23424e47b`). Self-audit `run` PASS. Integrity FAIL until a human attests.
+- [x] 2026-09-10 — First useful releases for all 14 items in `docs/reviews/platform-improvement-ideas-2026-09-10.md`. Full suite: 23 suites, 0 failed. Plugin rebuilt (`48ba58d7490a0f7e`). Self-audit `run` PASS. Integrity FAIL until a human attests.
+- [x] 2026-09-10 — Sequence A first useful releases: skill output classes + `_policy.mjs`, plugin-only smoke, read-only `doctor.mjs`. Full suite: 22 suites, 0 failed. Plugin rebuilt (`60acd23ac0019940`). Self-audit PASS. Integrity FAIL until a human attests `guard-bash.mjs` and `lifecycle.mjs`.
+- [x] 2026-09-10 — Implemented V01–V04 from `docs/reviews/verification-290791f-2026-09-10.md`. Full suite: 19 suites, 0 failed. Plugin rebuilt (`67de04736089fdc8`). Self-audit PASS. Integrity FAIL until a human attests `guard-bash.mjs`.
+- [x] 2026-09-10 — Independently verified `290791f`: 19 suites, 884 assertions, zero failures; 91 scripts and 28 JSON files parse; self-audit and integrity PASS (26 attested files). Original cases pass, but V01–V04 remain. Report: `docs/reviews/verification-290791f-2026-09-10.md`.
+- [x] 2026-09-10 — Generated 14 prioritized future ideas: `docs/reviews/platform-improvement-ideas-2026-09-10.md`. Historical notes below reflect the state when originally written.
 - [x] 2026-09-10 — Implemented and verified R01–R13 from `docs/reviews/project-review-2026-09-10.md`. Full suite: 19 suites, 0 failed. Plugin rebuilt (`ad2590f82243fd88`). Self-audit PASS. Integrity still needs human `--write`.
 - [x] 2026-09-10 — Reviewed all source/distribution folders; report: `docs/reviews/project-review-2026-09-10.md`. Structural checks and self-audit pass; the full suite had one intermittent concurrency failure, and integrity is not current. Earlier Phase D/E/F Done entries below describe implementation, not final verification.
 - [x] 2026-09-09 — Phase F (E-17 opt-in signed-lifecycle CI, E-18 guard-bash gaps, E-25 dashboard Host, E-26 advisory agents).
@@ -13,11 +22,15 @@
 - [x] 2026-09-09 — Follow-up review F1–F3 implemented (CR close no longer absorbs CHANGED; skipped-suite strings; PayTests.cs scoped AC match).
 
 ## In Progress
-- [ ] Human re-attestation (`self-audit.mjs integrity --write`) and commit of Phases D/E/F plus R01–R13.
+- [ ] Human review of this wave, then `integrity --write --by "<name>"`, then commit.
 
 ## Backlog (known, not started)
-- [ ] Optional H01–H22 from `docs/reviews/project-review-2026-09-10.md` — prioritize by adopter need.
+- [ ] Later milestones of ideas 1–14 (full L-sized visions) after this increment is reviewed.
+- [ ] H14 remaining: execute extracted workflow steps against fixtures (locked restore is already strict).
+- [ ] H15 remaining: compiled minimal adopter apps (templates are text-checked, not built).
+- [ ] H16 remaining: disposable live-database checks (out of scope here; SQL template is asserted).
+- [ ] H12 remaining: owner chooses a license file.
 
 ## Blocked
-- [ ] Integrity re-attest required after R01–R13 (`guard-bash.mjs`, `guard-phase.mjs`, `write-policy.json`, `lifecycle.mjs`, `_state.mjs`) — human-only `--write`.
-- [ ] Decide whether `CURSOR_PLATFORM_DEV=1` stays global. Right for this repo; wrong for an adopter repo in the same editor.
+- Integrity FAIL: `.claude/hooks/guard-bash.mjs`, `.claude/hooks/session-start.mjs`, `.cursor/tools/release-evidence.mjs` differ from the 2026-09-10 attestation. A human must run `node .cursor/tools/self-audit.mjs integrity --write --by "<name>"`. The agent must not attest.
+- Development escape observed in this process only; user/machine environment values were not enabled when checked. Do not infer that adopter projects should enable it.

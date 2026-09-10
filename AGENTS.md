@@ -38,7 +38,8 @@ memory-bank. Follow this file before generating or changing code.
 > **Matched skill:** `skill-name` — [one-line description].
 
 Category A/E: announce, then wait for go-ahead. Category B/C: announce, then
-proceed. Category D (`repo-discovery`, `context-builder`, `context-sync`,
+proceed (B may write reports/caches, never application source or approvals).
+Category D (`repo-discovery`, `context-builder`, `context-sync`,
 `pattern-finder`): run silently.
 
 ## Rules (`.cursor/rules/` — you do not invoke these)

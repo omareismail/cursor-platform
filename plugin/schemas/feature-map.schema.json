@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Feature map",
+  "//": "Versioned behavioural map written by feature-map.mjs. Unknown fields on objects are ignored by the tool (forward compatible). A v1 map is migrated in memory on load.",
+  "type": "object",
+  "required": ["$schema", "version", "features"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "integer", "minimum": 1 },
+    "generatedAt": { "type": "string" },
+    "repo": { "type": "string" },
+    "revision": { "type": "integer", "minimum": 0 },
+    "features": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/feature" }
+    },
+    "dataObjects": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/dataObject" }
+    },
+    "index": {
+      "type": "object",
+      "properties": {
+        "byFile": { "type": "object" },
+        "byTable": { "type": "object" },
+        "byEndpoint": { "type": "object" },
+        "byFlag": { "type": "object" },
+        "byObject": { "type": "object" }
+      }
+    }
+  },
+  "$defs": {
+    "fileRef": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha": { "type": ["string", "null"] },
+        "role": { "type": "string" }
+      }
+    },
+    "feature": {
+      "type": "object",
+      "required": ["files"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/fileRef" }
+        },
+        "lineage": { "type": "object" },
+        "dataTouched": { "type": "object" },
+        "tracedAt": { "type": "string" },
+        "status": { "type": "string" },
+        "confidence": { "type": "string" }
+      }
+    },
+    "dataObject": {
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string" },
+        "schema": { "type": ["string", "null"] },
+        "name": { "type": "string" },
+        "provider": { "type": ["string", "null"] },
+        "dataSource": { "type": "string" },
+        "tables": { "type": "array", "items": { "type": "string" } },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "dependsOn": { "type": "array", "items": { "type": "string" } },
+        "definitionFiles": { "type": "array" },
+        "catalogSnapshot": {},
+        "catalogedAt": { "type": "string" }
+      }
+    }
+  }
+}

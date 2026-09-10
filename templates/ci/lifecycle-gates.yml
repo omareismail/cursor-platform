@@ -69,7 +69,8 @@ jobs:
             echo "Cleared. Source is allowed."
             exit 0
           fi
-          FOUND=$(find src backend frontend client server app apps api web lib packages services \
+          ROOTS=$(node .cursor/tools/_policy.mjs roots | tr '\n' ' ')
+          FOUND=$(find $ROOTS \
                     -type f \( -name '*.cs' -o -name '*.ts' -o -name '*.tsx' \
                                -o -name '*.js' -o -name '*.jsx' -o -name '*.csproj' \) \
                     2>/dev/null | head -20)

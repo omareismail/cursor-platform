@@ -9,7 +9,11 @@
     "api-consistency-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -18,42 +22,66 @@
     "api-contract-design": {
       "category": "A",
       "phase": "DESIGN",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "architecture-map-gen": {
       "category": "C",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "docs",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "business-rules-gen": {
       "category": "A",
       "phase": "ANALYSIS",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "change-request": {
       "category": "A",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "changelog-gen": {
       "category": "C",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "docs",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "code-review-assistant": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -62,14 +90,22 @@
     "compliance-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "context-builder": {
       "category": "D",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "housekeeping",
+      "outputs": [
+        "cache"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -78,7 +114,11 @@
     "context-sync": {
       "category": "D",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "housekeeping",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -87,21 +127,33 @@
     "dashboard": {
       "category": "C",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "docs",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "data-model-design": {
       "category": "A",
       "phase": "DESIGN",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "database-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "dotnet",
       "requires": [
         "repo-discovery"
@@ -110,21 +162,33 @@
     "delivery-metrics": {
       "category": "B",
       "phase": "PRODUCTION",
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "dependency-upgrade-guard": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "deployment-pipeline-gen": {
       "category": "A",
       "phase": "PRODUCTION",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": [
         "pattern-finder"
@@ -133,7 +197,11 @@
     "devops-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -142,21 +210,40 @@
     "docs-guard": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [
+        "REQUIREMENTS",
+        "ANALYSIS",
+        "DESIGN",
+        "DEVELOPMENT",
+        "TESTING",
+        "PRODUCTION"
+      ],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "domain-model-gen": {
       "category": "A",
       "phase": "ANALYSIS",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "dotnet-background-job-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -165,7 +252,11 @@
     "dotnet-caching-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -174,14 +265,22 @@
     "dotnet-clean-code-guard": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "dotnet",
       "requires": []
     },
     "dotnet-dapper-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -190,14 +289,22 @@
     "dotnet-dependency-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "dotnet",
       "requires": []
     },
     "dotnet-endpoint-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -206,7 +313,11 @@
     "dotnet-iac-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -215,7 +326,11 @@
     "dotnet-messaging-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -224,14 +339,22 @@
     "dotnet-migration": {
       "category": "A",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": []
     },
     "dotnet-multi-db-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -240,7 +363,11 @@
     "dotnet-observability-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -249,21 +376,33 @@
     "dotnet-perf-profile": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "dotnet",
       "requires": []
     },
     "dotnet-query-optimizer": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "dotnet",
       "requires": []
     },
     "dotnet-schema-diff": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "dotnet",
       "requires": [
         "repo-discovery"
@@ -272,7 +411,11 @@
     "dotnet-test-gen": {
       "category": "A",
       "phase": "TESTING",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "dotnet",
       "requires": [
         "pattern-finder"
@@ -281,7 +424,11 @@
     "e2e-test-gen": {
       "category": "A",
       "phase": "TESTING",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": [
         "pattern-finder"
@@ -290,14 +437,22 @@
     "enterprise-report-gen": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "feature-inventory": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "cache"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -306,14 +461,22 @@
     "feature-pipeline": {
       "category": "A",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "feature-trace": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "cache"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -322,14 +485,22 @@
     "go-live": {
       "category": "A",
       "phase": "PRODUCTION",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "impact-analysis": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -338,21 +509,33 @@
     "lifecycle": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "lifecycle-gate": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "load-test-gen": {
       "category": "B",
       "phase": "TESTING",
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": [
         "pattern-finder"
@@ -361,14 +544,22 @@
     "onboarding-doc-gen": {
       "category": "C",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "docs",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "operability-gen": {
       "category": "B",
       "phase": "PRODUCTION",
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": [
         "pattern-finder"
@@ -377,7 +568,11 @@
     "pattern-finder": {
       "category": "D",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "housekeeping",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": [
         "repo-discovery"
@@ -386,63 +581,99 @@
     "persona-gen": {
       "category": "A",
       "phase": "REQUIREMENTS",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "platform-health-validator": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "postmortem": {
-      "category": "B",
+      "category": "A",
       "phase": "PRODUCTION",
-      "capability": "audit",
+      "phaseExceptions": [],
+      "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "product-brief": {
       "category": "A",
       "phase": "REQUIREMENTS",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "product-requirements": {
       "category": "A",
       "phase": "REQUIREMENTS",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "production-readiness-review": {
       "category": "B",
       "phase": "PRODUCTION",
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "prompt-quality-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "react-accessibility-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "react",
       "requires": []
     },
     "react-api-layer-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "react",
       "requires": [
         "pattern-finder"
@@ -451,14 +682,22 @@
     "react-clean-code-guard": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "react",
       "requires": []
     },
     "react-component-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "react",
       "requires": [
         "pattern-finder"
@@ -467,7 +706,11 @@
     "react-hook-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "react",
       "requires": [
         "pattern-finder"
@@ -476,7 +719,11 @@
     "react-i18n-rtl-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "react",
       "requires": [
         "pattern-finder"
@@ -485,7 +732,11 @@
     "react-module-federation-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "react",
       "requires": [
         "pattern-finder"
@@ -494,14 +745,22 @@
     "react-perf-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "react",
       "requires": []
     },
     "react-state-machine-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "react",
       "requires": [
         "pattern-finder"
@@ -510,7 +769,11 @@
     "react-storybook-gen": {
       "category": "A",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "react",
       "requires": [
         "pattern-finder"
@@ -519,7 +782,11 @@
     "react-test-gen": {
       "category": "A",
       "phase": "TESTING",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "react",
       "requires": [
         "pattern-finder"
@@ -528,133 +795,209 @@
     "refactor-apply": {
       "category": "A",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "release-notes-gen": {
       "category": "C",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "docs",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "release-safety": {
       "category": "B",
       "phase": "PRODUCTION",
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "repo-discovery": {
       "category": "D",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "housekeeping",
+      "outputs": [
+        "cache"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "risk-register": {
       "category": "A",
       "phase": "ANALYSIS",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "skill-maturity-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "read"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "solution-architecture": {
       "category": "A",
       "phase": "DESIGN",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "spec-drift-audit": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "speckit-adr": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-analyze": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-checklist": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-clarify": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-constitution": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-git-commit": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-git-feature": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-git-initialize": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-git-remote": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-git-validate": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-implement": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": [
         "pattern-finder"
@@ -663,98 +1006,159 @@
     "speckit-options": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-plan": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-retro": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-specify": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-tasks": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "speckit-taskstoissues": {
       "category": "E",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [],
       "capability": "specify",
+      "outputs": [
+        "source"
+      ],
       "workflow": "speckit",
       "requires": []
     },
     "task-verify": {
       "category": "B",
       "phase": "TESTING",
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "technical-debt-tracker": {
       "category": "B",
       "phase": null,
+      "phaseExceptions": [],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "platform",
       "requires": []
     },
     "test-strategy": {
       "category": "A",
       "phase": "TESTING",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "threat-model": {
       "category": "B",
       "phase": "DESIGN",
+      "phaseExceptions": [
+        "ANALYSIS"
+      ],
       "capability": "audit",
+      "outputs": [
+        "report"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "use-case-gen": {
       "category": "A",
       "phase": "ANALYSIS",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "user-story-map": {
       "category": "A",
       "phase": "REQUIREMENTS",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "ux-design-bridge": {
       "category": "A",
       "phase": "DESIGN",
+      "phaseExceptions": [],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     },
     "work-breakdown": {
       "category": "A",
       "phase": "DEVELOPMENT",
+      "phaseExceptions": [
+        "TESTING",
+        "PRODUCTION"
+      ],
       "capability": "generate",
+      "outputs": [
+        "source"
+      ],
       "workflow": "lifecycle",
       "requires": []
     }

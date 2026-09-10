@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "writtenAt": "2026-09-10T08:09:49.414Z",
-  "by": "omar ismail",
+  "writtenAt": "2026-09-10T10:54:48.337Z",
+  "by": "<omar ismail>",
   "recordedBy": {
     "os": "MSI",
     "git": "omar.ismail",
@@ -13,12 +13,12 @@
   "files": {
     ".claude/hooks/_lib.mjs": "6838948c2c67640ee3c29282ba977086768b82d74631000486ba8d9844a91192",
     ".claude/hooks/_sql.mjs": "539f623ad0fc74321f0c11ad4fbe1e55d80da5607db94e918ebfeb8af98a5935",
-    ".claude/hooks/guard-bash.mjs": "3b01f212c67dbf7ae65ba4a129af25cc868a38c9bcba27af180fba2f0f32b5a6",
+    ".claude/hooks/guard-bash.mjs": "c32e1f08b2b93812a09bcb8cd226a723d28c2e24c736e43d353b36300bc137d7",
     ".claude/hooks/guard-mcp.mjs": "6e9012433be249a7b3a2bea437982d3e97cb6ba4c68dc0e252483e18f1abb9a5",
-    ".claude/hooks/guard-phase.mjs": "06c8e37e7e367c626e11d40d68d0ed86f35bb602ee3b6c441ff714069d4f4cc0",
+    ".claude/hooks/guard-phase.mjs": "77d70ce9c907aadbe517c1a944e3aa0881e45a9d50ae1d7c688bd792dbd4ec82",
     ".claude/hooks/guard-write.mjs": "037938b54b146cbcc27f4c555585ee3d5b1f426716bb16233450471afba89eff",
     ".claude/hooks/post-edit-verify.mjs": "fab01f0e32c73fc61c36cd144b505d1ab7b3b839ddcaa0d26425a1fbb6077fd3",
-    ".claude/hooks/session-start.mjs": "6d237a29aa6e3e112852c86feee60ec49eae074d7d3c445828bf7172763e4cf5",
+    ".claude/hooks/session-start.mjs": "4bfdad298073856664aca01be6c078cc9c9884def3e3573cc827390126b42159",
     ".claude/hooks/stop-memory-check.mjs": "f37bf38feec09db2de89ea5a5cbbf005a50c0524cb63769f3e0d26cf2d67f91c",
     ".claude/hooks/sync-skills.mjs": "8f802d812d18c3f843b4e75ae52e2cc232797470a851278a9589655e233915f5",
     ".claude/settings.json": "7f864a2f2fb6da0398df6ad43f9c6bc0d80c0939a3f6c769f7a3a7596c9df338",
@@ -33,8 +33,8 @@
     ".cursor/mcp-policy.json": "35475e837a4810d734003a534f6920115b7e1fa121c8129d6ebfeba98b64b6e4",
     ".cursor/tools/_evidence.mjs": "7091bb20931623167fd1188969df5db208cea1b03573b5672bc3fd9c63f65e4e",
     ".cursor/tools/_state.mjs": "3aec8fd6a2f0edb3e65d53dd50ad9ac8aefe9de179936c5f9b9f0897f5a54380",
-    ".cursor/tools/lifecycle.mjs": "ee2e92b95bc04c90909776b160d3c41d22b413e9036ab981e41fc9882a4b074d",
-    ".cursor/tools/release-evidence.mjs": "a71cc2890f62b638f1a3a6625b6ad5927c85cf5d53f6a0dbd0458cf69b66aa76",
+    ".cursor/tools/lifecycle.mjs": "fae1b8850641c72e366f58dc4338bc51d37725dd2cf9ee60ea2b197f18ef4104",
+    ".cursor/tools/release-evidence.mjs": "e04dbdd5c7fabeea5151a6e07cc9bef868deafa03fac9a025d189279a96b4625",
     ".cursor/tools/self-audit.mjs": "abff2bd2f4f6a2a5533ad863cf484f7be50e22aadf277c96786348a50c1e916b",
     ".mcp.json": "b4cfb1ab2bc76b9380844665978fd41312fbf542182e231088f7ffd223abd528"
   }

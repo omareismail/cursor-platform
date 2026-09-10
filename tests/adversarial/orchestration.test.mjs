@@ -36,7 +36,16 @@ section("_skills-index.mjs — classification matches the announcement categorie
   check("code-review-assistant requires repo-discovery", idxMod.classify("code-review-assistant", REPO).requires.includes("repo-discovery"), JSON.stringify(idxMod.classify("code-review-assistant", REPO)));
   check("dotnet-schema-diff requires repo-discovery", idxMod.classify("dotnet-schema-diff", REPO).requires.includes("repo-discovery"), JSON.stringify(idxMod.classify("dotnet-schema-diff", REPO)));
   check("retired names are recorded, not live", !!idxMod.RETIRED["refactor-assistant"] && !!idxMod.RETIRED["security-perf-report"], JSON.stringify(idxMod.RETIRED));
+  check("OUTPUTS lists the five classes", idxMod.OUTPUTS.join(",") === "read,report,cache,source,approval", JSON.stringify(idxMod.OUTPUTS));
+  const ft = idxMod.classify("feature-trace", REPO);
+  check("feature-trace is B / cache", ft.category === "B" && ft.outputs.includes("cache") && !ft.outputs.includes("source"), JSON.stringify(ft));
+  const ltg = idxMod.classify("load-test-gen", REPO);
+  check("load-test-gen is B / report", ltg.category === "B" && ltg.outputs.includes("report") && !ltg.outputs.includes("source"), JSON.stringify(ltg));
+  const pm = idxMod.classify("postmortem", REPO);
+  check("postmortem is A / source", pm.category === "A" && pm.outputs.includes("source"), JSON.stringify(pm));
   const built = idxMod.build(REPO);
+  const bBad = Object.entries(built.skills).filter(([, s]) => s.category === "B" && (s.outputs || []).some((o) => o === "source" || o === "approval"));
+  check("no Category B skill declares source or approval", bBad.length === 0, JSON.stringify(bBad));
   check("this repo's index count equals the skill folders", built.count === 98 && Object.keys(built.skills).length === 98, String(built.count));
   check("fingerprint ignores generatedAt", idxMod.fingerprint({ ...built, generatedAt: "2000-01-01" }) === idxMod.fingerprint(built), "");
 }

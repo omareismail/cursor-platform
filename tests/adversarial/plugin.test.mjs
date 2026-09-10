@@ -42,6 +42,23 @@ section("build-plugin.mjs — --out refuses unsafe destinations");
   mkdirSync(join(root, "ok-plugin", ".claude-plugin"), { recursive: true });
   writeFileSync(join(root, "ok-plugin", ".claude-plugin", "BUILD"), "deadbeef\n");
   check("allows replacing a previous plugin build", plugin.resolvePluginOut(root, "ok-plugin").endsWith("ok-plugin"), "");
+
+  mkdirSync(join(root, "backup.__check__"), { recursive: true });
+  writeFileSync(join(root, "backup.__check__", "important.txt"), "keep\n");
+  err = null;
+  try { plugin.resolvePluginOut(root, "backup.__check__"); } catch (e) { err = e; }
+  check("refuses an existing .__check__ directory without a plugin marker", err?.code === "EUNSAFEOUT", String(err));
+  check("suffix-named directory was not treated as owned", existsSync(join(root, "backup.__check__", "important.txt")), "");
+
+  mkdirSync(join(root, "nested.__check__", "out"), { recursive: true });
+  writeFileSync(join(root, "nested.__check__", "out", "important.txt"), "keep\n");
+  err = null;
+  try { plugin.resolvePluginOut(root, "nested.__check__/out"); } catch (e) { err = e; }
+  check("refuses an existing nested .__check__/ path without a marker", err?.code === "EUNSAFEOUT", String(err));
+  check("nested suffix path was not deleted", existsSync(join(root, "nested.__check__", "out", "important.txt")), "");
+
+  check("a new unused check path is allowed",
+    plugin.resolvePluginOut(root, "plugin.check-new").replace(/\\/g, "/").endsWith("plugin.check-new"), "");
 }
 
 section("build-plugin.mjs — rewrite keeps project diagram output in the repo");

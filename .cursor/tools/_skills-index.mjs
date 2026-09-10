@@ -25,11 +25,14 @@ export const INDEX_VERSION = 1;
 export const PHASES = ["REQUIREMENTS", "ANALYSIS", "DESIGN", "DEVELOPMENT", "TESTING", "PRODUCTION"];
 export const CATEGORIES = ["A", "B", "C", "D", "E"];
 export const CAPABILITIES = ["generate", "audit", "docs", "housekeeping", "specify"];
+export const OUTPUTS = ["read", "report", "cache", "source", "approval"];
+/** Category B may declare these; `source` and `approval` are refused by docs-lint. */
+export const B_OUTPUTS = ["read", "report", "cache"];
 export const WORKFLOWS = ["dotnet", "react", "speckit", "lifecycle", "platform"];
 
 export const CATEGORY_LABELS = {
   A: "A (generates/modifies files) - announce, then wait for go-ahead",
-  B: "B (read-only analysis) - announce, then proceed",
+  B: "B (analysis; may write reports/caches, never source or approvals) - announce, then proceed",
   C: "C (docs/diagrams) - announce, then proceed",
   D: "D (housekeeping) - run silently, no announcement",
   E: "E (spec pipeline) - announce, then wait for go-ahead",
@@ -157,11 +160,53 @@ function capabilityOf(cat) {
   return { A: "generate", B: "audit", C: "docs", D: "housekeeping", E: "specify" }[cat];
 }
 
+/**
+ * What a skill is allowed to emit, independent of category-derived `capability`.
+ * Defaults follow the category; named exceptions are the ones that made
+ * "Category B never writes" false (cache writers, report generators, and
+ * postmortem which writes source guards and therefore belongs in A).
+ */
+const OUTPUT_OF = {
+  "feature-trace": ["cache"],
+  "feature-inventory": ["cache"],
+  "repo-discovery": ["cache"],
+  "context-builder": ["cache"],
+  "context-sync": ["report"],
+  "pattern-finder": ["read"],
+  "load-test-gen": ["report"],
+  "postmortem": ["source"],
+  "lifecycle": ["report"],
+  "dashboard": ["read"],
+  "technical-debt-tracker": ["report"],
+  "enterprise-report-gen": ["report"],
+  "operability-gen": ["report"],
+  "release-safety": ["report"],
+  "lifecycle-gate": ["report"],
+  "task-verify": ["report"],
+  "production-readiness-review": ["report"],
+  "threat-model": ["report"],
+  "delivery-metrics": ["report"],
+  "impact-analysis": ["report"],
+  "spec-drift-audit": ["report"],
+};
+
+function outputsOf(n, category) {
+  if (OUTPUT_OF[n]) return OUTPUT_OF[n];
+  return { A: ["source"], B: ["read"], C: ["report"], D: ["cache"], E: ["source"] }[category] || ["read"];
+}
+
 function phaseOf(n) {
   if (PHASE_OF[n]) return PHASE_OF[n];
   if (n.startsWith("speckit-")) return "DEVELOPMENT";
   return null;
 }
+
+/** Skills whose home phase is set, but that may also run in these earlier/later phases. */
+export const PHASE_EXCEPTIONS = {
+  "threat-model": ["ANALYSIS"],
+  "work-breakdown": ["TESTING", "PRODUCTION"],
+  "docs-guard": ["REQUIREMENTS", "ANALYSIS", "DESIGN", "DEVELOPMENT", "TESTING", "PRODUCTION"],
+};
 
 function workflowOf(n) {
   if (n.startsWith("dotnet-") || n === "database-audit") return "dotnet";
@@ -184,10 +229,13 @@ function requiresOf(n) {
 
 export function classify(n, root) {
   const category = categoryOf(n, root);
+  const exceptions = PHASE_EXCEPTIONS[n] || [];
   return {
     category,
     phase: phaseOf(n),
+    phaseExceptions: exceptions,
     capability: capabilityOf(category),
+    outputs: outputsOf(n, category),
     workflow: workflowOf(n),
     requires: requiresOf(n),
   };

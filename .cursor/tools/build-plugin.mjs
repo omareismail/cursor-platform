@@ -23,14 +23,17 @@
  * Usage:
  *   node .cursor/tools/build-plugin.mjs build [--out plugin]
  *   node .cursor/tools/build-plugin.mjs check          # is the tree in sync?
+ *   node .cursor/tools/build-plugin.mjs upgrade-preview --from <old> --to <new>
+ *   node .cursor/tools/build-plugin.mjs upgrade --from <old> --to <new> --out <dest>
+
  *
  * Exit codes:  0 = ok   1 = out of sync (check)   2 = usage / missing input
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, copyFileSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, copyFileSync, statSync, cpSync } from "node:fs";
 import { join, dirname, resolve, relative, isAbsolute } from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { build as buildSkillsIndex, serialize as serializeIndex } from "./_skills-index.mjs";
 
@@ -107,6 +110,10 @@ const FORBIDDEN_OUT_TOP = new Set([
  * `--out` joins onto the repo root and then recursively deletes it. Refuse the
  * repository itself, ancestors, source trees, and any existing directory that
  * is not already a plugin build.
+ *
+ * A name that looks like a check temp (`plugin.__check__`) does not grant
+ * cleanup rights. `check` allocates a private unused path for the current
+ * invocation; user-supplied paths keep the marker/ownership requirement.
  */
 export function resolvePluginOut(root, requested) {
   const spec = requested == null || requested === "" ? "plugin" : String(requested);
@@ -130,17 +137,25 @@ export function resolvePluginOut(root, requested) {
     throw err;
   }
   if (existsSync(out)) {
-    const posix = rel.split("\\").join("/");
-    const checkTmp = posix.endsWith(".__check__") || posix.includes(".__check__/");
     const marker = existsSync(join(out, ".claude-plugin", "BUILD"))
       || existsSync(join(out, ".claude-plugin", "plugin.json"));
-    if (!checkTmp && !marker) {
+    if (!marker) {
       const err = new Error("refusing to replace a directory that is not a previous plugin build (missing .claude-plugin/BUILD)");
       err.code = "EUNSAFEOUT";
       throw err;
     }
   }
   return out;
+}
+
+/** Unused relative path inside `root` for one `check` rebuild. */
+function allocateCheckOut(root, rel) {
+  const base = String(rel || "plugin").replace(/[\\/]+$/, "") || "plugin";
+  for (let i = 0; i < 16; i++) {
+    const spec = `${base}.check-${process.pid}-${randomBytes(4).toString("hex")}`;
+    if (!existsSync(resolve(root, spec))) return spec;
+  }
+  fail("could not allocate a private plugin check directory", 2);
 }
 
 function listPluginFiles(dir) {
@@ -166,6 +181,22 @@ export function digestPluginTree(dir) {
   const h = createHash("sha256");
   for (const rel of files) h.update(rel).update(read(join(dir, rel)));
   return { digest: h.digest("hex").slice(0, 16), files };
+}
+
+export function upgradePreview(fromDir, toDir) {
+  const skip = (f) => f === ".claude-plugin/BUILD";
+  const a = new Set(listPluginFiles(fromDir).filter((f) => !skip(f)));
+  const b = new Set(listPluginFiles(toDir).filter((f) => !skip(f)));
+  const added = [...b].filter((f) => !a.has(f)).sort();
+  const removed = [...a].filter((f) => !b.has(f)).sort();
+  const changed = [];
+  for (const f of [...a].filter((x) => b.has(x)).sort()) {
+    let ha, hb;
+    try { ha = createHash("sha256").update(read(join(fromDir, f))).digest("hex"); } catch { ha = null; }
+    try { hb = createHash("sha256").update(read(join(toDir, f))).digest("hex"); } catch { hb = null; }
+    if (ha && hb && ha !== hb) changed.push(f);
+  }
+  return { added, removed, changed, conflict: changed, from: fromDir, to: toDir };
 }
 
 function validateShippedDocLinks(outDir) {
@@ -527,25 +558,74 @@ Run: node .cursor/tools/build-plugin.mjs build
     return 1;
   }
 
-  const tmp = `${rel}.__check__`;
-  build(["--out", tmp]);
-  const after = read(join(ROOT, tmp, ".claude-plugin", "BUILD"));
-  rmSync(join(ROOT, tmp), { recursive: true, force: true });
-
-  if (before.trim() !== after.trim()) {
-    process.stderr.write(
+  const tmpRel = allocateCheckOut(ROOT, rel);
+  try {
+    build(["--out", tmpRel]);
+    const after = read(join(ROOT, tmpRel, ".claude-plugin", "BUILD"));
+    if (before.trim() !== after.trim()) {
+      process.stderr.write(
 `${rel}/ is out of sync with the source.
   committed: ${before.split("\n")[0]}
   rebuilt:   ${after.split("\n")[0]}
 Run: node .cursor/tools/build-plugin.mjs build
 `);
-    return 1;
+      return 1;
+    }
+  } finally {
+    rmSync(join(ROOT, tmpRel), { recursive: true, force: true });
   }
   out(`${rel}/ is in sync (${before.split("\n")[0]}).`);
   return 0;
 }
 
-const CMDS = { build, check };
+function upgradePreviewCmd(args) {
+  const fi = args.indexOf("--from");
+  const ti = args.indexOf("--to");
+  const fromRel = fi >= 0 ? args[fi + 1] : null;
+  const toRel = ti >= 0 ? args[ti + 1] : null;
+  if (!fromRel || !toRel) fail("Usage: upgrade-preview --from <old-plugin-dir> --to <new-plugin-dir>", 2);
+  const fromDir = resolve(ROOT, fromRel);
+  const toDir = resolve(ROOT, toRel);
+  if (!existsSync(fromDir) || !existsSync(toDir)) fail("both --from and --to must exist", 2);
+  const body = upgradePreview(fromDir, toDir);
+  if (args.includes("--json")) { out(JSON.stringify(body, null, 2)); return 0; }
+  out(`added ${body.added.length}  removed ${body.removed.length}  changed ${body.changed.length}`);
+  for (const f of body.added.slice(0, 20)) out(`  + ${f}`);
+  for (const f of body.removed.slice(0, 20)) out(`  - ${f}`);
+  for (const f of body.changed.slice(0, 20)) out(`  ~ ${f}`);
+  return 0;
+}
+
+function upgradeCmd(args) {
+  const fi = args.indexOf("--from");
+  const ti = args.indexOf("--to");
+  const oi = args.indexOf("--out");
+  const fromRel = fi >= 0 ? args[fi + 1] : null;
+  const toRel = ti >= 0 ? args[ti + 1] : null;
+  const outRel = oi >= 0 ? args[oi + 1] : null;
+  if (!fromRel || !toRel || !outRel) fail("Usage: upgrade --from <old> --to <new> --out <isolated-dir>", 2);
+  const fromDir = resolve(ROOT, fromRel);
+  const toDir = resolve(ROOT, toRel);
+  const dest = resolve(ROOT, outRel);
+  if (!existsSync(fromDir) || !existsSync(toDir)) fail("both --from and --to must exist", 2);
+  if (dest === resolve(ROOT) || dest === fromDir || dest === toDir) fail("refusing to upgrade over the live source or the from/to trees", 2);
+  mkdirSync(dest, { recursive: true });
+  const prev = join(dest, ".previous");
+  rmSync(prev, { recursive: true, force: true });
+  cpSync(fromDir, prev, { recursive: true });
+  for (const n of readdirSync(toDir)) {
+    if (n === ".previous") continue;
+    const target = join(dest, n);
+    rmSync(target, { recursive: true, force: true });
+    cpSync(join(toDir, n), target, { recursive: true });
+  }
+  const preview = upgradePreview(fromDir, toDir);
+  out(`upgraded into ${dest} (previous copy at ${prev})`);
+  out(`added ${preview.added.length}  removed ${preview.removed.length}  changed ${preview.changed.length}`);
+  return 0;
+}
+
+const CMDS = { build, check, "upgrade-preview": upgradePreviewCmd, upgrade: upgradeCmd };
 const invoked = (() => {
   try {
     const self = fileURLToPath(import.meta.url);

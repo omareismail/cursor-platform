@@ -4,7 +4,7 @@
 // starts every session already oriented instead of being asked to read files.
 
 import { join } from "node:path";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { readPayload, projectDir, readIfExists, ageInDays, inject } from "./_lib.mjs";
 
@@ -114,6 +114,16 @@ if (mapAge === null) {
   problems.push(`\`.cursor/cache/repo-map.json\` is ${Math.floor(mapAge)} days old - run \`/repo-discovery quick\` to refresh.`);
 } else {
   out.push(`\n**repo-map.json:** fresh (${Math.floor(mapAge)}d old).`);
+  try {
+    const mapM = statSync(mapPath).mtimeMs;
+    const extras = [".cursor/lifecycle/write-policy.json", ".cursor/mcp-policy.json", "packages", "src", "backend", "frontend"];
+    const newer = extras.filter((rel) => {
+      try { return statSync(join(root, rel)).mtimeMs > mapM + 1000; } catch { return false; }
+    });
+    if (newer.length) {
+      problems.push(`\`.cursor/cache/repo-map.json\` is older than ${newer.join(", ")} — run \`/repo-discovery quick\` so discovery sees added or removed roots.`);
+    }
+  } catch { /* map unreadable */ }
 }
 
 // --- feature-map coverage ---------------------------------------------------

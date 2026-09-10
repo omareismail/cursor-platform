@@ -64,6 +64,7 @@ Verify:
 - [ ] `AGENTS.md` and `CLAUDE.md` at project root
 - [ ] Create `.cursor/settings.local.json` locally (not committed) — see
       [mcp-ecosystem.md](mcp-ecosystem.md)
+- [ ] `node .cursor/tools/doctor.mjs diagnose` reports an install mode (copy or plugin) and does not write files
 
 ---
 

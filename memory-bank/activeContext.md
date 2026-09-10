@@ -1,26 +1,38 @@
 # Active Context
 **Last Updated:** 2026-09-10
 **Current branch:** platform-ui
-**Recently modified files:** `guard-bash.mjs`, `lifecycle.mjs`, `_state.mjs`, `build-plugin.mjs`, `feature-map.mjs`, `_skills-index.mjs`, `signed-lifecycle-range.mjs`, `plugin/`, `tests/adversarial/*`
-**Active feature:** R01–R13 corrections from the 2026-09-10 project review
+**Recently modified files:** `guard-bash.mjs` nested parse, `feature-map.mjs` CAS/dependsOn/prune, `_policy.mjs explain`, dashboard Host/RTL/`/api/simulate`, `identity.mjs --author`, `release-evidence.mjs` bundle redact, CI matrix, `CONTRIBUTING.md` / `SECURITY.md` / `docs/reviews/`, plugin rebuild `01d0a9b23424e47b`
+**Active feature:** Next increment of ideas 1–14 plus optional H01–H22
 
 ## Latest work — 2026-09-10
 
-Implemented the twelve defects plus the Windows lock retry from
-`docs/reviews/project-review-2026-09-10.md`. Full suite `node tests/run.mjs`:
-19 suites, 0 failed. `build-plugin.mjs check` is in sync (`ad2590f82243fd88`).
-`self-audit.mjs run` PASS. Integrity remains FAIL until a human attests.
+Implemented the next increment of the 14 improvement ideas and the focused
+H01–H22 slices from the project review. Full suite: 24 suites, zero failures.
+Self-audit `run` PASS. Plugin rebuilt (`01d0a9b23424e47b`). Integrity FAIL
+until a human attests. This session did not run `integrity --write`.
 
-## What shipped (R01–R13)
+Durable reviews live under `docs/reviews/` (see `docs/reviews/README.md` and
+`docs/reviews/findings-tracker.md`). Do not treat `derived-status.mjs` output
+as replacing that commentary.
 
-- **R01/R02** Tokenized `guard-bash` force-push and PowerShell `Remove-Item`.
-- **R03/R10/R11/R12** Safe `--out`, installed-tree digest, project-owned
-  `.cursor/docs/architecture/`, shipped `IDEA-TO-PRODUCTION.md` + `LIFECYCLE.md`.
-- **R04/R08** Shared `SOURCE_ROOTS` and effective-policy `sourceLayout()`.
-- **R05** `signed-lifecycle-range.mjs` for full push/PR ranges.
-- **R06/R07** Reciprocal lineage and object-definition freshness.
-- **R09** Catalog-heading skill categories.
-- **R13** Bounded retry on Windows lock `EPERM`/`EBUSY`/`EACCES`.
+## What shipped this wave
+
+| Id | Slice |
+|---|---|
+| H01 | Nested `sh -c` / flag-after-ref force-push refused via shared tokenize |
+| H02 | 14 agents: advisory notice; none declare Write/Edit |
+| H03/H04 | Catalog/index/shim agreement; `phaseExceptions` on classify |
+| H05 | `_policy.mjs explain` with visible `alwaysAllow` exemptions |
+| H06/H07 | Feature-map `commitJson` CAS; `dependsOn`; `prune`; catalog snapshot |
+| H08 | Dashboard HTTP Host/405, skip-link, RTL CSS, `/api/simulate` |
+| H10 | Session-start freshness vs policy/source mtimes |
+| H12 | License remains an owner decision (README / SECURITY) |
+| H13 | CI: Node 22+24 syntax; Windows+Linux guards; failure artifact |
+| H14 | Locked `dotnet restore`; Stylelint labelled advisory |
+| H16 | SQL template grants are SELECT-only (no live Postgres) |
+| H17 | `schemas/feature-map.schema.json` + conformance tests |
+| H19–H22 | `templates/memory-bank/`, CONTRIBUTING, SECURITY, reviews index |
+| ideas 9–14 | worktreeDigest; why/asData; `--author`; isolated `upgrade`; bundle `--redact` |
 
 ## Tests
 
@@ -30,18 +42,18 @@ node .cursor/tools/self-audit.mjs run
 node .cursor/tools/self-audit.mjs integrity
 ```
 
-Integrity `--check` fails until:
-
-```
-node .cursor/tools/self-audit.mjs integrity --write --by "omar ismail"
-```
-
 ## Next logical step
 
-1. Human reviews the R01–R13 enforcement-surface bytes and attests integrity.
-2. Commit Phases D/E/F plus the review fixes (do not attest from the agent shell).
-3. Optional: prioritize H01–H22.
+Human review, then:
+
+```
+node .cursor/tools/self-audit.mjs integrity --write --by "<name>"
+```
+
+Do not treat derived-status output as replacing human commentary.
 
 ## Open questions for the human
 
-- Whether `CURSOR_PLATFORM_DEV=1` should stay set globally.
+- The development escape is enabled in this process. Keep its use scoped
+  to this platform.
+- License file is still an owner choice (H12).

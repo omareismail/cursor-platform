@@ -6,7 +6,7 @@
 **Runtime:** Node.js 22+ (CI) / Node 24 locally on Windows as of 2026-09-10
 **Language:** JavaScript ESM (`.mjs` tools and hooks)
 **Editors:** Cursor and Claude Code from one source tree
-**CI:** GitHub Actions (Linux, Node 22)
+**CI:** GitHub Actions — syntax on Node 22 and 24; guards on Ubuntu and Windows (Node 22)
 
 This repository is **not** a .NET + React application. The `.NET` / React
 placeholders that used to live here are the adopter-app template. Do not treat

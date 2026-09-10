@@ -46,7 +46,7 @@
  * Exit codes:  0 = ok   1 = refused / failed   2 = usage
  */
 
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -534,6 +534,81 @@ function cmdVerify(args) {
   if (bad) process.exit(1);
 }
 
+function cmdBundle(args) {
+  const sub = args[0];
+  if (sub === "export") {
+    const oi = args.indexOf("--out");
+    const outPath = oi >= 0 ? args[oi + 1] : join(ROOT, "lifecycle", "bundles", `bundle-${(git("rev-parse", "--short", "HEAD") || "local")}.json`);
+    const integPath = join(ROOT, "lifecycle", "integrity.json");
+    let integrity = null;
+    if (existsSync(integPath)) {
+      try { integrity = JSON.parse(readFileSync(integPath, "utf8")); } catch { integrity = { unreadable: true }; }
+    }
+    let policyVersion = null;
+    try { policyVersion = JSON.parse(readFileSync(join(ROOT, ".cursor", "lifecycle", "write-policy.json"), "utf8")).version ?? null; } catch { /* none */ }
+    const observed = {};
+    for (const p of Object.keys(integrity?.files || {})) {
+      if (!existsSync(join(ROOT, p))) continue;
+      observed[p] = createHash("sha256").update(readFileSync(join(ROOT, p))).digest("hex");
+    }
+    const record = {
+      kind: "cursor-platform/verification-bundle@1",
+      commit: git("rev-parse", "HEAD"),
+      dirty: !!git("status", "--porcelain"),
+      policyVersion,
+      integrity: integrity ? { by: integrity.by, writtenAt: integrity.writtenAt, files: integrity.files || {} } : null,
+      observed,
+      findings: { skipped: true, why: "bundle export does not re-run checkers; it freezes the evidence pointers" },
+      limitations: [
+        "does not include ignored cache files",
+        "does not include application source",
+        "bundle integrity is not the same as trust in the producer",
+      ],
+      reproduce: ["node tests/run.mjs", "node .cursor/tools/self-audit.mjs run", "node .cursor/tools/self-audit.mjs integrity"],
+      at: new Date().toISOString(),
+    };
+    if (args.includes("--redact")) {
+      record.findings = { skipped: true, why: "redacted" };
+      record.integrity = record.integrity ? { by: record.integrity.by, writtenAt: record.integrity.writtenAt, files: {} } : null;
+      record.observed = {};
+    }
+    const copy = { ...record };
+    const h = createHash("sha256").update(canonical(copy)).digest("hex");
+    record.bundleHash = h;
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, JSON.stringify(record, null, 2) + "\n");
+    console.log(`wrote ${rel(outPath)}`);
+    console.log(`bundleHash ${h}`);
+    return;
+  }
+  if (sub === "verify") {
+    const fi = args.indexOf("--file");
+    const file = fi >= 0 ? args[fi + 1] : args.find((a) => a.endsWith(".json") && a !== "verify");
+    if (!file || !existsSync(file)) die("bundle verify --file <path>", 2);
+    let rec;
+    try { rec = JSON.parse(readFileSync(file, "utf8")); }
+    catch (e) { die(`cannot read bundle: ${e.message}`, 1); }
+    const claimed = rec.bundleHash;
+    const copy = { ...rec };
+    delete copy.bundleHash;
+    const got = createHash("sha256").update(canonical(copy)).digest("hex");
+    if (claimed !== got) die(`bundleHash mismatch (file was edited). claimed ${claimed} got ${got}`, 1);
+    let fileBad = 0;
+    for (const [p, expect] of Object.entries(rec.observed || rec.integrity?.files || {})) {
+      if (!existsSync(join(ROOT, p))) continue;
+      const actual = createHash("sha256").update(readFileSync(join(ROOT, p))).digest("hex");
+      if (actual !== expect) {
+        fileBad++;
+        console.log(`CHANGED  ${p}`);
+      }
+    }
+    if (fileBad) die(`${fileBad} attested file(s) differ from the bundle.`, 1);
+    console.log(`OK  bundle intact (${claimed.slice(0, 12)}…)`);
+    return;
+  }
+  die(`bundle export --out <file> | bundle verify --file <file>`, 2);
+}
+
 /* ------------------------------------------------------------------ render */
 
 function renderMarkdown(r) {
@@ -586,6 +661,7 @@ switch (cmd) {
   case "list": cmdList(); break;
   case "show": cmdShow(args); break;
   case "verify": cmdVerify(args); break;
+  case "bundle": cmdBundle(args); break;
   default:
     console.error(`release-evidence.mjs — what shipped, what proved it, and who said so
 
@@ -599,6 +675,9 @@ switch (cmd) {
   show v1.2.0 [--json]                    the record, as markdown or raw
   verify [v1.2.0] [--require-signed]      hash and commit still stand up. An unsigned
                                           record warns; --require-signed fails on it.
+  bundle export --out <file>              portable evidence pack another checkout can
+                                          validate without ignored caches or source.
+  bundle verify --file <file>             detect an edited bundle or changed attested files.
 
 Records live in lifecycle/releases/ and are meant to be committed.`);
     process.exit(2);

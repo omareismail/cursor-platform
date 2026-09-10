@@ -27,6 +27,7 @@
  *   ghost-mdc      a .mdc rule cited that is not in .cursor/rules/   FAIL
  *   stale-count    "N skills" / "N-skill" / Arabic مهارة counts      FAIL
  *   index-stale    skills.index.json missing or not matching folders  FAIL
+ *   outputs-mismatch  Category B declaring source/approval, or unknown class FAIL
  *   catalog-gap    a live skill with no row in skill-catalog.md     FAIL
  *   orphan         a doc nothing links to                             warn
  *   dup-heading    the same H1 in two docs - a sign of a fork         warn
@@ -42,7 +43,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { report, emit, finding } from "./_findings.mjs";
-import { build as buildIndex, fingerprint, read as readIndex, RETIRED } from "./_skills-index.mjs";
+import { build as buildIndex, fingerprint, read as readIndex, RETIRED, OUTPUTS, B_OUTPUTS } from "./_skills-index.mjs";
 import { join, dirname, relative, normalize } from "node:path";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
@@ -310,6 +311,21 @@ function scan() {
     E(indexRel, 1, "index-stale", "skills.index.json is missing — run node .claude/hooks/sync-skills.mjs");
   } else if (onDisk && fingerprint(onDisk) !== fingerprint(expected)) {
     E(indexRel, 1, "index-stale", "skills.index.json does not match .cursor/skills/ — run node .claude/hooks/sync-skills.mjs");
+  }
+  const indexed = expected.skills || {};
+  for (const n of Object.keys(indexed).sort()) {
+    const s = indexed[n];
+    const outs = Array.isArray(s.outputs) ? s.outputs : [];
+    const unknown = outs.filter((o) => !OUTPUTS.includes(o));
+    if (unknown.length) {
+      E(indexRel, 1, "outputs-mismatch", `${n} declares unknown output class(es) ${unknown.join(", ")}`);
+    }
+    if (s.category === "B") {
+      const forbid = outs.filter((o) => !B_OUTPUTS.includes(o));
+      if (forbid.length) {
+        E(indexRel, 1, "outputs-mismatch", `${n} is Category B but declares ${forbid.join(", ")} — B may only ${B_OUTPUTS.join("/")}`);
+      }
+    }
   }
 
   // --- catalog completeness -------------------------------------------------

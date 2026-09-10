@@ -12,7 +12,7 @@
     {
       "name": "cursor-platform",
       "source": "./plugin",
-      "description": "98 skills, 14 specialist subagents, 7 enforcement hooks and 24 validators for .NET + React. Covers the whole loop: understand existing code, plan and size the work, generate it against local convention, prove it is actually done, and ship it safely. Enforces Clean Architecture boundaries, security, audit trails on money, and Arabic/RTL discipline.",
+      "description": "98 skills, 14 specialist subagents, 7 enforcement hooks and 32 validators for .NET + React. Covers the whole loop: understand existing code, plan and size the work, generate it against local convention, prove it is actually done, and ship it safely. Enforces Clean Architecture boundaries, security, audit trails on money, and Arabic/RTL discipline.",
       "version": "1.0.0",
       "author": { "name": "Mahmoud" },
       "category": "development",

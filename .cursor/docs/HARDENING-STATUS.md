@@ -4,11 +4,16 @@ Status of the platform hardening work started 2026-09-09.
 Source of the backlog: the analysis report (items E-01 … E-27) and the
 2026-09-10 project review (`docs/reviews/project-review-2026-09-10.md`).
 
-**Last updated:** 2026-09-10 (R01–R13 corrections)
+**Last updated:** 2026-09-10 (ideas 1–14 next increment + H01–H22 slices; integrity attestation pending)
 
 Statuses are separate on purpose: **implemented** is code in the tree,
 **verified** is a passing behavioural suite, **attested** is a human
 `integrity --write`, **committed** is on the branch.
+
+Latest independent report: `docs/reviews/verification-290791f-2026-09-10.md`.
+V01–V04 from that report are implemented with regression tests. The suite
+passes (19 suites, 0 failed). Integrity is **not** current: `guard-bash.mjs`
+differs from the 2026-09-10 attestation.
 
 | Phase | Scope | Implemented | Verified | Attested | Committed |
 |---|---|---|---|---|---|
@@ -16,14 +21,19 @@ Statuses are separate on purpose: **implemented** is code in the tree,
 | B — Lifecycle integrity | E-08 … E-15 | yes | yes | 2026-09-09 | yes |
 | C — Evidence model | E-16, E-24, E-19 | yes | yes | 2026-09-09 | yes |
 | Review-fix | R1 … R14 (2026-09-09) | yes | yes | 2026-09-09 | yes |
-| D — Orchestration | E-20, E-21 + R09 | yes | yes (`tests/run.mjs` 2026-09-10) | no (index/docs changed) | no |
-| E — Brownfield intelligence | E-22, E-23 + R04, R06–R08 | yes | yes (`tests/run.mjs` 2026-09-10) | no | no |
-| F — Enterprise governance | E-17, E-18, E-25, E-26 + R01, R02, R05 | yes | yes (`tests/run.mjs` 2026-09-10) | no | no |
-| 2026-09-10 review | R01–R13 | yes | yes (`tests/run.mjs` 19/0) | no | no |
+| D — Orchestration | E-20, E-21 + R09 | yes | category checks pass; capability wording needs clarification | see scope below | yes |
+| E — Brownfield intelligence | E-22, E-23 + R04, R06–R08 | yes | yes | 2026-09-10 surface | yes |
+| F — Enterprise governance | E-17, E-18, E-25, E-26 + R01, R02, R05 | yes | yes | 2026-09-10 surface | yes (`290791f`) |
+| 2026-09-10 review | R01–R13 | yes | original cases pass | 2026-09-10 surface | yes (`290791f`) |
+| 2026-09-10 follow-up | V01–V04 | yes | yes (suite) | pending | not yet |
+| 2026-09-10 ideas | first useful 1–14 | yes | yes (23 suites) | pending | not yet |
+| 2026-09-10 H01–H22 | next increment + optional review items | yes (focused slices) | yes (24 suites) | pending | not yet |
 
-Integrity `--check` is **not** green until a human re-attests the current
-bytes of `guard-bash.mjs`, `guard-phase.mjs`, `write-policy.json`,
-`lifecycle.mjs`, and `_state.mjs`.
+Integrity verification is **red**: `.claude/hooks/guard-bash.mjs`,
+`.claude/hooks/session-start.mjs`, and `.cursor/tools/release-evidence.mjs`
+no longer match the manifest written by omar ismail on 2026-09-10. A human
+must review and run `integrity --write` after this change. The agent must not
+attest.
 
 Verify locally:
 
@@ -33,21 +43,13 @@ node .cursor/tools/self-audit.mjs run
 node .cursor/tools/self-audit.mjs integrity
 ```
 
-```bash
-node tests/run.mjs
-node .cursor/tools/self-audit.mjs run
-node .cursor/tools/self-audit.mjs integrity    # attested 2026-09-09 by omar ismail
-```
-
 ---
 
-## Human steps still open
+## Work still open
 
-1. **Decide `CURSOR_PLATFORM_DEV=1`.** It is set globally on this machine (`setx`). Right for *this* repo (platform maintenance). Wrong for any adopter repo opened in the same editor. Prefer a per-workspace env.
-2. **Re-attest** after reviewing the R01–R13 bytes (including `_state.mjs`): `node .cursor/tools/self-audit.mjs integrity --write --by "<name>"`
-3. Commit the intended tree (plugin already rebuilt).
-
-The previous attestation (2026-09-09, `--by "omar ismail"`) does not cover the current enforcement-surface bytes. `--check` fails until step 2.
+1. Human attestation of `guard-bash.mjs`, `session-start.mjs`, and `release-evidence.mjs`, then commit.
+2. Keep the development escape scoped to platform maintenance.
+3. Wave 2 (ideas 4, 5, 6, 9) after adopter evidence from this wave.
 
 ---
 
@@ -169,20 +171,25 @@ concurrency).
 | R11 | Path rewrite limited to shipped docs; `architecture-map-gen` still writes `.cursor/docs/architecture/` in the consuming repo |
 | R12 | Plugin ships `IDEA-TO-PRODUCTION.md` and `LIFECYCLE.md`; packaged docs are link-checked; historical reports marked platform-only |
 | R13 | `_state.mjs` lock retries `EPERM`/`EBUSY`/`EACCES` then throws `ELOCKED` instead of an uncaught error |
+| V01 | POSIX and PowerShell dialects for statement split/tokenize; newlines are statement boundaries; quoted `"C:\"` recursive deletes denied |
+| V02 | Existing `--out` directories need a plugin marker even if the name contains `.__check__`; `check` allocates a private unused path |
+| V03 | First push and manual runs verify commits reachable from SHA; they no longer subtract a post-push `origin/<default>` |
+| V04 | Feature object refs resolve to a catalog id before indexing; reverse lineage uses that id; ambiguous short names are refused |
 
-**Verified:** `node tests/run.mjs` — 19 suites, 0 failed (2026-09-10). Plugin rebuilt and `check` in sync.
+**Verified:** `node tests/run.mjs` — 22 suites, 0 failed (2026-09-10, after Wave 1). Plugin rebuilt (`60acd23ac0019940`) and `check` in sync.
 
 ---
 
 ## Remaining
 
-E-01 … E-27 from the 2026-09-09 analysis and R01–R13 from the 2026-09-10
-review are implemented and verified. The plugin was rebuilt. Human
-attestation and commit are still open. Optional H01–H22 remain backlog.
+V01–V04 are implemented and suite-covered. They are not attested or committed.
+Category B output classes are declared (`read`/`report`/`cache`); `postmortem`
+is Category A. Integrity is also red on `lifecycle.mjs` from the shared
+evaluator import.
 
-```
-node .cursor/tools/self-audit.mjs integrity --write --by "omar ismail"
-```
+See `docs/reviews/verification-290791f-2026-09-10.md` for the findings that
+drove this work and `docs/reviews/platform-improvement-ideas-2026-09-10.md`
+for 14 future ideas. Earlier optional H01–H22 remain proposals.
 
 ---
 

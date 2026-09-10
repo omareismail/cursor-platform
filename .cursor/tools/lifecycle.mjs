@@ -52,6 +52,12 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { commitJson, writeJsonAtomic, actor, actorWarning } from "./_state.mjs";
 import { recordFile, verifyChain, formatChainFindings, reseal, INDEX_REL, assertIndexedUnchanged } from "./_evidence.mjs";
+import {
+  SOURCE_ROOTS,
+  sourceLayout as sourceLayoutAt,
+} from "./_policy.mjs";
+
+export { SOURCE_ROOTS };
 
 /**
  * The root is mutable because this module is imported by hooks as well as run as
@@ -85,10 +91,9 @@ function repoRoot() {
 
 export const PHASES = ["REQUIREMENTS", "ANALYSIS", "DESIGN", "DEVELOPMENT", "TESTING", "PRODUCTION"];
 
-/** Conventional application-source roots. The DEVELOPMENT artifact, inheritance
- *  evidence, status layout hint, and write-policy `application-source.match`
- *  all use this list — a monorepo with only `packages/` is still application source. */
-export const SOURCE_ROOTS = ["src", "backend", "frontend", "client", "server", "app", "apps", "api", "web", "lib", "packages", "services"];
+/** Conventional application-source roots live in `_policy.mjs` so status, CI
+ *  and (later) the phase hook share one list. Re-exported here so existing
+ *  `import { SOURCE_ROOTS } from "./lifecycle.mjs"` callers keep working. */
 
 /**
  * Required artifacts per phase. Presence is checked mechanically; quality is
@@ -564,83 +569,12 @@ function inheritanceEvidence() {
 }
 
 /**
- * Minimal glob — MUST stay aligned with `.claude/hooks/guard-phase.mjs`.
- * This file must not import the hook: the hook already imports lifecycle.mjs.
- */
-function policyGlob(pattern, s) {
-  const rx = pattern
-    .split(/(\*\*\/|\*\*|\*|\?)/)
-    .map((part) => {
-      if (part === "**/") return "(?:.*/)?";
-      if (part === "**") return ".*";
-      if (part === "*") return "[^/]*";
-      if (part === "?") return "[^/]";
-      return part.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-    })
-    .join("");
-  return new RegExp(`^${rx}$`, "i").test(s);
-}
-
-/**
- * Same built-in fallback as `.claude/hooks/guard-phase.mjs`. This file must not
- * import the hook (the hook already imports lifecycle.mjs). A missing local
- * policy is not "nothing is gated" — the hook still denies `packages/` from
- * this list, and status must say so.
- */
-const BUILTIN_WRITE_POLICY = {
-  alwaysAllow: ["docs/**", "specs/**", "memory-bank/**", "lifecycle/**", "templates/**",
-                "scripts/**", "tests/**", "test/**", "e2e/**", ".cursor/**", ".claude/**", ".github/**", "*.md"],
-  rules: [{
-    id: "application-source",
-    match: SOURCE_ROOTS.map((d) => `${d}/**`),
-    extensions: [".cs", ".csproj", ".sln", ".fs", ".vb", ".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte", ".razor", ".cshtml", ".sql"],
-    earliest: "DEVELOPMENT",
-  }],
-};
-
-function loadWritePolicy() {
-  const candidates = [
-    join(ROOT, ".cursor", "lifecycle", "write-policy.json"),
-  ];
-  try { candidates.push(fileURLToPath(new URL("../lifecycle/write-policy.json", import.meta.url))); } catch { /* not a file URL */ }
-  for (const c of candidates) {
-    try {
-      if (!existsSync(c)) continue;
-      return JSON.parse(readFileSync(c, "utf8"));
-    } catch { /* malformed: keep looking, then fall back */ }
-  }
-  return BUILTIN_WRITE_POLICY;
-}
-
-function classifySourceSample(policy, sample) {
-  const always = policy.alwaysAllow || [];
-  if (always.some((g) => policyGlob(g, sample))) return "exempt";
-  const rule = (policy.rules || []).find((r) =>
-    (r.match || []).some((g) => policyGlob(g, sample)) &&
-    (!r.extensions?.length || r.extensions.some((e) => sample.toLowerCase().endsWith(e.toLowerCase()))));
-  return rule ? "gated" : "unrecognized";
-}
-
-/**
- * Which detected source roots would a `.cs` file under them actually match in
- * the effective write-policy (local file, else the same built-in the hook
- * uses)? `alwaysAllow` is an intentional exemption, not "covered".
+ * Write-policy glob, built-in fallback, and source-root layout live in
+ * `_policy.mjs` so lifecycle status and adopter CI cannot drift. This file
+ * must not import guard-phase.mjs: the hook already imports lifecycle.mjs.
  */
 function sourceLayout() {
-  const detected = SOURCE_ROOTS.filter((d) => {
-    try { return statSync(join(ROOT, d)).isDirectory(); } catch { return false; }
-  });
-  const policy = loadWritePolicy();
-  const covered = [];
-  const uncovered = [];
-  const exempt = [];
-  for (const dir of detected) {
-    const kind = classifySourceSample(policy, `${dir}/x.cs`);
-    if (kind === "gated") covered.push(dir);
-    else if (kind === "exempt") exempt.push(dir);
-    else uncovered.push(dir);
-  }
-  return { detected, covered, uncovered, exempt };
+  return sourceLayoutAt(ROOT, { importMetaUrl: import.meta.url });
 }
 
 function blankState(name, mode, { by = null, reviewBy = null, evidence = null } = {}) {

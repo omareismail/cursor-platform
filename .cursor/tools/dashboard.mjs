@@ -305,6 +305,49 @@ function collectLifecycle() {
   };
 }
 
+function sanitizeImpactFile(s) {
+  if (!s) return null;
+  const n = String(s).replace(/\\/g, "/").trim();
+  if (!n || n.includes("\0") || n.includes("..") || n.startsWith("/") || /^[A-Za-z]:/.test(n)) return null;
+  if (!/^[A-Za-z0-9._/@-]+$/.test(n)) return null;
+  return n;
+}
+
+function sanitizeImpactObject(s) {
+  if (!s) return null;
+  const n = String(s).trim();
+  if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(n)) return null;
+  return n;
+}
+
+async function collectImpact(file, object) {
+  const safeFile = sanitizeImpactFile(file);
+  const safeObj = sanitizeImpactObject(object);
+  if ((file || object) && !safeFile && !safeObj) {
+    return {
+      empty: true,
+      coverage: "insufficient",
+      hint: "The file or object query was refused (unsafe path or id).",
+      command: "node .cursor/tools/feature-map.mjs impact --file <path> --json",
+      features: [], objects: [], tests: [], edges: [],
+      uninspected: "Query rejected before the map was read.",
+    };
+  }
+  if (!safeFile && !safeObj) {
+    return {
+      empty: true,
+      coverage: "insufficient",
+      hint: "Select a source file or database object. An empty result means tracing is incomplete, not that nothing is affected.",
+      command: "node .cursor/tools/feature-map.mjs impact --file <path> --json",
+      features: [], objects: [], tests: [], edges: [],
+      uninspected: "No file or object selected.",
+    };
+  }
+  const fm = await import(new URL("./feature-map.mjs", import.meta.url));
+  const m = fm.loadFeatureMap({ required: false }) || fm.emptyMap();
+  return fm.impactOf(m, { file: safeFile, object: safeObj });
+}
+
 function collectFeatures() {
   const mapFile = safeRead(".cursor/cache/feature-map.json", { json: true });
   const repoFile = safeRead(".cursor/cache/repo-map.json", { json: true });
@@ -968,6 +1011,7 @@ const COLLECTORS = {
   memory: collectMemory,
   platform: collectPlatform,
   actions: collectActions,
+  impact: () => collectImpact(null, null),
 };
 
 // Collectors may be sync or async; awaiting a plain value is a no-op, so every
@@ -1038,6 +1082,23 @@ function onRequest(req, res) {
   if (path === "/api/snapshot") {
     return snapshot().then((d) => json(res, 200, d)).catch(fail);
   }
+  if (path === "/api/impact") {
+    return Promise.resolve(collectImpact(u.searchParams.get("file"), u.searchParams.get("object")))
+      .then((d) => json(res, 200, d)).catch(fail);
+  }
+  if (path === "/api/simulate") {
+    const proposed = u.searchParams.get("proposed");
+    return Promise.resolve().then(() => {
+      const policyPath = proposed && !proposed.includes("..") && !proposed.startsWith("/")
+        ? join(ROOT, proposed)
+        : join(ROOT, ".cursor", "lifecycle", "write-policy.json");
+      let proposedPol;
+      try { proposedPol = JSON.parse(readFileSync(policyPath, "utf8")); }
+      catch { return json(res, 400, { error: "cannot read proposed policy" }); }
+      const current = JSON.parse(readFileSync(join(ROOT, ".cursor", "lifecycle", "write-policy.json"), "utf8"));
+      return import(new URL("./_policy.mjs", import.meta.url)).then((p) => json(res, 200, p.comparePolicies(current, proposedPol)));
+    }).catch(fail);
+  }
   const name = API[path];
   if (!name) return json(res, 404, { error: "Unknown route." });
   return cached(name, fresh).then((d) => json(res, 200, d)).catch(fail);
@@ -1082,7 +1143,7 @@ function serve(args) {
 /* ------------------------------------------------------------------ UI */
 
 const PAGE = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -1098,7 +1159,7 @@ const PAGE = `<!DOCTYPE html>
 html, body { margin:0; height:100%; background:var(--bg); color:var(--text); }
 .app { display:grid; grid-template-columns: 220px 1fr; height:100%; }
 nav {
-  background:#0b1016; border-right:1px solid var(--line);
+  background:#0b1016; border-inline-end:1px solid var(--line);
   padding:20px 12px; display:flex; flex-direction:column; gap:4px;
 }
 nav h1 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 8px 16px; font-weight:600; }
@@ -1188,15 +1249,35 @@ button.act:hover, .btn:hover { border-color:var(--accent); color:var(--accent); 
 .alist button:hover { border-color:var(--accent); }
 .alist button strong { display:block; }
 .alist button span { font-size:12px; color:var(--muted); }
+.impact-form { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+.impact-form input {
+  width:min(280px,100%); padding:8px; border-radius:6px;
+  background:var(--bg); color:var(--text); border:1px solid var(--line); font:inherit;
+}
+.skip {
+  position:absolute; inset-inline-start:8px; top:8px;
+  clip:rect(0 0 0 0); clip-path:inset(50%); width:1px; height:1px; overflow:hidden;
+}
+.skip:focus {
+  clip:auto; clip-path:none; width:auto; height:auto; z-index:40;
+  background:var(--panel); color:var(--text); padding:8px 12px; border-radius:6px;
+}
+html[dir="rtl"] .app { direction:rtl; }
+@media (max-width: 720px) {
+  .app { grid-template-columns: 1fr; }
+  nav { border-inline-end:0; border-block-end:1px solid var(--line); }
+}
 </style>
 </head>
 <body>
+<a class="skip" href="#content">Skip to content</a>
 <div class="app">
   <nav>
     <h1>cursor-platform</h1>
     <button data-panel="overview" class="active">Overview</button>
     <button data-panel="lifecycle">Lifecycle</button>
     <button data-panel="features">Features</button>
+    <button data-panel="impact">Impact</button>
     <button data-panel="traceability">Traceability</button>
     <button data-panel="quality">Quality</button>
     <button data-panel="delivery">Delivery</button>
@@ -1685,10 +1766,69 @@ button.act:hover, .btn:hover { border-color:var(--accent); color:var(--accent); 
     return frag;
   }
 
+  function renderImpact(d) {
+    title.textContent = "Impact explorer";
+    subtitle.textContent = "What a file or database object touches. Empty means tracing is incomplete, not that nothing is affected.";
+    var frag = document.createDocumentFragment();
+    var form = el("div", { class: "impact-form" });
+    var fileIn = el("input", { type: "text", placeholder: "src/Pay/Handler.cs", value: d.file || "" });
+    var objIn = el("input", { type: "text", placeholder: "dbo.usp_Pay", value: d.object || "" });
+    var go = el("button", { class: "act", type: "button", text: "Inspect" });
+    form.appendChild(fileIn);
+    form.appendChild(objIn);
+    form.appendChild(go);
+    frag.appendChild(form);
+    function paint(data) {
+      var body = el("div");
+      body.appendChild(badge("coverage " + (data.coverage || "insufficient"), data.coverage === "traced" ? "ok" : "warn"));
+      if (data.uninspected) body.appendChild(el("p", { class: "muted", text: data.uninspected }));
+      if (data.hint && data.empty) body.appendChild(emptyBox(data));
+      var g = el("div", { class: "grid" });
+      g.appendChild(card("Features", (data.features || []).length));
+      g.appendChild(card("Objects", (data.objects || []).length));
+      g.appendChild(card("Tests", (data.tests || []).length));
+      g.appendChild(card("Edges", (data.edges || []).length));
+      body.appendChild(g);
+      if ((data.tests || []).length) {
+        body.appendChild(el("h3", { text: "Affected tests" }));
+        body.appendChild(table(["Path"], data.tests.map(function (t) { return [t]; })));
+      }
+      if ((data.features || []).length) {
+        body.appendChild(el("h3", { text: "Features" }));
+        body.appendChild(table(["Id"], data.features.map(function (f) { return [f]; })));
+      }
+      if ((data.objects || []).length) {
+        body.appendChild(el("h3", { text: "Objects" }));
+        body.appendChild(table(["Id"], data.objects.map(function (o) { return [o]; })));
+      }
+      if ((data.edges || []).length) {
+        body.appendChild(el("h3", { text: "Evidence" }));
+        body.appendChild(table(["Kind", "From", "To", "Source", "Stale"], data.edges.map(function (e) {
+          return [e.kind, e.from, e.to || e.raw || "", e.dataSource || "", e.stale ? "stale" : "fresh"];
+        })));
+      }
+      return body;
+    }
+    var result = paint(d);
+    frag.appendChild(result);
+    go.addEventListener("click", function () {
+      var q = [];
+      if (fileIn.value.trim()) q.push("file=" + encodeURIComponent(fileIn.value.trim()));
+      if (objIn.value.trim()) q.push("object=" + encodeURIComponent(objIn.value.trim()));
+      fetch("/api/impact?" + q.join("&")).then(function (r) { return r.json(); }).then(function (next) {
+        var fresh = renderImpact(next);
+        content.innerHTML = "";
+        content.appendChild(fresh);
+      });
+    });
+    return frag;
+  }
+
   var RENDER = {
     overview: renderOverview,
     lifecycle: renderLifecycle,
     features: renderFeatures,
+    impact: renderImpact,
     traceability: renderTrace,
     quality: renderQuality,
     delivery: renderDelivery,
@@ -2022,4 +2162,4 @@ const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(pro
 if (invokedDirectly || process.env.DASHBOARD_FORCE_CLI) main();
 
 // For the test suite: the envelope reader and the one collector built on it.
-export { parseToolOut, collectFindings, FINDING_TOOLS };
+export { parseToolOut, collectFindings, FINDING_TOOLS, onRequest };

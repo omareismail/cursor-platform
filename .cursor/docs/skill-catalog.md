@@ -71,12 +71,17 @@ issue: `dotnet-migration`").
 | `react-i18n-rtl-gen` | Wire internationalization + RTL support into a component/feature |
 | `react-test-gen` | Generate a complete test file for a React component or hook |
 | `refactor-apply` | Apply findings from a clean-code-guard / `enterprise-report-gen refactor` report to real files — auto-applies mechanical fixes, walks risky ones one at a time |
+| `postmortem` | After an incident: convert findings into compile-time guards (BannedSymbols, analyzer, architecture test, hook tripwire) — Category A because it writes source |
 
-### Category B — Read-only audits & analysis → announce, then proceed automatically
+### Category B — Audits & analysis → announce, then proceed automatically
 
-These skills only report — they never write. If the user wants findings
-*applied*, that's `refactor-apply` (Category A), not a rerun of the guard
-with different phrasing.
+These skills may `read`, write a `report`, or update a `cache` (for example
+`.cursor/cache/feature-map.json`). They must not write application `source`
+or record an `approval`. If the user wants findings *applied to source*, that's
+`refactor-apply` (Category A), not a rerun of the guard with different phrasing.
+`postmortem` generates compile-time guards — it is Category A (`source`).
+`load-test-gen` stays here and is classed `report` (it writes under `tests/`,
+never application source).
 
 **Understanding existing code** — the four skills below answer questions about
 what the codebase *already does*, as opposed to generating something new or
@@ -103,7 +108,6 @@ delivery is improving. Delegate to the `ops-reviewer` subagent in Claude Code.
 | `release-safety` | "How does this reach users without a big-bang?" — flag lifecycle, rings, rollback, migration reversibility |
 | `threat-model` | "What could an attacker do with this design?" — STRIDE, at design time |
 | `delivery-metrics` | "Is delivery getting better or worse?" — DORA four keys + rework rate |
-| `postmortem` | "How do we make this incident impossible?" — converts findings into compile-time guards |
 
 **Verifying it is actually done** — `task-verify` (Category B) runs the task's
 `Verify` command, checks acceptance-criteria coverage via

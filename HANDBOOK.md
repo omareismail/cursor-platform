@@ -223,7 +223,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 24 validators
+### `.cursor/tools/` — 32 validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.

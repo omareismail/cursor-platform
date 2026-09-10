@@ -159,22 +159,39 @@ Command: ${cmd}`);
 }
 
 /**
- * Split a shell line into statements on `;` `&&` `||` `|`, then into argv,
- * respecting quotes. Regexes that stop at `|;&` miss `git push --force; echo`
- * and quoted `+` refspecs; those are the same operations with ordinary syntax.
+ * Split a command into statements, then into argv, respecting quotes.
+ *
+ * POSIX and PowerShell disagree about escapes (`\` vs `` ` ``) and both are
+ * handed to this hook. A deny-list that parses with only one dialect will
+ * miss the other: `"C:\"` is a closed path in PowerShell and an open quote
+ * in POSIX. Newlines are statement boundaries in both, outside quotes.
+ * Regexes that stop at `|;&` also miss `git push --force; echo` and quoted
+ * `+` refspecs; those are the same operations with ordinary syntax.
  */
-function splitStatements(s) {
+function splitStatements(s, dialect = "posix") {
   const parts = [];
   let cur = "";
   let q = null;
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     if (q) {
+      if (dialect === "pwsh") {
+        if (q === '"' && c === "`" && i + 1 < s.length) { cur += c; cur += s[++i]; continue; }
+        if (c === q) { q = null; cur += c; continue; }
+        cur += c;
+        continue;
+      }
       cur += c;
       if (c === q && s[i - 1] !== "\\") q = null;
       continue;
     }
     if (c === '"' || c === "'" || c === "`") { q = c; cur += c; continue; }
+    if (c === "\n" || c === "\r") {
+      if (cur.trim()) parts.push(cur.trim());
+      cur = "";
+      if (c === "\r" && s[i + 1] === "\n") i++;
+      continue;
+    }
     if (c === ";") { if (cur.trim()) parts.push(cur.trim()); cur = ""; continue; }
     if (c === "&" && s[i + 1] === "&") { if (cur.trim()) parts.push(cur.trim()); cur = ""; i++; continue; }
     if (c === "|" && s[i + 1] === "|") { if (cur.trim()) parts.push(cur.trim()); cur = ""; i++; continue; }
@@ -185,13 +202,20 @@ function splitStatements(s) {
   return parts;
 }
 
-function tokenize(stmt) {
+function tokenize(stmt, dialect = "posix") {
   const tokens = [];
   let cur = "";
   let q = null;
   for (let i = 0; i < stmt.length; i++) {
     const c = stmt[i];
     if (q) {
+      if (dialect === "pwsh") {
+        if (q === '"' && c === "`" && i + 1 < stmt.length) { cur += stmt[++i]; continue; }
+        if (c === q && stmt[i + 1] === q) { cur += c; i++; continue; }
+        if (c === q) { q = null; continue; }
+        cur += c;
+        continue;
+      }
       if (c === q) { q = null; continue; }
       if (c === "\\" && q === '"' && i + 1 < stmt.length) { cur += stmt[++i]; continue; }
       cur += c;
@@ -229,7 +253,7 @@ function isDangerousFsTarget(t) {
   const s = String(t || "").trim();
   if (!s) return false;
   if (s === "/" || s === "\\" || s === "~" || s === "*" || s === "~/" || s === "~\\") return true;
-  return /^[A-Za-z]:[\\/]?$/.test(s);
+  return /^[A-Za-z]:[\\/]*$/.test(s);
 }
 
 function isDangerousRemoveItem(tokens) {
@@ -261,10 +285,30 @@ same overwrite.`;
 
 const RECURSE_DELETE_MSG = `BLOCKED: destructive recursive delete with a dangerous target.`;
 
-for (const stmt of splitStatements(cmd)) {
-  const tokens = tokenize(stmt);
-  if (isGitForcePush(tokens)) block(FORCE_PUSH_MSG + `\n\nCommand: ${cmd}`);
-  if (isDangerousRemoveItem(tokens)) block(RECURSE_DELETE_MSG + `\n\nCommand: ${cmd}`);
+function nestedPayloads(tokens) {
+  const out = [];
+  for (let i = 0; i < tokens.length; i++) {
+    if (/^(sh|bash|zsh|dash|ksh|pwsh|powershell)(\.exe)?$/i.test(tokens[i])
+      && tokens[i + 1] && /^(-c|-Command|--command)$/i.test(tokens[i + 1])
+      && tokens[i + 2]) {
+      out.push(tokens[i + 2]);
+    }
+  }
+  return out;
+}
+
+for (const dialect of ["posix", "pwsh"]) {
+  for (const stmt of splitStatements(cmd, dialect)) {
+    const tokens = tokenize(stmt, dialect);
+    const inspect = [tokens];
+    for (const payload of nestedPayloads(tokens)) {
+      for (const inner of splitStatements(payload, dialect)) inspect.push(tokenize(inner, dialect));
+    }
+    for (const t of inspect) {
+      if (isGitForcePush(t)) block(FORCE_PUSH_MSG + `\n\nCommand: ${cmd}`);
+      if (isDangerousRemoveItem(t)) block(RECURSE_DELETE_MSG + `\n\nCommand: ${cmd}`);
+    }
+  }
 }
 
 const RULES = [

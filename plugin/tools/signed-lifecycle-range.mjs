@@ -10,12 +10,22 @@
  * base/head), treats an all-zero "before" as a first push, and fails on an
  * invalid range instead of swallowing it.
  *
+ * First push (before is all zeroes): every commit reachable from the new tip.
+ * After checkout, `origin/<default>` already points at that tip, so
+ * `origin/<default>..<sha>` is empty and would skip every signature check.
+ *
+ * Manual run (`workflow_dispatch`): the same reachable history from SHA.
+ * `origin/<default>..<sha>` is empty when the checkout is the default-branch
+ * tip. An empty result still exits 0, and stderr says that none of those
+ * commits touch lifecycle/.
+ *
  * Usage (from the adopter workflow):
  *   node .cursor/tools/signed-lifecycle-range.mjs
  *
  * Env: EVENT_NAME, SHA, BEFORE, PR_BASE, PR_HEAD, DEFAULT_BRANCH
  * Prints one commit SHA per line (commits that touch lifecycle/). Exit 2 on
- * an invalid range; exit 0 with no output when the range is valid but empty.
+ * an invalid range; exit 0 with no stdout when the range is valid but empty.
+ * First-push and manual empty results also print the scope on stderr.
  */
 
 import { execFileSync } from "node:child_process";
@@ -26,7 +36,7 @@ export function isZeroSha(s) {
   return !s || /^0+$/.test(String(s));
 }
 
-export function rangeFromEvent({ eventName, sha, before, prBase, prHead, defaultBranch }) {
+export function rangeFromEvent({ eventName, sha, before, prBase, prHead, defaultBranch: _defaultBranch }) {
   const name = String(eventName || "");
   if (name === "pull_request") {
     if (!prBase || !prHead) {
@@ -43,7 +53,6 @@ export function rangeFromEvent({ eventName, sha, before, prBase, prHead, default
       throw err;
     }
     if (isZeroSha(before)) {
-      if (defaultBranch) return { spec: `origin/${defaultBranch}..${sha}`, inclusive: false, firstPush: true };
       return { spec: sha, inclusive: true, firstPush: true };
     }
     return { spec: `${before}..${sha}`, inclusive: false };
@@ -54,8 +63,7 @@ export function rangeFromEvent({ eventName, sha, before, prBase, prHead, default
       err.code = "EINVALIDRANGE";
       throw err;
     }
-    if (defaultBranch) return { spec: `origin/${defaultBranch}..${sha}`, inclusive: false };
-    return { spec: sha, inclusive: true };
+    return { spec: sha, inclusive: true, manual: true };
   }
   const err = new Error(`unsupported event: ${name || "(empty)"}`);
   err.code = "EINVALIDRANGE";
@@ -96,6 +104,11 @@ function main() {
     process.exit(2);
   }
   if (commits.length) process.stdout.write(commits.join("\n") + "\n");
+  else if (range.firstPush) {
+    process.stderr.write(`first push: no commits reachable from ${range.spec} touch lifecycle/.\n`);
+  } else if (range.manual) {
+    process.stderr.write(`manual run: no commits reachable from ${range.spec} touch lifecycle/.\n`);
+  }
   process.exit(0);
 }
 

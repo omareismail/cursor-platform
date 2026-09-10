@@ -259,9 +259,9 @@ going instead of assuming.
                                       # walks risky ones one at a time
 ```
 Reuses `dotnet-clean-code-guard` / `react-clean-code-guard` /
-`enterprise-report-gen refactor` output rather than re-scanning. The three audit
-skills above stay read-only on purpose — this is the only skill that
-writes.
+`enterprise-report-gen refactor` output rather than re-scanning. Category B
+skills may write reports and caches; `refactor-apply` is the Category A skill
+that writes application source.
 
 ---
 
@@ -270,6 +270,22 @@ writes.
 ```
 /skill-maturity-audit all           # Are skills wired to shared infra?
 /platform-health-validator          # Naming, duplicates, orphaned docs, rule conflicts
+node .cursor/tools/doctor.mjs diagnose   # install mode, hooks, source layout, policy
+node .cursor/tools/doctor.mjs preview    # checkout-copy would-copy vs conflict
+node .cursor/tools/_policy.mjs roots     # canonical application-source directories
+node .cursor/tools/_policy.mjs simulate --proposed <file>  # newly-allowed vs newly-refused
+node .cursor/tools/_policy.mjs explain <path>              # gated / exempt / ungoverned
+node .cursor/tools/stack-profile.mjs detect   # .NET / React / packages — preview only
+node .cursor/tools/repair.mjs preview <recipe> --out <dir>  # isolated docs/config repair
+node .cursor/tools/identity.mjs verify --by "<name>" --digest <sha> [--author "<name>"]
+node .cursor/tools/decision-memory.mjs search <query>
+node .cursor/tools/derived-status.mjs snapshot
+node .cursor/tools/change-verify.mjs recommend
+node .cursor/tools/feature-map.mjs impact --file <path>
+node .cursor/tools/feature-map.mjs prune
+node .cursor/tools/build-plugin.mjs upgrade-preview --from <old> --to <new>
+node .cursor/tools/build-plugin.mjs upgrade --from <old> --to <new> --out <isolated-dir>
+node .cursor/tools/release-evidence.mjs bundle export --out <file> [--redact]
 ```
 
 ---
@@ -314,6 +330,9 @@ matching files are in context (globs). None are slash commands.
 ## Key shared infrastructure docs
 
 - `AGENTS.md` — agent session instructions (copy to each app repo root)
+- `CONTRIBUTING.md` — runtime, test commands, attestation
+- `SECURITY.md` — vulnerability reporting
+- `docs/reviews/README.md` — durable reviews (not `.cursor/cache/`)
 - `.cursor/docs/NEW-PROJECT.md` — bootstrap a new application repo
 - `.cursor/docs/skill-catalog.md` — full 98-skill catalog and routing categories
 - `.cursor/docs/skill-graph.md` — who depends on whom

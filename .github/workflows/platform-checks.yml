@@ -58,12 +58,16 @@ env:
 jobs:
   syntax:
     name: every script parses
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22", "24"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ matrix.node }}
 
       - name: node --check every .mjs
         run: |
@@ -80,17 +84,30 @@ jobs:
 
   guards:
     name: the guards still refuse
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ["22"]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ matrix.node }}
 
-      # Same command a human runs locally. A test that only exists inside a YAML
-      # step is as unrunnable as a check that only exists in someone's memory.
       - name: node tests/run.mjs
         run: node tests/run.mjs
+
+      - name: Preserve failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: guards-${{ matrix.os }}-node${{ matrix.node }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            tests/**
+          if-no-files-found: ignore
+          retention-days: 14
 
   audit:
     name: every control is reachable

@@ -10,7 +10,7 @@
 import { join } from "node:path";
 import { readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { check, report, section, REPO, fixture, put, gitInit } from "../_harness.mjs";
+import { check, report, section, REPO, fixture, put, gitInit, runTool } from "../_harness.mjs";
 
 const dash = await import(new URL(`file:///${join(REPO, ".cursor", "tools", "dashboard.mjs").replace(/\\/g, "/")}`));
 const slRange = await import(new URL(`file:///${join(REPO, ".cursor", "tools", "signed-lifecycle-range.mjs").replace(/\\/g, "/")}`));
@@ -58,6 +58,52 @@ section("signed-lifecycle-range.mjs — full pushed range, not only HEAD");
   catch (e) { threw = e; }
   check("an invalid range throws instead of becoming an empty success",
     threw && threw.code === "EINVALIDRANGE", String(threw));
+
+  git("update-ref", "refs/remotes/origin/main", head);
+  const originMinusTip = slRange.listLifecycleCommits({ spec: `origin/main..${head}` }, { cwd: root });
+  check("origin/main..tip is empty after the default branch is at the new sha",
+    originMinusTip.length === 0, JSON.stringify(originMinusTip));
+
+  const first = slRange.rangeFromEvent({
+    eventName: "push", sha: head, before: "0".repeat(40), defaultBranch: "main",
+  });
+  check("first push uses the tip, not origin/default..sha",
+    first.spec === head && first.firstPush === true, JSON.stringify(first));
+  const firstHits = slRange.listLifecycleCommits(first, { cwd: root });
+  check("first push of the default branch includes the lifecycle commit",
+    firstHits.includes(lifecycleSha), JSON.stringify({ firstHits, lifecycleSha, head }));
+
+  const manual = slRange.rangeFromEvent({
+    eventName: "workflow_dispatch", sha: head, defaultBranch: "main",
+  });
+  check("manual run at the default-branch tip uses the checkout sha",
+    manual.spec === head && manual.manual === true, JSON.stringify(manual));
+  const manualHits = slRange.listLifecycleCommits(manual, { cwd: root });
+  check("manual run includes the lifecycle commit behind a docs tip",
+    manualHits.includes(lifecycleSha), JSON.stringify(manualHits));
+}
+
+section("signed-lifecycle-range.mjs — empty ranges name their scope");
+{
+  const root = fixture("sl-empty");
+  gitInit(root);
+  put(root, "README.md", "# none\n");
+  const git = (...a) => spawnSync("git", a, { cwd: root, encoding: "utf8" });
+  git("add", "-A");
+  git("commit", "-qm", "docs only");
+  const sha = git("rev-parse", "HEAD").stdout.trim();
+  const first = runTool("signed-lifecycle-range.mjs", [], root, {
+    EVENT_NAME: "push", SHA: sha, BEFORE: "0".repeat(40), DEFAULT_BRANCH: "main",
+  });
+  check("first push with no lifecycle/ files explains the empty range",
+    first.exit === 0 && !first.out.trim() && /first push/.test(first.err),
+    `${first.exit} ${first.out} ${first.err}`);
+  const manual = runTool("signed-lifecycle-range.mjs", [], root, {
+    EVENT_NAME: "workflow_dispatch", SHA: sha, DEFAULT_BRANCH: "main",
+  });
+  check("manual run with no lifecycle/ files explains the empty range",
+    manual.exit === 0 && !manual.out.trim() && /manual run/.test(manual.err),
+    `${manual.exit} ${manual.out} ${manual.err}`);
 }
 
 section("dashboard.mjs — Host must be localhost");

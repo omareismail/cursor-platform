@@ -45,7 +45,9 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
 
       - name: Restore
-        run: dotnet restore --locked-mode || dotnet restore
+        # Locked restore is required. Do not fall back to an unlocked restore;
+        # a missing or drifted packages.lock.json must fail the job.
+        run: dotnet restore --locked-mode
 
       # Fails if any file deviates from .editorconfig. IDE0055 is already an
       # error in-build; this catches whitespace the compiler ignores.
@@ -120,6 +122,8 @@ jobs:
         run: npm test -- --run --coverage
 
       # RTL correctness in stylesheets, which ESLint cannot see.
+      # Advisory: continue-on-error until existing violations are cleared.
+      # This is not a blocking gate while continue-on-error is true.
       - name: Stylelint (logical properties)
         run: npx stylelint "src/**/*.{css,scss}" --max-warnings=0
         continue-on-error: true # flip to false once the existing violations are cleared

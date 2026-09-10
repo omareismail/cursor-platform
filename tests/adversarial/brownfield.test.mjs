@@ -190,6 +190,72 @@ section("feature-map.mjs — one-sided links and definition-file freshness");
     JSON.stringify(byFile));
 }
 
+section("feature-map.mjs — short-name callers reverse to the canonical object");
+{
+  const root = fixture("e22-alias");
+  put(root, "src/Settle/Handler.cs", "class SettleHandler {}\n");
+  gitInit(root);
+  runTool("feature-map.mjs", ["init"], root);
+  put(root, "settle.json", JSON.stringify({
+    id: "settlement",
+    name: "Settlement",
+    files: [{ path: "src/Settle/Handler.cs", role: "handler" }],
+    lineage: { calls: ["usp_Settle"] },
+  }));
+  put(root, "catalog.json", JSON.stringify({
+    dataObjects: {
+      "dbo.usp_Settle": {
+        kind: "procedure", schema: "dbo", name: "usp_Settle",
+        tables: ["Payments"],
+      },
+    },
+  }));
+  check("upsert short-name caller", runTool("feature-map.mjs", ["upsert", "settle.json"], root).exit === 0, "");
+  check("upsert unique catalog object", runTool("feature-map.mjs", ["upsert", "catalog.json"], root).exit === 0, "");
+
+  const fromShort = parse(runTool("feature-map.mjs", ["lineage", "usp_Settle", "--json"], root));
+  check("forward lineage from the short name reaches the proc and caller",
+    fromShort && fromShort.features.includes("settlement") && fromShort.objects.includes("dbo.usp_Settle"),
+    JSON.stringify(fromShort));
+  const fromCanon = parse(runTool("feature-map.mjs", ["lineage", "dbo.usp_Settle", "--json"], root));
+  check("reverse lineage from the canonical id reaches the short-name caller",
+    fromCanon && fromCanon.features.includes("settlement") && fromCanon.objects.includes("dbo.usp_Settle"),
+    JSON.stringify(fromCanon));
+  const qCanon = parse(runTool("feature-map.mjs", ["query", "--object", "dbo.usp_Settle", "--json"], root));
+  check("query --object canonical id includes the short-name caller",
+    Array.isArray(qCanon) && qCanon.includes("settlement") && qCanon.includes("dbo.usp_Settle"),
+    JSON.stringify(qCanon));
+}
+
+section("feature-map.mjs — ambiguous short names are refused");
+{
+  const root = fixture("e22-ambig");
+  put(root, "src/Settle/Handler.cs", "class SettleHandler {}\n");
+  gitInit(root);
+  runTool("feature-map.mjs", ["init"], root);
+  put(root, "catalog.json", JSON.stringify({
+    dataObjects: {
+      "dbo.usp_Settle": { kind: "procedure", schema: "dbo", name: "usp_Settle" },
+      "other.usp_Settle": { kind: "procedure", schema: "other", name: "usp_Settle" },
+    },
+  }));
+  check("two same-name objects upsert", runTool("feature-map.mjs", ["upsert", "catalog.json"], root).exit === 0, "");
+  put(root, "settle.json", JSON.stringify({
+    id: "settlement",
+    name: "Settlement",
+    files: [{ path: "src/Settle/Handler.cs", role: "handler" }],
+    lineage: { calls: ["usp_Settle"] },
+  }));
+  const r = runTool("feature-map.mjs", ["upsert", "settle.json"], root);
+  check("ambiguous short name is refused",
+    r.exit === 2 && /schema-qualified/.test(r.err) && /dbo\.usp_Settle/.test(r.err) && /other\.usp_Settle/.test(r.err),
+    `${r.exit} ${r.out} ${r.err}`);
+  const fromCanon = parse(runTool("feature-map.mjs", ["lineage", "dbo.usp_Settle", "--json"], root));
+  check("refused upsert did not index the caller under one schema",
+    !fromCanon?.features?.includes("settlement"),
+    JSON.stringify(fromCanon));
+}
+
 section("guard-phase.mjs — monorepo roots are application-source");
 {
   const adopted = fixture("e23-roots", { state: ANALYSIS });
