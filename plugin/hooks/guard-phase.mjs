@@ -61,7 +61,7 @@ const BUILTIN = {
                 "scripts/**", "tests/**", "test/**", "e2e/**", ".cursor/**", ".claude/**", ".github/**", "*.md"],
   rules: [{
     id: "application-source",
-    match: ["src/**", "backend/**", "frontend/**", "client/**", "server/**", "app/**", "api/**", "web/**"],
+    match: ["src/**", "backend/**", "frontend/**", "client/**", "server/**", "app/**", "apps/**", "api/**", "web/**", "lib/**", "packages/**", "services/**"],
     extensions: [".cs", ".csproj", ".sln", ".fs", ".vb", ".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte", ".razor", ".cshtml", ".sql"],
     earliest: "DEVELOPMENT",
     why: "Code written before the design gate implements a design nobody approved.",

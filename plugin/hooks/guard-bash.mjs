@@ -122,6 +122,21 @@ exactly this reason.
 
 Command: ${cmd}`);
   }
+  if (/\bpsql\b[^|;&]*<\s*(?!<|&)(\S+)/i.test(cmd)) {
+    block(`BLOCKED: \`psql < file\` runs a file against a database.
+
+Nothing here can read what the file will do. Emit the SQL for review and let a
+human run it.
+
+Command: ${cmd}`);
+  }
+  if (/\b(cat|type|Get-Content)\b[^|;&]*\|\s*psql\b/i.test(cmd)) {
+    block(`BLOCKED: piping a file into psql runs SQL this hook cannot read.
+
+Emit the statement as reviewed SQL for a human to run.
+
+Command: ${cmd}`);
+  }
   const candidates = [];
   for (const m of cmd.matchAll(/(?:-c|--command)(?:\s+|=)("((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))/gi)) candidates.push(m[2] ?? m[3] ?? m[4]);
   for (const m of cmd.matchAll(/<<-?\s*['"]?(\w+)['"]?\s*\n([\s\S]*?)\n\s*\1\b/g)) candidates.push(m[2]);
@@ -141,6 +156,115 @@ here. (.cursor/rules/06-database-provider-guard.mdc)
 
 Command: ${cmd}`);
   }
+}
+
+/**
+ * Split a shell line into statements on `;` `&&` `||` `|`, then into argv,
+ * respecting quotes. Regexes that stop at `|;&` miss `git push --force; echo`
+ * and quoted `+` refspecs; those are the same operations with ordinary syntax.
+ */
+function splitStatements(s) {
+  const parts = [];
+  let cur = "";
+  let q = null;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) {
+      cur += c;
+      if (c === q && s[i - 1] !== "\\") q = null;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") { q = c; cur += c; continue; }
+    if (c === ";") { if (cur.trim()) parts.push(cur.trim()); cur = ""; continue; }
+    if (c === "&" && s[i + 1] === "&") { if (cur.trim()) parts.push(cur.trim()); cur = ""; i++; continue; }
+    if (c === "|" && s[i + 1] === "|") { if (cur.trim()) parts.push(cur.trim()); cur = ""; i++; continue; }
+    if (c === "|") { if (cur.trim()) parts.push(cur.trim()); cur = ""; continue; }
+    cur += c;
+  }
+  if (cur.trim()) parts.push(cur.trim());
+  return parts;
+}
+
+function tokenize(stmt) {
+  const tokens = [];
+  let cur = "";
+  let q = null;
+  for (let i = 0; i < stmt.length; i++) {
+    const c = stmt[i];
+    if (q) {
+      if (c === q) { q = null; continue; }
+      if (c === "\\" && q === '"' && i + 1 < stmt.length) { cur += stmt[++i]; continue; }
+      cur += c;
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") { q = c; continue; }
+    if (/\s/.test(c)) { if (cur) { tokens.push(cur); cur = ""; } continue; }
+    cur += c;
+  }
+  if (cur) tokens.push(cur);
+  return tokens;
+}
+
+function isGitForcePush(tokens) {
+  let i = 0;
+  while (i < tokens.length && !/^(git)(\.exe)?$/i.test(tokens[i])) i++;
+  if (i >= tokens.length) return false;
+  i++;
+  while (i < tokens.length && tokens[i] !== "push") {
+    const t = tokens[i];
+    if (t === "-C" || t === "-c" || t === "--git-dir" || t === "--work-tree") { i += 2; continue; }
+    if (t.startsWith("--git-dir=") || t.startsWith("--work-tree=") || t.startsWith("-")) { i++; continue; }
+    return false;
+  }
+  if (i >= tokens.length || tokens[i] !== "push") return false;
+  for (const a of tokens.slice(i + 1)) {
+    if (a === "--force-with-lease" || a.startsWith("--force-with-lease=")) continue;
+    if (a === "--force" || a.startsWith("--force=") || a === "-f") return true;
+    if (a.startsWith("+") && a.length > 1) return true;
+  }
+  return false;
+}
+
+function isDangerousFsTarget(t) {
+  const s = String(t || "").trim();
+  if (!s) return false;
+  if (s === "/" || s === "\\" || s === "~" || s === "*" || s === "~/" || s === "~\\") return true;
+  return /^[A-Za-z]:[\\/]?$/.test(s);
+}
+
+function isDangerousRemoveItem(tokens) {
+  if (!tokens.length) return false;
+  if (!/^(Remove-Item|ri|rm|rd|rmdir|del|erase)(\.exe)?$/i.test(tokens[0])) return false;
+  let recurse = false;
+  const targets = [];
+  for (let i = 1; i < tokens.length; i++) {
+    const a = tokens[i];
+    const eq = a.indexOf(":");
+    const name = (eq > 0 && a.startsWith("-") ? a.slice(0, eq) : a).toLowerCase();
+    const inline = eq > 0 && a.startsWith("-") ? a.slice(eq + 1) : null;
+    if (name === "-recurse" || name === "-r") { recurse = true; continue; }
+    if (name === "-path" || name === "-literalpath") {
+      if (inline) targets.push(inline);
+      else if (tokens[i + 1] && !tokens[i + 1].startsWith("-")) targets.push(tokens[++i]);
+      continue;
+    }
+    if (a.startsWith("-")) continue;
+    targets.push(a);
+  }
+  return recurse && targets.some(isDangerousFsTarget);
+}
+
+const FORCE_PUSH_MSG = `BLOCKED: force push. Use \`--force-with-lease\` at minimum, and confirm with
+the user first - this can destroy a teammate's commits. \`--force-with-lease\`
+together with \`--force\` or \`-f\` is still a force push. A '+' refspec is the
+same overwrite.`;
+
+const RECURSE_DELETE_MSG = `BLOCKED: destructive recursive delete with a dangerous target.`;
+
+for (const stmt of splitStatements(cmd)) {
+  const tokens = tokenize(stmt);
+  if (isGitForcePush(tokens)) block(FORCE_PUSH_MSG + `\n\nCommand: ${cmd}`);
+  if (isDangerousRemoveItem(tokens)) block(RECURSE_DELETE_MSG + `\n\nCommand: ${cmd}`);
 }
 
 const RULES = [
@@ -181,12 +305,6 @@ Generate and review the migration, then let a human apply it. Use
 history. Ask the user before touching migration history.`,
   },
   {
-    re: /\bgit\s+push\b[^|;&]*\s(--force|-f)\b/i,
-    exempt: /--force-with-lease/i,
-    msg: `BLOCKED: force push. Use \`--force-with-lease\` at minimum, and confirm with
-the user first - this can destroy a teammate's commits.`,
-  },
-  {
     re: /\bgit\s+(reset\s+--hard|clean\s+-[a-z]*f)/i,
     msg: `BLOCKED: destructive git command - this discards uncommitted work.
 Confirm with the user, or stash instead.`,
@@ -196,9 +314,29 @@ Confirm with the user, or stash instead.`,
     msg: `BLOCKED: destructive recursive delete with a dangerous target.`,
   },
   {
-    re: /\b(DROP\s+(TABLE|DATABASE|SCHEMA)|TRUNCATE\s+TABLE)\b/i,
+    re: /\b(DROP\s+(TABLE|DATABASE|SCHEMA|INDEX|VIEW|FUNCTION|PROCEDURE|TRIGGER|SEQUENCE|TYPE|ROLE|USER|EXTENSION)|DROP\s+MATERIALIZED\s+VIEW|TRUNCATE(\s+TABLE)?)\b/i,
     msg: `BLOCKED: destructive DDL. Emit the statement as reviewed SQL for a human to
 run; never execute it. (.cursor/rules/06-database-provider-guard.mdc)`,
+  },
+  {
+    re: /\b(curl|wget)\b[^|;&]*\|\s*(sudo\s+)?(ba)?sh\b/i,
+    msg: `BLOCKED: piping a download into a shell. Fetch, review, then run. Never
+\`curl | sh\`.`,
+  },
+  {
+    re: /(\|\s*(iex|Invoke-Expression)\b|\b(iex|Invoke-Expression)\b\s*\([^)]*\b(irm|iwr|Invoke-WebRequest|Invoke-RestMethod|curl|wget)\b)/i,
+    msg: `BLOCKED: downloading and Invoke-Expression. Fetch the script, review it,
+then run it. Never \`iex (irm ...)\` or \`curl | iex\`.`,
+  },
+  {
+    // \`npx eslint\` / \`npx --no-install tsc\` are how this repo formats and
+    // tests. \`-y\` / \`--yes\` is the auto-install of a package that is not in
+    // the lockfile — the same new-dependency rule as \`npm install <pkg>\`.
+    re: /\b(npx|npm\s+exec|pnpm\s+dlx|yarn\s+dlx|bunx)\b[^|;&]*\s(-y|--yes)\b/i,
+    msg: `BLOCKED: npx/dlx with --yes installs a package that is not in the lockfile.
+.cursor/rules/10-evidence-and-dependency-guard.mdc: no new dependencies unless
+already in package.json or explicitly requested. \`npx --no-install\` and a
+named local binary stay allowed.`,
   },
 ];
 

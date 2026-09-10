@@ -17,6 +17,8 @@
  * mutates a cache. The router is a fixed table of paths — no file is served
  * from a URL, so path traversal is not a possible bug. Subprocess arguments
  * are a hardcoded array. Bind address is 127.0.0.1, never 0.0.0.0.
+ * Host must be localhost / 127.0.0.1 / [::1] (with optional port); anything
+ * else is 400, so a DNS-rebound Host header does not get a response.
  *
  * The Actions panel is a command composer, not an executor. It builds the
  * exact CLI a human pastes into their terminal and pre-flights it against
@@ -63,6 +65,16 @@ const HOST = "127.0.0.1";
 const DEFAULT_PORT = 7777;
 const CACHE_MS = 30_000;
 const BLOCKED_FILE = /(\.env)|appsettings.*\.json$|\.pfx$|\.p12$|id_rsa$|settings\.local\.json$/i;
+
+/**
+ * DNS-rebinding / Host-header check. The socket is 127.0.0.1, but a browser
+ * that was pointed at a public name resolving to loopback still sends that
+ * name as Host. Answer only localhost spellings.
+ */
+export function hostAllowed(header) {
+  const raw = String(header || "").trim().toLowerCase();
+  return /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(raw);
+}
 
 
 const cache = new Map();
@@ -1007,6 +1019,9 @@ const API = {
 };
 
 function onRequest(req, res) {
+  if (!hostAllowed(req.headers.host)) {
+    return json(res, 400, { error: "Refused Host header. This dashboard is localhost-only." });
+  }
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return json(res, 405, { error: "GET only — this dashboard is read-only." });
@@ -1986,7 +2001,7 @@ function usage() {
   node .cursor/tools/dashboard.mjs serve [--port 7777] [--no-open]
   node .cursor/tools/dashboard.mjs snapshot [--json]
 
-GET only. Binds 127.0.0.1 only. Never writes lifecycle state or caches.
+GET only. Binds 127.0.0.1 only. Host must be localhost. Never writes lifecycle state or caches.
 The Actions panel composes a command; you paste it. The server never runs it.
 Exit codes:  0 = ok   2 = usage`);
 }

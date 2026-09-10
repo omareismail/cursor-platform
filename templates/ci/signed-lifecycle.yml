@@ -1,0 +1,66 @@
+# Copy to .github/workflows/signed-lifecycle.yml in the TARGET APPLICATION repo.
+#
+# OPT-IN. Identity on lifecycle records is `--by` plus `recordedBy`. This is
+# the next rung: every commit that touches lifecycle/ must be a GitHub-verified
+# signature (GPG or SSH, the same check the commit UI already shows).
+#
+# Do not add this as a required check until signing keys are on every machine
+# that records a gate. A job nobody can pass is switched off.
+# Do not copy it into this platform repo's own workflows — it is for adopters.
+
+name: signed-lifecycle
+
+on:
+  pull_request:
+    paths:
+      - "lifecycle/**"
+  push:
+    branches: [main, master]
+    paths:
+      - "lifecycle/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  signed:
+    name: commits that touch lifecycle/ are signed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Every commit that touches lifecycle/ is GitHub-verified
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          COMMITS=$(node .cursor/tools/signed-lifecycle-range.mjs)
+          if [ -z "$COMMITS" ]; then
+            echo "::notice::No commits in range touch lifecycle/. Nothing to verify."
+            exit 0
+          fi
+          FAIL=0
+          for SHA in $COMMITS; do
+            VERIFIED=$(gh api "repos/${{ github.repository }}/commits/$SHA" --jq '.commit.verification.verified')
+            REASON=$(gh api "repos/${{ github.repository }}/commits/$SHA" --jq '.commit.verification.reason')
+            if [ "$VERIFIED" != "true" ]; then
+              echo "::error::$SHA touches lifecycle/ but is not a verified signature ($REASON). Sign the commit (GPG or SSH) and push again."
+              FAIL=1
+            else
+              echo "OK $SHA verified"
+            fi
+          done
+          exit $FAIL

@@ -178,7 +178,7 @@ the only one — the policy is data, in `.cursor/lifecycle/write-policy.json`:
 
 | Artifact | Earliest phase | Needs cleared |
 |---|---|---|
-| `src/`, `backend/`, `frontend/` source | DEVELOPMENT | DESIGN |
+| `src/`, `backend/`, `frontend/`, `packages/`, `lib/`, `apps/`, `services/` source | DEVELOPMENT | DESIGN |
 | Database migrations | DEVELOPMENT | DESIGN |
 | IaC — `*.tf`, `*.bicep`, `infra/` | DESIGN | ANALYSIS |
 | CI pipelines — `.github/workflows/` | TESTING | DEVELOPMENT |

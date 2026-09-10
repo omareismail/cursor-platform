@@ -1,6 +1,6 @@
 ---
 name: dotnet-schema-diff
-description: "dotnet-schema-diff compares two schema snapshots (typically LIVE vs TEST, or two providers holding the same logical data) and produces a structured diff plus the DDL needed to reconcile them — covering tables, columns, data types, nullability, constraints, indexes, and sequences. It does not silently generate and run reconciliation DDL; the diff is presented for review and the DDL is output as... Invoked as /dotnet-schema-diff."
+description: "Prerequisite: /repo-discovery so the project/provider inventory in .cursor/cache/repo-map.json is current before the two catalogs are compared. Invoked as /dotnet-schema-diff."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "dotnet-schema-diff".
@@ -16,6 +16,9 @@ Example: `/dotnet-schema-diff LIVE TEST oracle`
 ## Overview
 
 **Memory references:** `memory-bank/databaseConventions.md`, `memory-bank/decisionLog.md`, `memory-bank/deploymentNotes.md`
+
+Prerequisite: `/repo-discovery` so the project/provider inventory in
+`.cursor/cache/repo-map.json` is current before the two catalogs are compared.
 
 `dotnet-schema-diff` compares two schema snapshots (typically LIVE vs TEST, or two
 providers holding the same logical data) and produces a structured diff plus the

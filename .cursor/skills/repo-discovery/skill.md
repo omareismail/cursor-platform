@@ -118,7 +118,7 @@ what's *actually* in the code right now, for `pattern-finder` to use:
   ],
   "dependencyGraph": { "cycles": [] },
   "databaseProviders": ["oracle", "sqlserver"],
-  "dataAccess": { "efCoreContexts": [...], "dapperRepositories": [...] },
+  "dataAccess": { "efCoreContexts": [...], "dapperRepositories": [...], "routines": [...], "triggers": [...] },
   "messaging": ["masstransit+rabbitmq"],
   "iac": ["bicep"],
   "conventionsFingerprint": {

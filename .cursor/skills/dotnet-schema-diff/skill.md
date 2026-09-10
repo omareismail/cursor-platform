@@ -9,6 +9,9 @@ Example: `/dotnet-schema-diff LIVE TEST oracle`
 
 **Memory references:** `memory-bank/databaseConventions.md`, `memory-bank/decisionLog.md`, `memory-bank/deploymentNotes.md`
 
+Prerequisite: `/repo-discovery` so the project/provider inventory in
+`.cursor/cache/repo-map.json` is current before the two catalogs are compared.
+
 `dotnet-schema-diff` compares two schema snapshots (typically LIVE vs TEST, or two
 providers holding the same logical data) and produces a structured diff plus the
 DDL needed to reconcile them — covering tables, columns, data types, nullability,

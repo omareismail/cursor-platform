@@ -146,6 +146,10 @@ console.log("\nguard-bash.mjs — the refusals, and the exemptions that make the
     ["dotnet ef database update",          true,  "a live database migration"],
     ["git push --force origin main",       true,  "a force push"],
     ["git push --force-with-lease origin main", false, "force-with-lease"],
+    ["git push --force --force-with-lease origin main", true, "force plus force-with-lease"],
+    ["git push origin +main",             true,  "a plus refspec"],
+    ['git push origin "+main:main"',     true,  "a quoted plus refspec"],
+    ["git push --force; echo done",       true,  "a force push before a separator"],
     ["git reset --hard HEAD~1",            true,  "a destructive reset"],
     ["dotnet build",                       false, "an ordinary build"],
   ];

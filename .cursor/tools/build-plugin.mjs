@@ -28,9 +28,10 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, copyFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, copyFileSync, statSync } from "node:fs";
+import { join, dirname, resolve, relative, isAbsolute } from "node:path";
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { build as buildSkillsIndex, serialize as serializeIndex } from "./_skills-index.mjs";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
@@ -51,6 +52,7 @@ const SRC_AGENTS = join(ROOT, ".claude", "agents");
 const SHIPPED_DOCS = new Set([
   "skill-catalog.md", "skill-graph.md", "shared-execution-pipeline.md",
   "START-HERE.md", "mcp-ecosystem.md", "APPLY-TO-PROJECT.md", "NEW-PROJECT.md",
+  "IDEA-TO-PRODUCTION.md", "LIFECYCLE.md",
 ]);
 const SRC_HOOKS = join(ROOT, ".claude", "hooks");
 const DESCRIPTIONS = join(ROOT, ".claude", "skills", "_descriptions.json");
@@ -78,24 +80,111 @@ const write = (p, s) => { mkdirSync(dirname(p), { recursive: true }); writeFileS
  * the tier split — the plugin ships the machinery, the repo keeps its truth.
  */
 function rewritePaths(text) {
+  const shipped = [...SHIPPED_DOCS].map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
   return text
     .replace(/`\.cursor\/rules\//g, "`${CLAUDE_PLUGIN_ROOT}/rules/")
     .replace(/(?<!`)\.cursor\/rules\//g, "${CLAUDE_PLUGIN_ROOT}/rules/")
-    .replace(/`\.cursor\/docs\//g, "`${CLAUDE_PLUGIN_ROOT}/docs/")
-    .replace(/(?<!`)\.cursor\/docs\//g, "${CLAUDE_PLUGIN_ROOT}/docs/")
+    .replace(new RegExp("`" + String.raw`\.cursor/docs/(${shipped})`, "g"), "`${CLAUDE_PLUGIN_ROOT}/docs/$1")
+    .replace(new RegExp("(?<!`)" + String.raw`\.cursor/docs/(${shipped})`, "g"), "${CLAUDE_PLUGIN_ROOT}/docs/$1")
     .replace(/`\.cursor\/tools\//g, "`${CLAUDE_PLUGIN_ROOT}/tools/")
     .replace(/node \.cursor\/tools\//g, "node ${CLAUDE_PLUGIN_ROOT}/tools/")
     .replace(/(?<!`|\/)\.cursor\/tools\//g, "${CLAUDE_PLUGIN_ROOT}/tools/")
-    // Skill-to-skill references become slash commands, which resolve wherever
-    // the plugin is installed.
     .replace(/`\.cursor\/skills\/([a-z0-9-]+)\/skill\.md`/g, "`/$1`")
     .replace(/\.cursor\/skills\/([a-z0-9-]+)\/skill\.md/g, "/$1")
-    // Glob forms (.cursor/skills/*/skill.md) name no single skill, so they
-    // become a path into the plugin's own skills directory instead.
     .replace(/`?\.cursor\/skills\/\*\/skill\.md`?/g, "`${CLAUDE_PLUGIN_ROOT}/skills/*/SKILL.md`")
     .replace(/`?\.cursor\/skills\/`?/g, "`${CLAUDE_PLUGIN_ROOT}/skills/`")
-    // The cache lives in the consuming project, not the plugin.
     .replace(/\$\{CLAUDE_PLUGIN_ROOT\}\/cache\//g, ".cursor/cache/");
+}
+
+export { rewritePaths };
+
+const FORBIDDEN_OUT_TOP = new Set([
+  ".git", ".claude", ".cursor", "lifecycle", "memory-bank", "tests", "test",
+  "templates", "src", "docs", "schemas", "node_modules", "backend", "frontend",
+]);
+
+/**
+ * `--out` joins onto the repo root and then recursively deletes it. Refuse the
+ * repository itself, ancestors, source trees, and any existing directory that
+ * is not already a plugin build.
+ */
+export function resolvePluginOut(root, requested) {
+  const spec = requested == null || requested === "" ? "plugin" : String(requested);
+  const out = resolve(root, spec);
+  const rootAbs = resolve(root);
+  const rel = relative(rootAbs, out);
+  if (!rel || rel === ".") {
+    const err = new Error("refusing --out that resolves to the repository root");
+    err.code = "EUNSAFEOUT";
+    throw err;
+  }
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    const err = new Error("refusing --out outside the repository");
+    err.code = "EUNSAFEOUT";
+    throw err;
+  }
+  const top = rel.split(/[\\/]/)[0];
+  if (FORBIDDEN_OUT_TOP.has(top)) {
+    const err = new Error(`refusing --out under ${top}/`);
+    err.code = "EUNSAFEOUT";
+    throw err;
+  }
+  if (existsSync(out)) {
+    const posix = rel.split("\\").join("/");
+    const checkTmp = posix.endsWith(".__check__") || posix.includes(".__check__/");
+    const marker = existsSync(join(out, ".claude-plugin", "BUILD"))
+      || existsSync(join(out, ".claude-plugin", "plugin.json"));
+    if (!checkTmp && !marker) {
+      const err = new Error("refusing to replace a directory that is not a previous plugin build (missing .claude-plugin/BUILD)");
+      err.code = "EUNSAFEOUT";
+      throw err;
+    }
+  }
+  return out;
+}
+
+function listPluginFiles(dir) {
+  const out = [];
+  const stack = [""];
+  while (stack.length) {
+    const rel = stack.pop();
+    const abs = rel ? join(dir, rel) : dir;
+    let entries = [];
+    try { entries = readdirSync(abs, { withFileTypes: true }); } catch { continue; }
+    for (const e of entries) {
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      const posix = r.split("\\").join("/");
+      if (e.isDirectory()) stack.push(posix);
+      else if (e.isFile()) out.push(posix);
+    }
+  }
+  return out.sort();
+}
+
+export function digestPluginTree(dir) {
+  const files = listPluginFiles(dir).filter((f) => f !== ".claude-plugin/BUILD");
+  const h = createHash("sha256");
+  for (const rel of files) h.update(rel).update(read(join(dir, rel)));
+  return { digest: h.digest("hex").slice(0, 16), files };
+}
+
+function validateShippedDocLinks(outDir) {
+  const names = new Set([...SHIPPED_DOCS]);
+  const problems = [];
+  for (const f of [...SHIPPED_DOCS].sort()) {
+    const p = join(outDir, "docs", f);
+    if (!existsSync(p)) continue;
+    const body = read(p);
+    for (const m of body.matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/docs\/([A-Za-z0-9._-]+)/g)) {
+      if (!names.has(m[1])) problems.push(`${f} references ${m[1]} which is not shipped`);
+    }
+    for (const m of body.matchAll(/\]\(([^)]+\.md)\)/g)) {
+      const target = m[1].split("#")[0].replace(/^\.\//, "");
+      if (target.includes("/") || target.startsWith("http")) continue;
+      if (!names.has(target)) problems.push(`${f} links to ${target} which is not shipped`);
+    }
+  }
+  if (problems.length) fail("Packaged docs reference files that do not ship:\n  " + problems.join("\n  "), 2);
 }
 
 /** Frontmatter description: hand-written override wins, else extract. */
@@ -120,7 +209,9 @@ function descriptionFor(name, body, overrides) {
 // ------------------------------------------------------------------ build ---
 function build(args) {
   const oi = args.indexOf("--out");
-  const OUT = join(ROOT, oi >= 0 ? args[oi + 1] : "plugin");
+  let OUT;
+  try { OUT = resolvePluginOut(ROOT, oi >= 0 ? args[oi + 1] : "plugin"); }
+  catch (e) { fail(e.message, 2); }
 
   if (!existsSync(SRC_SKILLS)) fail(`No ${SRC_SKILLS}. Nothing to build.`, 2);
   let overrides = {};
@@ -172,6 +263,7 @@ ${rewritePaths(body)}
     for (const f of readdirSync(SRC_DOCS).filter(f => SHIPPED_DOCS.has(f)).sort()) {
       emit(`docs/${f}`, rewritePaths(read(join(SRC_DOCS, f))));
     }
+    validateShippedDocLinks(OUT);
   }
 
   // ---- agents ------------------------------------------------------------
@@ -416,11 +508,25 @@ time, deliberately — see the platform repo's \`templates/README.md\`.
 function check(args) {
   const oi = args.indexOf("--out");
   const rel = oi >= 0 ? args[oi + 1] : "plugin";
-  const OUT = join(ROOT, rel);
+  let OUT;
+  try { OUT = resolvePluginOut(ROOT, rel); }
+  catch (e) { fail(e.message, 2); }
   const stamp = join(OUT, ".claude-plugin", "BUILD");
   if (!existsSync(stamp)) fail(`No ${rel}/ build found. Run: node .cursor/tools/build-plugin.mjs build`, 1);
 
   const before = read(stamp);
+  const installed = digestPluginTree(OUT);
+  const stampDigest = before.trim().split(/\r?\n/)[0];
+  if (installed.digest !== stampDigest) {
+    process.stderr.write(
+`${rel}/ tree does not match its BUILD stamp (a file was edited without rebuilding).
+  stamp:    ${stampDigest}
+  tree:     ${installed.digest}
+Run: node .cursor/tools/build-plugin.mjs build
+`);
+    return 1;
+  }
+
   const tmp = `${rel}.__check__`;
   build(["--out", tmp]);
   const after = read(join(ROOT, tmp, ".claude-plugin", "BUILD"));
@@ -429,8 +535,8 @@ function check(args) {
   if (before.trim() !== after.trim()) {
     process.stderr.write(
 `${rel}/ is out of sync with the source.
-  committed: ${before.split("\\n")[0]}
-  rebuilt:   ${after.split("\\n")[0]}
+  committed: ${before.split("\n")[0]}
+  rebuilt:   ${after.split("\n")[0]}
 Run: node .cursor/tools/build-plugin.mjs build
 `);
     return 1;
@@ -440,9 +546,18 @@ Run: node .cursor/tools/build-plugin.mjs build
 }
 
 const CMDS = { build, check };
-const [cmd, ...args] = process.argv.slice(2);
-if (!cmd || !CMDS[cmd]) {
-  out(read(new URL(import.meta.url)).split("\n").slice(2, 28).join("\n").replace(/^\s*\*\/?\s?/gm, "").trim());
-  process.exit(cmd ? 2 : 0);
+const invoked = (() => {
+  try {
+    const self = fileURLToPath(import.meta.url);
+    const arg = resolve(process.argv[1] || "");
+    return self === arg || self.toLowerCase() === arg.toLowerCase();
+  } catch { return false; }
+})();
+if (invoked) {
+  const [cmd, ...args] = process.argv.slice(2);
+  if (!cmd || !CMDS[cmd]) {
+    out(read(new URL(import.meta.url)).split("\n").slice(2, 28).join("\n").replace(/^\s*\*\/?\s?/gm, "").trim());
+    process.exit(cmd ? 2 : 0);
+  }
+  process.exit(CMDS[cmd](args) ?? 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);

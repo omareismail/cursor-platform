@@ -1,26 +1,46 @@
 # Active Context
-**Last Updated:** 2026-09-09 19:30
+**Last Updated:** 2026-09-10
 **Current branch:** platform-ui
-**Recently modified files:** `_skills-index.mjs`, `docs-lint.mjs`, `sync-skills.mjs`, `session-start.mjs`, `build-plugin.mjs`, `skill-catalog.md`, `skill-graph.md`, `HANDBOOK.md`, `HANDBOOK.ar.md`, `START-HERE.md`, `README.md`, `CLAUDE.md`, `tests/adversarial/orchestration.test.mjs`
-**Active feature:** Phase D (E-20, E-21) — skills index + docs-lint coverage
+**Recently modified files:** `guard-bash.mjs`, `lifecycle.mjs`, `_state.mjs`, `build-plugin.mjs`, `feature-map.mjs`, `_skills-index.mjs`, `signed-lifecycle-range.mjs`, `plugin/`, `tests/adversarial/*`
+**Active feature:** R01–R13 corrections from the 2026-09-10 project review
 
-## What was just done (Phase D)
+## Latest work — 2026-09-10
 
-- **E-20** Generated `.cursor/skills.index.json` (category, phase, capability, workflow, requires) from `.cursor/skills/`. `sync-skills.mjs` writes it. SessionStart prints a one-line capability summary. `docs-lint` fails on a missing/stale index or a live skill with no catalog row.
-- **E-21** `docs-lint` now matches hyphenated `N-skill` counts, cited `.mdc` files, and Arabic skill counts in `HANDBOOK.ar.md`.
+Implemented the twelve defects plus the Windows lock retry from
+`docs/reviews/project-review-2026-09-10.md`. Full suite `node tests/run.mjs`:
+19 suites, 0 failed. `build-plugin.mjs check` is in sync (`ad2590f82243fd88`).
+`self-audit.mjs run` PASS. Integrity remains FAIL until a human attests.
+
+## What shipped (R01–R13)
+
+- **R01/R02** Tokenized `guard-bash` force-push and PowerShell `Remove-Item`.
+- **R03/R10/R11/R12** Safe `--out`, installed-tree digest, project-owned
+  `.cursor/docs/architecture/`, shipped `IDEA-TO-PRODUCTION.md` + `LIFECYCLE.md`.
+- **R04/R08** Shared `SOURCE_ROOTS` and effective-policy `sourceLayout()`.
+- **R05** `signed-lifecycle-range.mjs` for full push/PR ranges.
+- **R06/R07** Reciprocal lineage and object-definition freshness.
+- **R09** Catalog-heading skill categories.
+- **R13** Bounded retry on Windows lock `EPERM`/`EBUSY`/`EACCES`.
 
 ## Tests
 
-Run `node tests/run.mjs`, `node .cursor/tools/self-audit.mjs run`, then rebuild the plugin. Integrity `--check` will fail until you re-attest (`session-start.mjs` and `sync-skills.mjs` changed):
+```
+node tests/run.mjs
+node .cursor/tools/self-audit.mjs run
+node .cursor/tools/self-audit.mjs integrity
+```
+
+Integrity `--check` fails until:
 
 ```
 node .cursor/tools/self-audit.mjs integrity --write --by "omar ismail"
 ```
 
-## Next logical step (human)
+## Next logical step
 
-1. Re-attest integrity, then commit Phase D if the suite is green.
-2. Phase E (E-22, E-23) when you want it.
+1. Human reviews the R01–R13 enforcement-surface bytes and attests integrity.
+2. Commit Phases D/E/F plus the review fixes (do not attest from the agent shell).
+3. Optional: prioritize H01–H22.
 
 ## Open questions for the human
 

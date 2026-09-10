@@ -58,8 +58,8 @@ CLAUDE.md            # Claude Code entry point — imports AGENTS.md, adds Claud
   docs/              # skill-graph, execution pipeline, governance, START-HERE
   tools/             # feature-map, task-graph, ac-trace, delivery-metrics,
                      #   flag-debt, docs-lint, lifecycle, platform-metadata,
-                     #   artifact-schema, change-request
-                     #   (23 validators + build-plugin)
+                     #   artifact-schema, change-request, signed-lifecycle-range
+                     #   (24 validators + build-plugin)
   cache/             # repo-map.json (structure) + feature-map.json (behaviour)
                      #   both generated; gitignored except .gitkeep
   lifecycle/gates/   # 6 gate definitions - what each phase must satisfy
@@ -73,7 +73,7 @@ lifecycle/           # per-project state.json (committed, machine-owned)
 .claude/
   skills/            # 97 generated shims → .cursor/skills/ (never edit by hand)
   skills/_descriptions.json  # hand-written description overrides
-  agents/            # 14 read-only subagents (context isolation)
+  agents/            # 14 specialist subagents (context isolation; read-only by convention)
   hooks/             # 7 enforcement hooks + sync-skills.mjs (plain Node, no deps)
                      #   incl. guard-phase.mjs - enforces the phase write policy
   settings.json      # hook wiring + permission deny/ask lists (committed)
@@ -104,6 +104,8 @@ templates/           # build gates for TARGET app repos: analyzers, CPM,
 | [skill-catalog.md](.cursor/docs/skill-catalog.md) | Full 98-skill catalog and auto-routing |
 | [skill-graph.md](.cursor/docs/skill-graph.md) | Skill dependencies and wiring |
 | [shared-execution-pipeline.md](.cursor/docs/shared-execution-pipeline.md) | Canonical order: discovery → pattern → generate → validate |
+| [HARDENING-STATUS.md](.cursor/docs/HARDENING-STATUS.md) | Governance hardening: implemented vs verified vs attested vs committed |
+| [LIFECYCLE.md](.cursor/docs/LIFECYCLE.md) | Six phases, gates, inheritance, integrity, evidence chain |
 | [GOVERNANCE_REPORT.md](.cursor/docs/GOVERNANCE_REPORT.md) | How 24 proposed governance rules map to 11 actual rules <!-- count-ok: figures frozen at the time of that report --> |
 | [PROPOSAL-REVIEW.md](.cursor/docs/PROPOSAL-REVIEW.md) | Architectural review of ~150 proposed additions — what was approved, rejected, and why |
 | Historical records | [ENTERPRISE_MATURITY_REPORT.md](.cursor/docs/ENTERPRISE_MATURITY_REPORT.md) · [MIGRATION_NOTES_PASS1.md](.cursor/docs/MIGRATION_NOTES_PASS1.md) · [PHASE5_GAP_ANALYSIS.md](.cursor/docs/PHASE5_GAP_ANALYSIS.md) — point-in-time, counts deliberately frozen |
@@ -180,7 +182,7 @@ time, in the order listed there — then run `/repo-discovery full` and
 - **12 rules** — 5 global (`00`, `05`, `09`, `10`, `11-lifecycle-gate`) + 7 glob-scoped (architecture, security, DB, audit, RTL, specs)
 - **14 subagents** — `feature-analyst`, `ops-reviewer`, `pattern-scout`, `repo-cartographer`, `dotnet-auditor`, `react-auditor`, `security-auditor`, `db-auditor`, plus the lifecycle phase owners `lifecycle-controller`, `product-manager`, `business-analyst`, `solution-architect`, `ux-bridge`, `test-engineer` (all read-only, isolated context)
 - **2 cache layers** — `repo-map.json` (structure, from `/repo-discovery`) and `feature-map.json` (behaviour, from `/feature-trace`); freshness computed from file content hashes
-- **23 validators** — `feature-map.mjs` (is this trace still true?), `task-graph.mjs` (is this task small enough to finish?), `ac-trace.mjs` (is every acceptance criterion covered by a test that can fail?), `delivery-metrics.mjs` (is delivery improving?), `flag-debt.mjs` (which flags outlived their purpose?), `docs-lint.mjs` (is the documentation graph intact?), `lifecycle.mjs` (which phase are we in, and were its artifacts ever produced?), `platform-metadata.mjs` (does any document still claim a count that stopped being true?), `artifact-schema.mjs` (does every requirement reach a story, every story a use case, every use case an endpoint?), `change-request.mjs` (if this rule changes, what stops being true?), `release-evidence.mjs` (what shipped, what proved it, and who signed?), `risk-profile.mjs` (where is being wrong expensive, and do the tests know it?), `failure-modes.mjs` (what happens when something you do not control fails?), `fitness.mjs` (does the promoted architecture still hold?), `incidents.mjs` (is the guard that incident bought still standing?), `delivery-intel.mjs` (is the process producing anything, or being performed?), `self-audit.mjs` (is every control actually reachable, has any fail-closed copy drifted, and does anything run without a human remembering?), `dashboard.mjs` (can I see the whole project on one screen?), `memory-bank.mjs` (what does the memory bank contain, and is any of it real?)
+- **24 validators** — `feature-map.mjs` (is this trace still true?), `task-graph.mjs` (is this task small enough to finish?), `ac-trace.mjs` (is every acceptance criterion covered by a test that can fail?), `delivery-metrics.mjs` (is delivery improving?), `flag-debt.mjs` (which flags outlived their purpose?), `docs-lint.mjs` (is the documentation graph intact?), `lifecycle.mjs` (which phase are we in, and were its artifacts ever produced?), `platform-metadata.mjs` (does any document still claim a count that stopped being true?), `artifact-schema.mjs` (does every requirement reach a story, every story a use case, every use case an endpoint?), `change-request.mjs` (if this rule changes, what stops being true?), `release-evidence.mjs` (what shipped, what proved it, and who signed?), `signed-lifecycle-range.mjs` (which commits in this push actually touched lifecycle records?), `risk-profile.mjs` (where is being wrong expensive, and do the tests know it?), `failure-modes.mjs` (what happens when something you do not control fails?), `fitness.mjs` (does the promoted architecture still hold?), `incidents.mjs` (is the guard that incident bought still standing?), `delivery-intel.mjs` (is the process producing anything, or being performed?), `self-audit.mjs` (is every control actually reachable, has any fail-closed copy drifted, and does anything run without a human remembering?), `dashboard.mjs` (can I see the whole project on one screen?), `memory-bank.mjs` (what does the memory bank contain, and is any of it real?)
 - **7 hooks** — memory + lifecycle-phase injection at session start, write/bash/phase/MCP guards, post-edit tripwires, memory-update check at stop
 - **Build gates** — MSBuild layer guards, `BannedSymbols.txt`, Central Package Management, NetArchTest suites, ESLint boundaries, CI quality gates
 

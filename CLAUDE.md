@@ -54,7 +54,7 @@ reformatting, no drive-by refactors, no scope creep. Minimise the diff.
 one of six phases and you may not run work belonging to a later one. The
 `SessionStart` hook injects the current phase. Until the DESIGN gate is
 `APPROVED`, `INHERITED` or `INHERITED_UNVERIFIED`, `guard-phase.mjs` blocks every write under `src/`,
-`backend/` and `frontend/` — tests, specs and docs are never blocked. Never
+`backend/`, `frontend/`, `packages/`, `lib/`, `apps/` and `services/` — tests, specs and docs are never blocked. Never
 approve a gate on the user's behalf; `approve` requires `--by "name"` for that
 reason. Never judge a gate for a phase you wrote: each gate file names the
 reviewer, and it is never one of that phase's authors. A repo with no state file never adopted the lifecycle and this rule is
@@ -83,10 +83,15 @@ that block is a signal to stop and ask, not to find a workaround.
 
 ## Subagents — use them, they protect the context window
 
-`.claude/agents/` holds read-only specialists. Delegating to them keeps
+`.claude/agents/` holds specialists that return findings, not files. Delegating to them keeps
 thousands of lines of scanned source **out of the main conversation** — only
 the findings come back. On a large .NET + React repo this is the difference
 between finishing a task and running out of context mid-refactor.
+
+**Read-only is a convention, not a sandbox.** The `tools:` list is what the
+host is asked to offer; it is not enforced on every editor. Do not delegate
+file-writing work. Generation stays in the main thread where the guard rules
+and hooks apply.
 
 | Subagent | Delegate when |
 |---|---|
@@ -105,8 +110,9 @@ between finishing a task and running out of context mid-refactor.
 | `ux-bridge` | Phase 3 UI — screen inventory, states, RTL/i18n contract, design tokens. Reads the Figma MCP server when connected. |
 | `test-engineer` | Phase 5 — test strategy, and proving every acceptance criterion has a test that asserts it. |
 
-Do **not** delegate file-writing work — subagents here are read-only by design.
-Generation stays in the main thread where the guard rules and hooks apply.
+Do **not** delegate file-writing work. Subagents are readers by convention;
+the `tools:` list is advisory. Generation stays in the main thread where the
+guard rules and hooks apply.
 
 ---
 
@@ -608,7 +614,7 @@ Prose rules are advisory; hooks are not. `.claude/settings.json` wires:
 |---|---|
 | `SessionStart` | Injects the current lifecycle phase, memory-bank Tier 1 digest + `repo-map.json` freshness. Rules `00` and `11` become automatic. |
 | `PreToolUse` (Write/Edit/Delete) | **Blocks** hand-edits to `.cursor/cache/repo-map.json` and `lifecycle/state.json`, writes to `.env`/secret files, hardcoded connection-string passwords — and every write to the **enforcement surface**: the hooks, `.claude/settings.json`, `.cursor/hooks.json`, `.cursor/mcp-policy.json`, `.cursor/lifecycle/`, `lifecycle.mjs`, `.mcp.json` and every record under `lifecycle/`. The list is `protected.paths` in `.cursor/lifecycle/write-policy.json`. An agent that can edit the rule instead of obeying it has no rule. Escape for a human developing the platform: `CURSOR_PLATFORM_DEV=1`. |
-| `PreToolUse` (Write/Edit) | **Blocks** every write under `src/`, `backend/`, `frontend/` while the lifecycle DESIGN gate is unapproved. A `lifecycle/state.json` that cannot be read is treated as **closed**, not absent. Escape: `LIFECYCLE_OVERRIDE=1`, set by a human on purpose. |
+| `PreToolUse` (Write/Edit) | **Blocks** every write under `src/`, `backend/`, `frontend/`, `packages/`, `lib/`, `apps/`, `services/` (and the other `application-source` globs) while the lifecycle DESIGN gate is unapproved. A `lifecycle/state.json` that cannot be read is treated as **closed**, not absent. Escape: `LIFECYCLE_OVERRIDE=1`, set by a human on purpose. |
 | `PreToolUse` (Bash) | **Blocks** `dotnet add package`, `npm/yarn/pnpm install <pkg>`, `git push --force`, `ef database update` against non-local connections; shell writes (redirects, `Set-Content`, `rm`, `sed -i`, `git checkout --`, interpreter one-liners…) to any protected path; `psql -f` and any `psql -c` that is not a single read; and the **human-only commands** `lifecycle.mjs approve`, `override`, `init --existing`, `lifecycle.mjs evidence reseal`, `release-evidence.mjs sign` and `self-audit.mjs integrity --write` — a consent typed by the agent is not a consent. No escape for those. |
 | `PreToolUse` (`mcp__.*`) | **Blocks** MCP calls that violate `.cursor/mcp-policy.json`. A server with no entry is **denied** (v2; `unlisted:"allow"` is honoured but reported). Each server has an access level — `deny`, `read-only`, `restricted-write`, `full` — and on read-only anything not recognisably a read (`deleteRows`, `truncate_table`, `frobnicate`) is refused. SQL in **any** argument field is classified by a tokenizer, not a first-word regex: a `DELETE` inside a CTE, `EXPLAIN ANALYZE`, a second statement behind a comment or literal, `FOR UPDATE`, `SELECT INTO` and `pg_sleep`/`lo_import`/`set_config` are all refused. A missing or unparseable policy denies everything. Cursor attaches the same guard to `beforeMCPExecution`. The client-side lock is defence in depth; the boundary is the role in `templates/postgres/readonly-role.sql`. |
 | `PostToolUse` (Write/Edit) | Runs `dotnet format` / `eslint --fix` on the touched file and feeds failures back. |

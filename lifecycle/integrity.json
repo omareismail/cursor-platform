@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "writtenAt": "2026-09-09T16:38:20.978Z",
+  "writtenAt": "2026-09-10T08:09:49.414Z",
   "by": "omar ismail",
   "recordedBy": {
     "os": "MSI",
@@ -13,9 +13,9 @@
   "files": {
     ".claude/hooks/_lib.mjs": "6838948c2c67640ee3c29282ba977086768b82d74631000486ba8d9844a91192",
     ".claude/hooks/_sql.mjs": "539f623ad0fc74321f0c11ad4fbe1e55d80da5607db94e918ebfeb8af98a5935",
-    ".claude/hooks/guard-bash.mjs": "3b7c757acea32fbc858e8aa5ca90181e80126a9f235cdd40f0e9d015ed582709",
+    ".claude/hooks/guard-bash.mjs": "3b01f212c67dbf7ae65ba4a129af25cc868a38c9bcba27af180fba2f0f32b5a6",
     ".claude/hooks/guard-mcp.mjs": "6e9012433be249a7b3a2bea437982d3e97cb6ba4c68dc0e252483e18f1abb9a5",
-    ".claude/hooks/guard-phase.mjs": "149ed24aefb3ee29ec275ca560aee993e7c1488e1c5ce6cade9613804136111e",
+    ".claude/hooks/guard-phase.mjs": "06c8e37e7e367c626e11d40d68d0ed86f35bb602ee3b6c441ff714069d4f4cc0",
     ".claude/hooks/guard-write.mjs": "037938b54b146cbcc27f4c555585ee3d5b1f426716bb16233450471afba89eff",
     ".claude/hooks/post-edit-verify.mjs": "fab01f0e32c73fc61c36cd144b505d1ab7b3b839ddcaa0d26425a1fbb6077fd3",
     ".claude/hooks/session-start.mjs": "6d237a29aa6e3e112852c86feee60ec49eae074d7d3c445828bf7172763e4cf5",
@@ -29,11 +29,11 @@
     ".cursor/lifecycle/gates/04-development.gate.md": "6881803c287665a473eeb0432abef96096647a5738a4a36a5340f3c89c65d886",
     ".cursor/lifecycle/gates/05-testing.gate.md": "516793a54ed2ca1a855e3f99dc3e16ce4582c6f5b43e0c79aa4553d63af30dbe",
     ".cursor/lifecycle/gates/06-production.gate.md": "23329bc329614308ca4acd349cf19572819097c01456659c4ad57580ffd6139b",
-    ".cursor/lifecycle/write-policy.json": "1ef931ed0de08f66da5837560ab8779a375775d362452f658e6928cfa46dd4d2",
+    ".cursor/lifecycle/write-policy.json": "dd97c84e830bcd0cf2c40da94d87369c4f970b1670b4a2e0a4c25b9d6f563322",
     ".cursor/mcp-policy.json": "35475e837a4810d734003a534f6920115b7e1fa121c8129d6ebfeba98b64b6e4",
     ".cursor/tools/_evidence.mjs": "7091bb20931623167fd1188969df5db208cea1b03573b5672bc3fd9c63f65e4e",
-    ".cursor/tools/_state.mjs": "0937602735d20b1cbbf1a6df33bea95f74eca8cd4ffb5c49223a19ec0b140ac7",
-    ".cursor/tools/lifecycle.mjs": "3c1093f8655bb8062e86cce69f37d2c99b70de6966fe2900e280f07bfc7a4a82",
+    ".cursor/tools/_state.mjs": "3aec8fd6a2f0edb3e65d53dd50ad9ac8aefe9de179936c5f9b9f0897f5a54380",
+    ".cursor/tools/lifecycle.mjs": "ee2e92b95bc04c90909776b160d3c41d22b413e9036ab981e41fc9882a4b074d",
     ".cursor/tools/release-evidence.mjs": "a71cc2890f62b638f1a3a6625b6ad5927c85cf5d53f6a0dbd0458cf69b66aa76",
     ".cursor/tools/self-audit.mjs": "abff2bd2f4f6a2a5533ad863cf484f7be50e22aadf277c96786348a50c1e916b",
     ".mcp.json": "b4cfb1ab2bc76b9380844665978fd41312fbf542182e231088f7ffd223abd528"

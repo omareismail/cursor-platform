@@ -174,7 +174,14 @@ must exist):
   "dataTouched": {
     "tables": ["Policies", "PremiumLines", "RiskFactors"],
     "columns": ["Policies.BasePremium", "PremiumLines.Amount"],
-    "contexts": ["PolicyDbContext"]
+    "contexts": ["PolicyDbContext"],
+    "objects": ["dbo.usp_CalculatePremium"]
+  },
+  "lineage": {
+    "reads": ["Policies", "RiskFactors"],
+    "writes": ["PremiumLines"],
+    "calls": ["dbo.usp_CalculatePremium"],
+    "firedBy": []
   },
   "featureFlags": ["premium-v2"],
   "authPolicies": ["UnderwriterPolicy"],

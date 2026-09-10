@@ -85,6 +85,11 @@ function repoRoot() {
 
 export const PHASES = ["REQUIREMENTS", "ANALYSIS", "DESIGN", "DEVELOPMENT", "TESTING", "PRODUCTION"];
 
+/** Conventional application-source roots. The DEVELOPMENT artifact, inheritance
+ *  evidence, status layout hint, and write-policy `application-source.match`
+ *  all use this list — a monorepo with only `packages/` is still application source. */
+export const SOURCE_ROOTS = ["src", "backend", "frontend", "client", "server", "app", "apps", "api", "web", "lib", "packages", "services"];
+
 /**
  * Required artifacts per phase. Presence is checked mechanically; quality is
  * the gate file's problem. Paths are relative to the repo root.
@@ -132,7 +137,7 @@ const REQUIRED = {
     { path: "docs/design/adr", type: "adr-set", what: "Architecture decision records — gate 3 criterion 10" },
   ],
   DEVELOPMENT: [
-    { anyOf: ["src", "backend", "frontend", "client"], type: "source-tree", what: "Application source" },
+    { anyOf: SOURCE_ROOTS, type: "source-tree", what: "Application source" },
     { path: "specs/features", type: "spec-set", what: "At least one merged feature spec" },
     { path: "memory-bank/progress.md", type: "task-board", what: "Task board with no task left In Progress" },
   ],
@@ -547,7 +552,7 @@ function inheritanceEvidence() {
   let commits = 0, head = null;
   try { commits = parseInt(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(), 10) || 0; } catch { /* no git or no commits */ }
   try { head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { /* none */ }
-  const roots = ["src", "backend", "frontend", "client", "server", "app", "apps", "api", "web", "lib", "packages", "services"]
+  const roots = SOURCE_ROOTS
     .filter((d) => { try { return statSync(join(ROOT, d)).isDirectory(); } catch { return false; } });
   let sourceFiles = 0;
   for (const d of roots) sourceFiles += walkFiles(join(ROOT, d)).filter((r) => SOURCE_RE.test(r)).length;
@@ -556,6 +561,86 @@ function inheritanceEvidence() {
     try { sourceFiles = readdirSync(ROOT).filter((f) => SOURCE_RE.test(f)).length; } catch { /* unreadable */ }
   }
   return { commits, head, sourceRoots: roots, sourceFiles };
+}
+
+/**
+ * Minimal glob — MUST stay aligned with `.claude/hooks/guard-phase.mjs`.
+ * This file must not import the hook: the hook already imports lifecycle.mjs.
+ */
+function policyGlob(pattern, s) {
+  const rx = pattern
+    .split(/(\*\*\/|\*\*|\*|\?)/)
+    .map((part) => {
+      if (part === "**/") return "(?:.*/)?";
+      if (part === "**") return ".*";
+      if (part === "*") return "[^/]*";
+      if (part === "?") return "[^/]";
+      return part.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("");
+  return new RegExp(`^${rx}$`, "i").test(s);
+}
+
+/**
+ * Same built-in fallback as `.claude/hooks/guard-phase.mjs`. This file must not
+ * import the hook (the hook already imports lifecycle.mjs). A missing local
+ * policy is not "nothing is gated" — the hook still denies `packages/` from
+ * this list, and status must say so.
+ */
+const BUILTIN_WRITE_POLICY = {
+  alwaysAllow: ["docs/**", "specs/**", "memory-bank/**", "lifecycle/**", "templates/**",
+                "scripts/**", "tests/**", "test/**", "e2e/**", ".cursor/**", ".claude/**", ".github/**", "*.md"],
+  rules: [{
+    id: "application-source",
+    match: SOURCE_ROOTS.map((d) => `${d}/**`),
+    extensions: [".cs", ".csproj", ".sln", ".fs", ".vb", ".ts", ".tsx", ".js", ".jsx", ".vue", ".svelte", ".razor", ".cshtml", ".sql"],
+    earliest: "DEVELOPMENT",
+  }],
+};
+
+function loadWritePolicy() {
+  const candidates = [
+    join(ROOT, ".cursor", "lifecycle", "write-policy.json"),
+  ];
+  try { candidates.push(fileURLToPath(new URL("../lifecycle/write-policy.json", import.meta.url))); } catch { /* not a file URL */ }
+  for (const c of candidates) {
+    try {
+      if (!existsSync(c)) continue;
+      return JSON.parse(readFileSync(c, "utf8"));
+    } catch { /* malformed: keep looking, then fall back */ }
+  }
+  return BUILTIN_WRITE_POLICY;
+}
+
+function classifySourceSample(policy, sample) {
+  const always = policy.alwaysAllow || [];
+  if (always.some((g) => policyGlob(g, sample))) return "exempt";
+  const rule = (policy.rules || []).find((r) =>
+    (r.match || []).some((g) => policyGlob(g, sample)) &&
+    (!r.extensions?.length || r.extensions.some((e) => sample.toLowerCase().endsWith(e.toLowerCase()))));
+  return rule ? "gated" : "unrecognized";
+}
+
+/**
+ * Which detected source roots would a `.cs` file under them actually match in
+ * the effective write-policy (local file, else the same built-in the hook
+ * uses)? `alwaysAllow` is an intentional exemption, not "covered".
+ */
+function sourceLayout() {
+  const detected = SOURCE_ROOTS.filter((d) => {
+    try { return statSync(join(ROOT, d)).isDirectory(); } catch { return false; }
+  });
+  const policy = loadWritePolicy();
+  const covered = [];
+  const uncovered = [];
+  const exempt = [];
+  for (const dir of detected) {
+    const kind = classifySourceSample(policy, `${dir}/x.cs`);
+    if (kind === "gated") covered.push(dir);
+    else if (kind === "exempt") exempt.push(dir);
+    else uncovered.push(dir);
+  }
+  return { detected, covered, uncovered, exempt };
 }
 
 function blankState(name, mode, { by = null, reviewBy = null, evidence = null } = {}) {
@@ -752,7 +837,8 @@ function cmdInit(args) {
 function cmdStatus(args) {
   const s = mustState();
   const d = deriveAll(s);
-  if (args.includes("--json")) return console.log(JSON.stringify({ ...s, derived: d }, null, 2));
+  const layout = sourceLayout();
+  if (args.includes("--json")) return console.log(JSON.stringify({ ...s, derived: d, layout }, null, 2));
 
   console.log(`Product:  ${s.product}   (${s.mode})`);
   console.log(`Phase:    ${s.phase}`);
@@ -777,8 +863,17 @@ function cmdStatus(args) {
   console.log(`Consents: M=mechanical  J=judgement (/lifecycle-gate)  H=human`);
   console.log("");
   console.log(designCleared(s)
-    ? "Design gate cleared — writes under src/** are allowed."
-    : "Design gate NOT cleared — guard-phase.mjs will block writes under src/**, frontend/**, backend/**.");
+    ? "Design gate cleared — phase-gated source writes are allowed."
+    : "Design gate NOT cleared — guard-phase.mjs will block writes matching write-policy application-source.");
+  if (layout.uncovered.length) {
+    console.log(`Layout:   ${layout.uncovered.join(", ")} exist(s) but no write-policy rule matches. Writes there are not phase-gated.`);
+  }
+  if (layout.exempt.length) {
+    console.log(`Layout:   ${layout.exempt.join(", ")} exist(s) but alwaysAllow exempts them. Writes there are not phase-gated.`);
+  }
+  if (layout.detected.length && !layout.uncovered.length && !layout.exempt.length) {
+    console.log(`Layout:   source roots ${layout.detected.join(", ")} are covered by write-policy.`);
+  }
 }
 
 /**

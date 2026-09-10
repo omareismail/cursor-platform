@@ -8,6 +8,9 @@
 
 **Memory references:** `memory-bank/codingStandards.md, memory-bank/commonMistakes.md`
 
+Prerequisite: `/repo-discovery` (or a fresh `.cursor/cache/repo-map.json`) so
+the review knows which conventions apply to the files in the diff.
+
 `code-review-assistant` produces a structured review of a pull request or diff against
 the active spec and the architecture/security rules. It is distinct from `speckit-checklist`
 (which is a pre-commit self-gate by the author) — this skill is for reviewing someone else's

@@ -21,7 +21,8 @@ pre-flights it. You paste the command into your terminal. The server never
 runs it.
 
 The server is `.cursor/tools/dashboard.mjs`. It binds `127.0.0.1` only, accepts
-GET only, never writes `lifecycle/state.json`, never records a gate, and never
+GET only, refuses a Host header that is not localhost / `127.0.0.1` / `[::1]`,
+never writes `lifecycle/state.json`, never records a gate, and never
 mutates a cache. `approve` refusals come from the same `approveRefusals`
 export that `lifecycle.mjs approve` uses, so a green light here and a CLI
 refusal cannot silently disagree.
@@ -76,3 +77,12 @@ panels re-read disk (`?fresh=1` bypasses the 30s cache).
 
 Ctrl+C in the terminal that ran `serve`. Nothing was written by the dashboard
 itself.
+
+---
+
+## Output
+
+- A localhost UI (or a JSON snapshot) assembled from the validators' existing
+  `--json` envelopes — lifecycle, features, traceability, findings, delivery
+- Copied CLI strings for governance actions; the server never runs them
+- No writes to `lifecycle/`, caches, or source

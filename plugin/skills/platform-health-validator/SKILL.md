@@ -18,7 +18,7 @@ No scope argument — this always checks the whole workspace, not a subset.
 
 **Memory references:** `${CLAUDE_PLUGIN_ROOT}/docs/skill-graph.md`,
 `${CLAUDE_PLUGIN_ROOT}/docs/shared-execution-pipeline.md`, all `${CLAUDE_PLUGIN_ROOT}/skills/*/SKILL.md`,
-all `${CLAUDE_PLUGIN_ROOT}/rules/*.mdc`, all `${CLAUDE_PLUGIN_ROOT}/docs/*.md`, `memory-bank/README.md`
+all `${CLAUDE_PLUGIN_ROOT}/rules/*.mdc`, all `.cursor/docs/*.md`, `memory-bank/README.md`
 
 This skill is the workspace-hygiene counterpart to `skill-maturity-audit`.
 The distinction is precise and intentional:
@@ -83,7 +83,7 @@ generator skills"), verify it against the actual file content:
 
 **Step 4 — Orphaned documentation check.**
 
-For every `.md` file under `${CLAUDE_PLUGIN_ROOT}/docs/` and every template/checklist
+For every `.md` file under `.cursor/docs/` and every template/checklist
 file under `.cursor/`:
 - Is it referenced (by filename) from at least one skill file, rule file,
   or other doc? If not, it's a candidate orphan.
@@ -187,7 +187,7 @@ Actual findings from the pre-build health check run during Phase 6:
 - All 98 skills: correctly kebab-cased ✓
 - All 12 rules: consistent `description`/`alwaysApply` frontmatter ✓
 - Skill headers: `Overview / Steps / Example Invocation / Output` consistent ✓
-- `MIGRATION_NOTES_PASS1.md` in `${CLAUDE_PLUGIN_ROOT}/docs/`: orphaned (0 inbound
+- `MIGRATION_NOTES_PASS1.md` in `.cursor/docs/`: orphaned (0 inbound
   references) — flagged for linking from `skill-graph.md`'s changelog
   section or removal
 - No circular dependencies found in `skill-graph.md`'s declared graph

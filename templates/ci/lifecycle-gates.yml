@@ -3,6 +3,9 @@
 # Companion to quality-gates.yml. That one asks "is this code any good?"; this one
 # asks "was this code allowed to exist yet?"
 #
+# Signed commits for lifecycle/** are a separate, opt-in workflow:
+# templates/ci/signed-lifecycle.yml. Copy it only when the team already signs.
+#
 # WHY IT IS NEEDED AT ALL
 #
 # `guard-phase.mjs` blocks source writes before the design gate — but only inside
@@ -66,7 +69,7 @@ jobs:
             echo "Cleared. Source is allowed."
             exit 0
           fi
-          FOUND=$(find src backend frontend client server app api web \
+          FOUND=$(find src backend frontend client server app apps api web lib packages services \
                     -type f \( -name '*.cs' -o -name '*.ts' -o -name '*.tsx' \
                                -o -name '*.js' -o -name '*.jsx' -o -name '*.csproj' \) \
                     2>/dev/null | head -20)

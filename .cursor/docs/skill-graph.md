@@ -215,8 +215,9 @@ prompt-quality-audit (added Phase 5) → standalone, ad hoc version usable
 ## Change history
 
 Full pass-by-pass changelog of what was added, enhanced, or wired across
-all phases is in `.cursor/docs/MIGRATION_NOTES_PASS1.md`. Read that file
-before any future enhancement pass — it records what was deliberately not
+all phases is in `.cursor/docs/MIGRATION_NOTES_PASS1.md` (platform repo
+only — not shipped in the plugin). Read that file before any future
+enhancement pass in this repository — it records what was deliberately not
 built (to avoid duplication) as well as what was built, which is equally
 important context for not rebuilding it later.
 

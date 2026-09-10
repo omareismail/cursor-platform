@@ -17,6 +17,7 @@ const lc = await import(new URL(`file:///${join(REPO, ".cursor", "tools", "lifec
 const statusOf = (root, phase) => JSON.parse(runTool("lifecycle.mjs", ["status", "--json"], root).out).derived[phase];
 const checkOf = (root, phase) => JSON.parse(runTool("lifecycle.mjs", ["check", phase, "--json"], root).out);
 const row = (res, artifact) => res.artifacts.find((a) => a.artifact === artifact);
+const sourceTree = (res) => res.artifacts.find((a) => a.type === "source-tree");
 
 /** A phase hand-approved with the hashes lifecycle.mjs itself computes right now. */
 function approvedState(root, phase, paths, { like = null } = {}) {
@@ -158,10 +159,10 @@ section("typed artifacts — existing is not the same as being one");
   check("spec-set: a real spec passes", row(checkOf(root, "DEVELOPMENT"), "specs/features").ok, "");
 
   put(root, "src/README.md", DOC("Source layout"));
-  r = row(checkOf(root, "DEVELOPMENT"), "src | backend | frontend | client");
+  r = sourceTree(checkOf(root, "DEVELOPMENT"));
   check("source-tree: a directory with no source file FAILS, naming the reason", !r.ok && /src: no source file/.test(r.reason), JSON.stringify(r));
   put(root, "src/Program.cs", "class P {}\n");
-  check("source-tree: one source file passes", row(checkOf(root, "DEVELOPMENT"), "src | backend | frontend | client").ok, "");
+  check("source-tree: one source file passes", sourceTree(checkOf(root, "DEVELOPMENT")).ok, "");
 
   put(root, "memory-bank/progress.md", DOC("Progress") + "\n| ID | Task | Status |\n|---|---|---|\n| T-1 | Handler | Done |\n| T-2 | Endpoint | In Progress |\n");
   r = row(checkOf(root, "DEVELOPMENT"), "memory-bank/progress.md");

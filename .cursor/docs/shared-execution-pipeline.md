@@ -16,21 +16,22 @@ happen in when more than one applies to a given task.
                               multi-file/cross-cutting tasks only, see below)
 4. Convention Application   (relevant Tier 2 memory-bank file(s))
 5. Architecture Validation  (02-dotnet-architecture-guard.mdc /
-                              03-react-architecture-guard.mdc — alwaysApply,
-                              fires automatically on matching files)
+                              03-react-architecture-guard.mdc — glob-scoped,
+                              fire automatically on matching files)
 6. Primary Skill Execution  (the actual generation/modification)
    ↳ 09-minimal-changes.mdc fires here — only change what the task requires
    ↳ 10-evidence-and-dependency-guard.mdc fires here — verify before
        referencing, no unrequested packages
-7. Security Validation      (04-security-guard.mdc — alwaysApply)
-8. Database Validation      (06-database-provider-guard.mdc — alwaysApply
+7. Security Validation      (04-security-guard.mdc — glob-scoped on source,
+                              config, and CI files)
+8. Database Validation      (06-database-provider-guard.mdc — glob-scoped
                               on .cs/.sql; for deep consistency checks, use
                               database-audit separately)
-9. Domain/Audit Validation  (07-audit-trail-guard.mdc — alwaysApply on .cs;
+9. Domain/Audit Validation  (07-audit-trail-guard.mdc — glob-scoped on .cs;
                               now also covers business domain invariants:
                               financial precision, transactional consistency,
                               downstream effect tracing)
-10. RTL Validation          (08-rtl-i18n-guard.mdc — alwaysApply on .tsx/.css)
+10. RTL Validation          (08-rtl-i18n-guard.mdc — glob-scoped on .tsx/.css)
 11. Test Generation         (dotnet-test-gen / react-test-gen, for new code)
 12. Documentation Update    (docs-guard / architecture-map-gen regeneration,
                               only if the change is structurally significant
@@ -40,9 +41,10 @@ happen in when more than one applies to a given task.
 ## What's already true vs. what this formalizes
 
 Steps 1, 5, 7, 8, 9, 10 are already automatic before this doc existed —
-they're `alwaysApply` rules, not skill-invoked steps, so they fire
-regardless of whether a skill's own step list mentions them. Steps 6's
-09 and 10 guard rules were added in Phase 7 and are similarly automatic.
+glob-scoped guard rules, not skill-invoked steps, so they fire on matching
+files regardless of whether a skill's own step list mentions them. Only the
+always-on set (`00`, `05`, `09`, `10`, `11`) has `alwaysApply: true`. Steps
+6's 09 and 10 guard rules were added in Phase 7 and are similarly automatic.
 This doc doesn't change their behavior; it documents that they sit in the
 sequence even though no skill file explicitly "calls" them.
 

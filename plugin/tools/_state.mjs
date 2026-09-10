@@ -117,16 +117,32 @@ export function lock(path) {
       closeSync(fd);
       return { release: () => { try { unlinkSync(lp); } catch { /* gone already */ } }, tookOver };
     } catch (e) {
-      if (e.code !== "EEXIST") throw e;
-      let age = 0;
-      try { age = Date.now() - statSync(lp).mtimeMs; } catch { continue; /* released between the two calls */ }
-      if (age > LOCK_STALE_MS) { try { unlinkSync(lp); tookOver = true; } catch { /* someone else did */ } continue; }
-      if (Date.now() > deadline) {
-        const err = new Error(`${lp} is held by another writer (for ${Math.round(age / 1000)}s). Two commands are changing this record at once; wait for the other to finish and re-run.`);
-        err.code = "ELOCKED";
-        throw err;
+      if (e.code === "EEXIST") {
+        let age = 0;
+        try { age = Date.now() - statSync(lp).mtimeMs; } catch { continue; /* released between the two calls */ }
+        if (age > LOCK_STALE_MS) { try { unlinkSync(lp); tookOver = true; } catch { /* someone else did */ } continue; }
+        if (Date.now() > deadline) {
+          const err = new Error(`${lp} is held by another writer (for ${Math.round(age / 1000)}s). Two commands are changing this record at once; wait for the other to finish and re-run.`);
+          err.code = "ELOCKED";
+          throw err;
+        }
+        sleep(40);
+        continue;
       }
-      sleep(40);
+      // Windows can surface a sharing violation as EPERM/EBUSY/EACCES while
+      // another writer still has the lock handle, rather than EEXIST. Retry
+      // those the same way as a live lock; a permanent ACL failure still
+      // becomes ELOCKED after LOCK_WAIT_MS instead of an uncaught throw.
+      if (e.code === "EPERM" || e.code === "EBUSY" || e.code === "EACCES") {
+        if (Date.now() > deadline) {
+          const err = new Error(`${lp} could not be taken (${e.code} after waiting). Two commands may be changing this record at once; wait for the other to finish and re-run.`);
+          err.code = "ELOCKED";
+          throw err;
+        }
+        sleep(40);
+        continue;
+      }
+      throw e;
     }
   }
 }

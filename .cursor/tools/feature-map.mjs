@@ -23,6 +23,8 @@
  *   node .cursor/tools/feature-map.mjs query --file <path>
  *   node .cursor/tools/feature-map.mjs query --table <name>
  *   node .cursor/tools/feature-map.mjs query --endpoint <method /path>
+ *   node .cursor/tools/feature-map.mjs query --object <schema.name>
+ *   node .cursor/tools/feature-map.mjs lineage <feature-id|object|table>
  *   node .cursor/tools/feature-map.mjs upsert <file.json>     # written by the skills
  *   node .cursor/tools/feature-map.mjs reindex
  *   node .cursor/tools/feature-map.mjs rm <feature-id>
@@ -37,7 +39,7 @@ import { join, resolve, sep } from "node:path";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || findRepoRoot() || process.cwd();
 const MAP_PATH = join(ROOT, ".cursor", "cache", "feature-map.json");
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 // TRACE_STALE_DAYS, not STALE_DAYS: this is how old a feature TRACE may get
 // before it is called aged out, which is a different question from
 // memory-bank.mjs's 7-day file staleness and deliberately a different number.
@@ -110,13 +112,31 @@ function worktreeShas(paths) {
 
 function emptyMap() {
   return {
-    $schema: "cursor-platform/feature-map@1",
+    $schema: "cursor-platform/feature-map@2",
     version: SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
     repo: norm(ROOT.split(sep).pop() || ""),
     features: {},
-    index: { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {} },
+    dataObjects: {},
+    index: { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {}, byObject: {} },
   };
+}
+
+/** v1 traces stay valid. Objects and lineage are additive. */
+function migrateMap(m) {
+  const v = Number(m.version) || 1;
+  if (v >= SCHEMA_VERSION) {
+    m.dataObjects ||= {};
+    m.index ||= {};
+    m.index.byObject ||= {};
+    return m;
+  }
+  m.$schema = "cursor-platform/feature-map@2";
+  m.version = SCHEMA_VERSION;
+  m.dataObjects ||= {};
+  m.index ||= { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {}, byObject: {} };
+  m.index.byObject ||= {};
+  return m;
 }
 
 function load({ required = true } = {}) {
@@ -127,11 +147,13 @@ function load({ required = true } = {}) {
   let m;
   try { m = JSON.parse(readFileSync(MAP_PATH, "utf8")); }
   catch (e) { fail(`feature-map.json is not valid JSON: ${e.message}\nDelete it and re-run init; do not hand-repair.`, 2); }
-  if (m.version !== SCHEMA_VERSION) {
+  if ((m.version || 1) > SCHEMA_VERSION) {
     warn(`feature-map.json is schema v${m.version}, tool expects v${SCHEMA_VERSION}. Re-trace affected features.`);
   }
+  migrateMap(m);
   m.features ||= {};
-  m.index ||= { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {} };
+  m.dataObjects ||= {};
+  m.index ||= { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {}, byObject: {} };
   return m;
 }
 
@@ -159,41 +181,96 @@ const daysSince = (iso) => {
  *
  * Each reason is reported separately — "stale" with no reason is not actionable.
  */
-function assess(feature, shas) {
+function assess(feature, shas, objects = {}) {
   const changed = [], missing = [];
+  const catalogOnly = [];
   for (const f of feature.files || []) {
     const p = norm(f.path);
     const current = shas.get(p);
     if (current === null || current === undefined) { missing.push(p); continue; }
     if (f.sha && f.sha !== current) changed.push(p);
   }
+  const objectIds = [
+    ...(feature.dataTouched?.objects || []),
+    ...(feature.lineage?.calls || []),
+    ...(feature.lineage?.firedBy || []),
+  ];
+  for (const raw of objectIds) {
+    const oid = objects[raw] ? raw : Object.keys(objects).find((k) => {
+      const o = objects[k];
+      return k.toLowerCase() === String(raw).toLowerCase()
+        || (o.name && String(o.name).toLowerCase() === String(raw).toLowerCase())
+        || (o.schema && o.name && `${o.schema}.${o.name}`.toLowerCase() === String(raw).toLowerCase());
+    });
+    const o = oid ? objects[oid] : null;
+    if (!o) continue;
+    const defs = o.definitionFiles || [];
+    if (!defs.length) { catalogOnly.push(oid || raw); continue; }
+    for (const d of defs) {
+      const p = norm(typeof d === "string" ? d : d.path);
+      const current = shas.get(p);
+      if (current === null || current === undefined) { missing.push(p); continue; }
+      const sha = typeof d === "object" ? d.sha : null;
+      if (sha && sha !== current) changed.push(p);
+    }
+  }
   const age = daysSince(feature.tracedAt);
   const stale = changed.length > 0 || missing.length > 0;
   return {
-    stale, changed, missing,
+    stale, changed, missing, catalogOnly,
     agedOut: age > TRACE_STALE_DAYS,
     ageDays: Number.isFinite(age) ? Math.floor(age) : null,
     fileCount: (feature.files || []).length,
   };
 }
 
-/** Collect every path referenced by the given features, for one bulk hash call. */
-const allPaths = (features) =>
-  features.flatMap(([, f]) => (f.files || []).map(x => norm(x.path)));
+/** Collect every path referenced by the given features and catalog objects. */
+const objectDefPaths = (objects) =>
+  Object.values(objects || {}).flatMap((o) =>
+    (o.definitionFiles || []).map((x) => norm(typeof x === "string" ? x : x.path)));
+
+const allPaths = (features, objects) => [
+  ...features.flatMap(([, f]) => (f.files || []).map((x) => norm(x.path))),
+  ...objectDefPaths(objects),
+];
 
 function reindex(m) {
-  const idx = { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {} };
+  const idx = { byFile: {}, byTable: {}, byEndpoint: {}, byFlag: {}, byObject: {} };
   const push = (bucket, key, id) => {
     if (!key) return;
     const k = String(key);
     (idx[bucket][k] ||= []);
     if (!idx[bucket][k].includes(id)) idx[bucket][k].push(id);
   };
-  for (const [id, f] of Object.entries(m.features)) {
+  for (const [id, f] of Object.entries(m.features || {})) {
     for (const file of f.files || []) push("byFile", norm(file.path), id);
     for (const t of f.dataTouched?.tables || []) push("byTable", t, id);
+    for (const o of f.dataTouched?.objects || []) push("byObject", o, id);
     for (const e of f.entryPoints || []) if (e.ref) push("byEndpoint", e.ref, id);
     for (const fl of f.featureFlags || []) push("byFlag", typeof fl === "string" ? fl : fl.name, id);
+    const lin = f.lineage || {};
+    for (const t of [...(lin.reads || []), ...(lin.writes || [])]) push("byTable", t, id);
+    for (const o of [...(lin.calls || []), ...(lin.firedBy || [])]) push("byObject", o, id);
+  }
+  for (const [oid, o] of Object.entries(m.dataObjects || {})) {
+    push("byObject", oid, oid);
+    if (o.name && o.name !== oid) push("byObject", o.name, oid);
+    if (o.schema && o.name) push("byObject", `${o.schema}.${o.name}`, oid);
+    for (const t of o.tables || []) {
+      push("byTable", t, oid);
+      for (const feat of o.features || []) push("byTable", t, feat);
+    }
+    if (o.on) {
+      push("byTable", o.on, oid);
+      for (const feat of o.features || []) push("byTable", o.on, feat);
+    }
+    for (const feat of o.features || []) push("byObject", oid, feat);
+    for (const d of o.definitionFiles || []) {
+      const p = norm(typeof d === "string" ? d : d.path);
+      push("byFile", p, oid);
+      for (const feat of o.features || []) push("byFile", p, feat);
+      for (const feat of idx.byObject[oid] || []) push("byFile", p, feat);
+    }
   }
   m.index = idx;
   return m;
@@ -213,11 +290,11 @@ const CMDS = {
   list(args) {
     const m = load();
     const entries = Object.entries(m.features);
-    const shas = worktreeShas(allPaths(entries));
+    const shas = worktreeShas(allPaths(entries, m.dataObjects));
     const rows = entries.map(([id, f]) => ({
       id, name: f.name || id, status: f.status || "unknown",
       confidence: f.confidence || "?", files: (f.files || []).length,
-      ...assess(f, shas),
+      ...assess(f, shas, m.dataObjects),
     }));
     if (args.includes("--json")) { out(JSON.stringify(rows, null, 2)); return 0; }
     if (!rows.length) { out("No features traced yet. Run /feature-trace \"<name>\"."); return 0; }
@@ -240,14 +317,15 @@ const CMDS = {
       ? (m.features[only] ? [[only, m.features[only]]] : fail(`Unknown feature '${only}'. Run \`list\` to see ids.`, 2))
       : Object.entries(m.features);
     if (!entries.length) { out("No features traced yet."); return 0; }
-    const shas = worktreeShas(allPaths(entries));
+    const shas = worktreeShas(allPaths(entries, m.dataObjects));
 
     let bad = 0;
     for (const [id, f] of entries) {
-      const a = assess(f, shas);
+      const a = assess(f, shas, m.dataObjects);
       if (!a.stale) {
         out(`  fresh  ${id}  (${a.fileCount} files, traced ${a.ageDays}d ago)`);
         if (a.agedOut) out(`         trace is ${a.ageDays}d old but every file is byte-identical - still accurate`);
+        if (a.catalogOnly.length) out(`         catalog-only objects (no definition file): ${a.catalogOnly.join(", ")}`);
         continue;
       }
       bad++;
@@ -262,8 +340,8 @@ const CMDS = {
   stale(args) {
     const m = load();
     const entries = Object.entries(m.features);
-    const shas = worktreeShas(allPaths(entries));
-    const stale = entries.map(([id, f]) => ({ id, ...assess(f, shas) })).filter(r => r.stale);
+    const shas = worktreeShas(allPaths(entries, m.dataObjects));
+    const stale = entries.map(([id, f]) => ({ id, ...assess(f, shas, m.dataObjects) })).filter(r => r.stale);
     if (args.includes("--json")) { out(JSON.stringify(stale, null, 2)); return stale.length ? 1 : 0; }
     if (!stale.length) { out("All traced features are fresh."); return 0; }
     for (const r of stale) out(`${r.id}\t${reasons(r)}`);
@@ -283,7 +361,7 @@ const CMDS = {
   query(args) {
     const m = load();
     const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : null; };
-    const file = get("--file"), table = get("--table"), endpoint = get("--endpoint"), flag = get("--flag");
+    const file = get("--file"), table = get("--table"), endpoint = get("--endpoint"), flag = get("--flag"), object = get("--object");
     const json = args.includes("--json");
 
     let hits = [];
@@ -301,18 +379,48 @@ const CMDS = {
     } else if (table)    hits = matchCI(m.index.byTable, table);
     else if (endpoint)   hits = matchCI(m.index.byEndpoint, endpoint);
     else if (flag)       hits = matchCI(m.index.byFlag, flag);
-    else fail("Usage: query --file <path> | --table <name> | --endpoint <ref> | --flag <name>", 2);
+    else if (object)     hits = matchCI(m.index.byObject, object);
+    else fail("Usage: query --file <path> | --table <name> | --endpoint <ref> | --flag <name> | --object <schema.name>", 2);
 
     if (json) { out(JSON.stringify(hits, null, 2)); return hits.length ? 0 : 1; }
     if (!hits.length) {
-      out(`No traced feature touches that. Either it is genuinely unused, or it has not been traced yet.`);
+      out(`No traced feature or data object touches that. Either it is genuinely unused, or it has not been traced yet.`);
       out(`Check coverage with \`list\` before concluding the former.`);
       return 1;
     }
     for (const id of hits) {
       const f = m.features[id];
-      out(`${id}\t${f?.name || ""}\t${f?.status || ""}\t${(f?.files || []).length} files`);
+      const o = m.dataObjects?.[id];
+      if (f) out(`${id}\t${f.name || ""}\t${f.status || ""}\t${(f.files || []).length} files`);
+      else if (o) out(`${id}\t${o.kind || "object"}\t${(o.features || []).join(",") || "unlinked"}`);
+      else out(`${id}`);
     }
+    return 0;
+  },
+
+  lineage(args) {
+    const m = load();
+    const seed = args.find((a) => !a.startsWith("--"));
+    if (!seed) fail("Usage: lineage <feature-id | object-id | table>", 2);
+    const walked = walkLineage(m, seed);
+    if (args.includes("--json")) {
+      out(JSON.stringify(walked, null, 2));
+      return walked.features.length || walked.objects.length ? 0 : 1;
+    }
+    if (!walked.features.length && !walked.objects.length) {
+      out(`No lineage from '${seed}'. Trace the feature or upsert the catalog object first.`);
+      return 1;
+    }
+    out(`Lineage from ${seed}`);
+    if (walked.features.length) out(`  features: ${walked.features.join(", ")}`);
+    if (walked.objects.length) {
+      out(`  objects:`);
+      for (const oid of walked.objects) {
+        const o = m.dataObjects[oid] || {};
+        out(`    ${oid}\t${o.kind || "?"}\ton=${o.on || (o.tables || []).join(",") || "-"}`);
+      }
+    }
+    if (walked.tables.length) out(`  tables: ${walked.tables.join(", ")}`);
     return 0;
   },
 
@@ -324,10 +432,14 @@ const CMDS = {
     catch (e) { fail(`Cannot read ${src}: ${e.message}`, 2); }
 
     const m = load({ required: false }) || emptyMap();
-    const incoming = payload.features ? payload.features : { [payload.id]: payload };
+    const incoming = payload.features
+      ? payload.features
+      : (payload.id ? { [payload.id]: payload } : {});
     const tracked = trackedSet();
     const shas = worktreeShas(
       Object.values(incoming).flatMap(f => (f.files || []).map(x => norm(typeof x === "string" ? x : x.path)))
+        .concat(Object.values(payload.dataObjects || {}).flatMap((o) =>
+          (o.definitionFiles || o.files || []).map((x) => norm(typeof x === "string" ? x : x.path))))
     );
     const problems = [];
     let n = 0;
@@ -352,9 +464,45 @@ const CMDS = {
       n++;
     }
 
+    let objects = 0;
+    if (payload.dataObjects && typeof payload.dataObjects === "object") {
+      m.dataObjects ||= {};
+      for (const [rawId, o] of Object.entries(payload.dataObjects)) {
+        const oid = rawId || (o.schema ? `${o.schema}.${o.name}` : o.name);
+        if (!oid || !/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(oid)) { problems.push(`bad data-object id '${oid}'`); continue; }
+        const rec = {
+          kind: o.kind || "unknown",
+          schema: o.schema || null,
+          name: o.name || oid,
+          provider: o.provider || null,
+          tables: [...new Set(o.tables || [])],
+          on: o.on || null,
+          features: [...new Set(o.features || [])],
+          referencedBy: [...new Set((o.referencedBy || []).map(norm))],
+        };
+        const defs = o.definitionFiles || o.files || [];
+        if (Array.isArray(defs) && defs.length) {
+          rec.definitionFiles = defs.map((x) => {
+            const p = norm(typeof x === "string" ? x : x.path);
+            const sha = shas.get(p);
+            if (!sha) problems.push(`object '${oid}' cites '${p}' which does not exist`);
+            return { path: p, sha: sha || null };
+          });
+        }
+        if (!rec.definitionFiles) {
+          rec.definitionSource = o.definitionSource || o.source || "catalog";
+          rec.catalogedAt = o.catalogedAt || new Date().toISOString();
+        }
+        m.dataObjects[oid] = rec;
+        objects++;
+      }
+    }
+
+    if (!n && !objects) fail("upsert: nothing to write. Pass a feature object (files[] required) and/or { dataObjects: { ... } }.", 2);
+
     reindex(m);
     save(m);
-    out(`upserted ${n} feature(s); map now holds ${Object.keys(m.features).length}.`);
+    out(`upserted ${n} feature(s)` + (objects ? `, ${objects} data object(s)` : "") + `; map now holds ${Object.keys(m.features).length} feature(s), ${Object.keys(m.dataObjects || {}).length} data object(s).`);
     if (problems.length) { problems.forEach(p => warn(p)); return 1; }
     return 0;
   },
@@ -392,11 +540,118 @@ function matchCI(bucket, needle) {
   return [...seen];
 }
 
+function resolveObject(objects, seed) {
+  if (objects[seed]) return seed;
+  const lower = String(seed).toLowerCase();
+  for (const [oid, o] of Object.entries(objects)) {
+    if (oid.toLowerCase() === lower) return oid;
+    if (o.name && String(o.name).toLowerCase() === lower) return oid;
+    if (o.schema && o.name && `${o.schema}.${o.name}`.toLowerCase() === lower) return oid;
+  }
+  return null;
+}
+
+/**
+ * Walk from a feature, a catalog object, or a table name to everything
+ * connected through dataTouched / lineage / dataObjects. This is what
+ * /impact-analysis uses instead of grepping only files.
+ */
+function walkLineage(m, seed) {
+  const features = m.features || {};
+  const objects = m.dataObjects || {};
+  const featHits = new Set();
+  const objHits = new Set();
+  const tables = new Set();
+  const pendingFeat = [];
+  const pendingObj = [];
+
+  const addTable = (t) => { if (t) tables.add(String(t)); };
+
+  const enqueueFeat = (id) => {
+    if (!id || !features[id] || featHits.has(id)) return;
+    featHits.add(id);
+    pendingFeat.push(id);
+  };
+  const enqueueObj = (id) => {
+    const oid = resolveObject(objects, id);
+    if (!oid || objHits.has(oid)) return;
+    objHits.add(oid);
+    pendingObj.push(oid);
+  };
+
+  const drain = () => {
+    while (pendingFeat.length || pendingObj.length) {
+      while (pendingFeat.length) {
+        const f = features[pendingFeat.pop()];
+        for (const t of f.dataTouched?.tables || []) addTable(t);
+        for (const o of f.dataTouched?.objects || []) enqueueObj(o);
+        const lin = f.lineage || {};
+        for (const t of [...(lin.reads || []), ...(lin.writes || [])]) addTable(t);
+        for (const o of [...(lin.calls || []), ...(lin.firedBy || [])]) enqueueObj(o);
+      }
+      while (pendingObj.length) {
+        const oid = pendingObj.pop();
+        const o = objects[oid];
+        if (!o) continue;
+        for (const feat of o.features || []) enqueueFeat(feat);
+        for (const id of m.index?.byObject?.[oid] || []) {
+          if (features[id]) enqueueFeat(id);
+        }
+        for (const t of o.tables || []) addTable(t);
+        if (o.on) addTable(o.on);
+      }
+    }
+  };
+
+  const enqueueIndexed = (id) => {
+    if (features[id]) enqueueFeat(id);
+    else enqueueObj(id);
+  };
+
+  if (features[seed]) enqueueFeat(seed);
+  else {
+    const oid = resolveObject(objects, seed);
+    if (oid) enqueueObj(oid);
+    else {
+      for (const id of matchCI(m.index.byTable, seed)) enqueueIndexed(id);
+      for (const id of matchCI(m.index.byObject, seed)) enqueueIndexed(id);
+    }
+  }
+
+  drain();
+  let added = true;
+  while (added) {
+    added = false;
+    for (const [id, f] of Object.entries(features)) {
+      if (featHits.has(id)) continue;
+      const tabs = [
+        ...(f.dataTouched?.tables || []),
+        ...(f.lineage?.reads || []),
+        ...(f.lineage?.writes || []),
+      ].map(String);
+      if (tabs.some((t) => tables.has(t))) { enqueueFeat(id); added = true; }
+    }
+    for (const [oid, o] of Object.entries(objects)) {
+      if (objHits.has(oid)) continue;
+      const tabs = [...(o.tables || []), ...(o.on ? [o.on] : [])].map(String);
+      if (tabs.some((t) => tables.has(t))) { enqueueObj(oid); added = true; }
+    }
+    drain();
+  }
+
+  return {
+    seed,
+    features: [...featHits].sort(),
+    objects: [...objHits].sort(),
+    tables: [...tables].sort(),
+  };
+}
+
 // ------------------------------------------------------------------- main ---
 const [cmd, ...args] = process.argv.slice(2);
 if (!cmd || cmd === "--help" || cmd === "-h" || !CMDS[cmd]) {
   out(readFileSync(new URL(import.meta.url)).toString()
-    .split("\n").slice(2, 41).join("\n")
+    .split("\n").slice(2, 34).join("\n")
     .replace(/^\s*\*\/?\s?/gm, "").trim());
   process.exit(cmd && !CMDS[cmd] ? 2 : 0);
 }

@@ -181,7 +181,7 @@ code 2 on any write the current phase does not permit. The policy is data, in
 
 | Artifact | Earliest phase | Needs cleared |
 |---|---|---|
-| `src/`, `backend/`, `frontend/` source | DEVELOPMENT | DESIGN |
+| `src/`, `backend/`, `frontend/`, `packages/`, `lib/`, `apps/`, `services/` source | DEVELOPMENT | DESIGN |
 | Database migrations | DEVELOPMENT | DESIGN |
 | IaC — `*.tf`, `*.bicep`, `infra/` | DESIGN | ANALYSIS |
 | CI pipelines — `.github/workflows/` | TESTING | DEVELOPMENT |

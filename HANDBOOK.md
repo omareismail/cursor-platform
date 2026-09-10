@@ -26,7 +26,7 @@ It works in **both Cursor and Claude Code** from one set of source files.
 |---|---|
 | 77 | skills — slash commands the agent runs |
 | 11 | guard rules — always-on or file-type-scoped constraints |
-| 8 | subagents — read-only specialists with their own context window (Claude Code) |
+| 8 | subagents — specialists with their own context window (Claude Code); read-only is a convention, not a sandbox |
 | 7 | hook scripts — deterministic enforcement that does not depend on the model |
 | 7 | validators — CLI tools that check things mechanically |
 | 24 | memory-bank files — what the agent knows about your project |
@@ -223,7 +223,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 23 validators
+### `.cursor/tools/` — 24 validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.
@@ -249,6 +249,7 @@ checkable rather than hopeful.
 | `dashboard.mjs` | *Can I see the whole project on one screen?* Localhost UI over lifecycle, features, traceability, coverage, delivery and memory-bank. GET only; binds 127.0.0.1. Actions compose a command you paste — the server never runs it. | `serve` · `snapshot --json` |
 | `memory-bank.mjs` | *What does the memory bank actually contain, and is any of it real?* Owns the two tiers, the SessionStart digest and the template heuristic that `guard-write`, `session-start` and `dashboard` used to each write down for themselves. A file that exists and says nothing is reported apart from one that is absent. | `status` · `tiers` · `check` |
 | `platform-metadata.mjs` | *Does any document still claim a count that stopped being true?* | `show` · `write` · `check [--fix]` |
+| `signed-lifecycle-range.mjs` | *Which commits in this push or PR actually touched `lifecycle/`?* Full `before..after` (or PR base..head); first push and invalid ranges fail instead of becoming an empty success. Used by `templates/ci/signed-lifecycle.yml`. | env-driven; prints SHAs |
 | `build-plugin.mjs` | *Builds the distributable plugin.* Inlines full skill bodies and rewrites every path to `${CLAUDE_PLUGIN_ROOT}`, because a shim pointing at `.cursor/` breaks the moment the plugin is installed elsewhere. | `build` · `check` |
 
 All exit non-zero on failure, so CI can gate on them.

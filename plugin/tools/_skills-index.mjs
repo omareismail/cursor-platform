@@ -55,6 +55,34 @@ export const ANALYSIS = new Set([
   "task-verify", "lifecycle-gate",
 ]);
 
+/** Table rows under `### Category X` in skill-catalog.md. That document is the
+ *  routing contract (announce/wait vs proceed). Suffix heuristics are fallback
+ *  only for a fixture or a skill not yet listed. */
+export function parseCatalogCategories(md) {
+  const map = {};
+  let cat = null;
+  for (const line of String(md || "").split(/\r?\n/)) {
+    const heading = line.match(/^###\s+Category\s+([A-E])\b/);
+    if (heading) { cat = heading[1]; continue; }
+    if (/^###\s+/.test(line)) { cat = null; continue; }
+    if (!cat) continue;
+    const row = line.match(/^\|\s*`([a-z][a-z0-9-]{2,})`\s*\|/);
+    if (row) map[row[1]] = cat;
+  }
+  return map;
+}
+
+const catalogCache = new Map();
+function catalogCategories(root) {
+  const r = root || repoRoot();
+  if (catalogCache.has(r)) return catalogCache.get(r);
+  const p = join(r, ".cursor", "docs", "skill-catalog.md");
+  let map = {};
+  try { if (existsSync(p)) map = parseCatalogCategories(readFileSync(p, "utf8")); } catch { /* none */ }
+  catalogCache.set(r, map);
+  return map;
+}
+
 const PHASE_OF = {
   "product-brief": "REQUIREMENTS",
   "product-requirements": "REQUIREMENTS",
@@ -111,7 +139,9 @@ export function listSkills(root) {
     .sort();
 }
 
-export function categoryOf(n) {
+export function categoryOf(n, root) {
+  const mapped = catalogCategories(root)[n];
+  if (mapped) return mapped;
   if (n.startsWith("speckit-")) return "E";
   if (HOUSEKEEPING.has(n)) return "D";
   if (n.endsWith("-gen") || GENERATORS.has(n)) return "A";
@@ -119,8 +149,8 @@ export function categoryOf(n) {
   return "C";
 }
 
-export function categoryLabel(n) {
-  return CATEGORY_LABELS[categoryOf(n)];
+export function categoryLabel(n, root) {
+  return CATEGORY_LABELS[categoryOf(n, root)];
 }
 
 function capabilityOf(cat) {
@@ -144,7 +174,7 @@ function workflowOf(n) {
 function requiresOf(n) {
   const req = [];
   if (n !== "repo-discovery" && (HOUSEKEEPING.has(n) || n === "pattern-finder")) req.push("repo-discovery");
-  if (["feature-trace", "impact-analysis", "feature-inventory", "database-audit", "devops-audit", "api-consistency-audit"].includes(n)) {
+  if (["feature-trace", "impact-analysis", "feature-inventory", "database-audit", "devops-audit", "api-consistency-audit", "code-review-assistant", "dotnet-schema-diff"].includes(n)) {
     req.push("repo-discovery");
   }
   const wantsPattern = (n.endsWith("-gen") && !DOCS_GENS.has(n) && !PHASE_GENS.has(n)) || n === "speckit-implement";
@@ -152,8 +182,8 @@ function requiresOf(n) {
   return [...new Set(req)];
 }
 
-export function classify(n) {
-  const category = categoryOf(n);
+export function classify(n, root) {
+  const category = categoryOf(n, root);
   return {
     category,
     phase: phaseOf(n),
@@ -166,7 +196,7 @@ export function classify(n) {
 export function build(root) {
   const names = listSkills(root);
   const skills = {};
-  for (const n of names) skills[n] = classify(n);
+  for (const n of names) skills[n] = classify(n, root);
   return {
     version: INDEX_VERSION,
     count: names.length,

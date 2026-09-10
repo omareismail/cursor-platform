@@ -51,10 +51,10 @@ Read-only. Writes nothing, not even the cache.
 node ${CLAUDE_PLUGIN_ROOT}/tools/feature-map.mjs list
 ```
 
-If `feature-map.json` has entries, the byFile / byTable / byEndpoint indexes turn
-this skill from a whole-repo grep into a lookup. If a feature relevant to the
-change is **STALE**, say so in the report header and treat its trace as a
-hypothesis rather than fact — or re-run `/feature-trace` on it first.
+If `feature-map.json` has entries, the byFile / byTable / byEndpoint / byObject
+indexes turn this skill from a whole-repo grep into a lookup. If a feature
+relevant to the change is **STALE**, say so in the report header and treat its
+trace as a hypothesis rather than fact — or re-run `/feature-trace` on it first.
 
 If the map is empty, proceed with grep-based analysis and note in the output that
 coverage would improve after tracing the affected features. Do not silently
@@ -133,7 +133,16 @@ expensive part.
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/tools/feature-map.mjs query --file  <changed-file>
 node ${CLAUDE_PLUGIN_ROOT}/tools/feature-map.mjs query --table <changed-table>
+node ${CLAUDE_PLUGIN_ROOT}/tools/feature-map.mjs query --object <schema.name>
+node ${CLAUDE_PLUGIN_ROOT}/tools/feature-map.mjs lineage <feature-id|object|table>
 ```
+
+`query --object` and `lineage` are how stored procedures and triggers enter the
+blast radius. A change to `Payments` that looks like two files can still fire
+`dbo.trg_Payments_Audit` and call `dbo.usp_Settle`; those are features too if
+they are in the map. If `lineage` is empty for a table you know has procs,
+the catalog has not been upserted — say so and run `/database-audit` Step 4b
+rather than concluding the proc is unused.
 
 Report which *business capabilities* are affected, not just which files. "This
 touches `Policies.BasePremium`, which three traced features read: premium
@@ -196,7 +205,7 @@ contract with a cache-key bump, and names the two test files to run first.
 
 **Change type:** <classification>
 **Analysis mode:** feature-map (n features indexed) | grep-only (map empty)
-**Blast radius:** <n> files, <n> traced features, <n> tables
+**Blast radius:** <n> files, <n> traced features, <n> tables, <n> data objects
 **Stale traces in scope:** <ids, or "none">
 
 ### Verdict

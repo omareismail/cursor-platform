@@ -99,6 +99,42 @@ exist in the database layer but have no corresponding call site found in code
 (possible dead database object — cross-reference with `technical-debt-tracker`
 rather than duplicating its dead-code detection).
 
+**Step 4b — Persist catalog objects into `feature-map.json`.**
+
+Traces today are files and tables. A stored procedure or trigger that actually
+moves money is invisible to `/impact-analysis` unless it is in the map.
+
+From the live catalog (MCP) or from `repo-map.json` (`dataAccess.routines`,
+`dataAccess.triggers` when present), collect procedures, triggers, views, and
+functions. Grep call sites (`CommandType.StoredProcedure`, `FromSqlRaw`,
+`EXECUTE`, mapped EF functions). Then upsert **objects only** — `files[]` is
+not required on this payload:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/tools/feature-map.mjs upsert /tmp/catalog-objects.json
+```
+
+```json
+{
+  "dataObjects": {
+    "dbo.usp_Settle": {
+      "kind": "procedure",
+      "schema": "dbo",
+      "name": "usp_Settle",
+      "provider": "sqlserver",
+      "tables": ["Payments", "SettlementLines"],
+      "features": ["settlement"],
+      "referencedBy": ["src/Co.Infrastructure/Payments/SettleRepo.cs"]
+    }
+  }
+}
+```
+
+Kinds: `procedure`, `trigger`, `view`, `function`. A trigger uses `on` for
+the table it fires on. Do not invent objects that are not in the catalog or
+in `repo-map.json`. After upsert, `query --object <schema.name>` and
+`lineage <object>` should see them.
+
 **Step 5 — Migration consistency.**
 
 Confirm EF Core migration history matches the live schema captured by

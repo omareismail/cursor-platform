@@ -30,6 +30,11 @@ section("_skills-index.mjs — classification matches the announcement categorie
   check("dotnet-endpoint-gen is A, requires pattern-finder", idxMod.classify("dotnet-endpoint-gen").category === "A" && idxMod.classify("dotnet-endpoint-gen").requires.includes("pattern-finder"), JSON.stringify(idxMod.classify("dotnet-endpoint-gen")));
   check("database-audit is B / dotnet", idxMod.classify("database-audit").category === "B" && idxMod.classify("database-audit").workflow === "dotnet", JSON.stringify(idxMod.classify("database-audit")));
   check("dashboard is C", idxMod.classify("dashboard").category === "C", JSON.stringify(idxMod.classify("dashboard")));
+  check("operability-gen is B from the catalog, not A from the -gen suffix", idxMod.classify("operability-gen", REPO).category === "B", JSON.stringify(idxMod.classify("operability-gen", REPO)));
+  check("architecture-map-gen is C from the catalog, not A from the -gen suffix", idxMod.classify("architecture-map-gen", REPO).category === "C", JSON.stringify(idxMod.classify("architecture-map-gen", REPO)));
+  check("dotnet-query-optimizer is B from the catalog, not C from the fallback", idxMod.classify("dotnet-query-optimizer", REPO).category === "B", JSON.stringify(idxMod.classify("dotnet-query-optimizer", REPO)));
+  check("code-review-assistant requires repo-discovery", idxMod.classify("code-review-assistant", REPO).requires.includes("repo-discovery"), JSON.stringify(idxMod.classify("code-review-assistant", REPO)));
+  check("dotnet-schema-diff requires repo-discovery", idxMod.classify("dotnet-schema-diff", REPO).requires.includes("repo-discovery"), JSON.stringify(idxMod.classify("dotnet-schema-diff", REPO)));
   check("retired names are recorded, not live", !!idxMod.RETIRED["refactor-assistant"] && !!idxMod.RETIRED["security-perf-report"], JSON.stringify(idxMod.RETIRED));
   const built = idxMod.build(REPO);
   check("this repo's index count equals the skill folders", built.count === 98 && Object.keys(built.skills).length === 98, String(built.count));

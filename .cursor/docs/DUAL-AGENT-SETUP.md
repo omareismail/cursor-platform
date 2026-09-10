@@ -101,8 +101,9 @@ a 60-line report and still has room to act on it. The same applies doubly to
 `feature-analyst`: a genuine end-to-end trace reads 30-50 files across every
 layer, and the answer is 100 lines.
 
-They are read-only by design. Generation stays in the main thread where the
-guard rules and hooks apply.
+They are readers by convention, not a sandbox. The `tools:` list is what the
+host is asked to offer; it is not enforced on every editor. Generation stays in
+the main thread where the guard rules and hooks apply.
 
 ### 2. Hooks (`.claude/hooks/`) — enforcement that does not depend on the model
 

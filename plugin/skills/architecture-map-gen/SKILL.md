@@ -143,7 +143,7 @@ relationships from Step 3.
 
 **Step 6 — Output placement.**
 
-Diagrams go in `${CLAUDE_PLUGIN_ROOT}/docs/architecture/` as standalone `.md` files (one
+Diagrams go in `.cursor/docs/architecture/` as standalone `.md` files (one
 per diagram type/scope) by default — not inline-only in chat — since these
 are meant to be committed and referenced from `architecture.md` /
 `onboarding-doc-gen` output, not regenerated from scratch every time someone
@@ -162,14 +162,14 @@ payments platform.
 Agent confirms `repo-map.json` freshness, pulls `PaymentsDbContext`'s 12
 entities plus 3 Dapper-only tables found via `database-audit`'s last run,
 renders the ERD with the Dapper-only tables marked, writes
-`${CLAUDE_PLUGIN_ROOT}/docs/architecture/erd-tamkeen-payments.md`, and reports it's ready
+`.cursor/docs/architecture/erd-tamkeen-payments.md`, and reports it's ready
 to link from `onboarding-doc-gen`'s output.
 
 ---
 
 ## Output
 
-- One or more Mermaid `.md` files under `${CLAUDE_PLUGIN_ROOT}/docs/architecture/`
+- One or more Mermaid `.md` files under `.cursor/docs/architecture/`
 - A short chat summary of what was generated and any structural findings
   surfaced along the way (cycles, orphaned consumers, Dapper-only tables)
 - Findings handed to the relevant audit skill (`02-dotnet-architecture-guard.mdc`

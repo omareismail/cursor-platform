@@ -193,7 +193,7 @@ already computes.
 architecture-map-gen → depends on repo-discovery (no discovery of its own);
                         reads database-audit's last catalog findings for
                         Dapper-only tables when rendering ERDs; writes to
-                        ${CLAUDE_PLUGIN_ROOT}/docs/architecture/, linked from architecture.md;
+                        .cursor/docs/architecture/, linked from architecture.md;
                         now also renders service-interaction (sync calls,
                         distinct from service-map's async messaging) and
                         data-flow (combines both, single named flow only,
@@ -215,8 +215,9 @@ prompt-quality-audit (added Phase 5) → standalone, ad hoc version usable
 ## Change history
 
 Full pass-by-pass changelog of what was added, enhanced, or wired across
-all phases is in `${CLAUDE_PLUGIN_ROOT}/docs/MIGRATION_NOTES_PASS1.md`. Read that file
-before any future enhancement pass — it records what was deliberately not
+all phases is in `.cursor/docs/MIGRATION_NOTES_PASS1.md` (platform repo
+only — not shipped in the plugin). Read that file before any future
+enhancement pass in this repository — it records what was deliberately not
 built (to avoid duplication) as well as what was built, which is equally
 important context for not rebuilding it later.
 

@@ -38,7 +38,7 @@ The output is presented as a diff for human review, never silently overwritten.
 - `memory-bank/projectbrief.md` → project purpose, features, users
 - `.env.example` → required environment variables
 - `scripts/` → any setup or migration scripts
-- If `${CLAUDE_PLUGIN_ROOT}/docs/architecture/` has diagrams from `architecture-map-gen`,
+- If `.cursor/docs/architecture/` has diagrams from `architecture-map-gen`,
   link them rather than re-describing the architecture in prose only
 
 **Step 2 — Generate `README.md`.**
