@@ -85,6 +85,11 @@ section("guard-bash.mjs — shell writes to the enforcement surface");
     "echo x > .cursor/tools/_evidence.mjs",
     "echo x > .cursor/tools/self-audit.mjs",
     "echo x > .cursor/tools/release-evidence.mjs",
+    "echo x > .cursor/tools/project.mjs",
+    "echo x > .cursor/tools/_project-model.mjs",
+    'echo "{}" > project/project.json',
+    'echo "{}" > project/delivery.json',
+    'echo "{}" > project/ideas.json',
     "Remove-Item lifecycle/integrity.json",
     // Windows separators and absolute paths
     'echo "{}" > .cursor\\mcp-policy.json',

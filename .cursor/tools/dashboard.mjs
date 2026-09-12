@@ -5,11 +5,12 @@
  * WHY THIS EXISTS
  *
  * The platform already answers every question a status board would ask, as
- * JSON, from seventeen validators. Nothing assembled those answers into one
- * screen a human can keep open while they work. This file is that screen. It
- * computes nothing of its own: every panel is a collector over a tool or a
- * file that already exists. If a panel looks wrong, the fix is in the tool
- * that owns the data, not here.
+ * JSON, from the validators plus project.mjs. Nothing assembled those answers
+ * into one screen a human can keep open while they work. This file is that
+ * screen — the Project Command Center. Delivery phases, ideas and checkpoints
+ * are owned by project.mjs; lifecycle, traces and evidence keep their own
+ * owners. If a panel looks wrong, the fix is in the tool that owns the data,
+ * not here.
  *
  * READ-ONLY BY CONSTRUCTION
  *
@@ -60,6 +61,9 @@ const memoryBank = await import(new URL("./memory-bank.mjs", import.meta.url));
 memoryBank.setRoot(ROOT);
 const { PLACEHOLDER, isUnfilled, STALE_DAYS } = memoryBank;
 const acTrace = await import(new URL("./ac-trace.mjs", import.meta.url));
+const project = await import(new URL("./project.mjs", import.meta.url));
+project.setRoot(ROOT);
+const projectModel = await import(new URL("./_project-model.mjs", import.meta.url));
 
 const HOST = "127.0.0.1";
 const DEFAULT_PORT = 7777;
@@ -212,7 +216,22 @@ function clipFilled(rel, n = 800) {
 
 /* ------------------------------------------------------------------ collectors */
 
-function collectOverview() {
+async function collectProjectSnap() {
+  project.setRoot(ROOT);
+  return project.assemble();
+}
+
+async function getProject(fresh) {
+  if (!fresh) {
+    const hit = cache.get("project");
+    if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
+  }
+  const value = await collectProjectSnap();
+  cache.set("project", { at: Date.now(), value });
+  return value;
+}
+
+async function collectOverview() {
   const s = readState();
   const meta = runTool("platform-metadata.mjs", ["show"], { timeout: 10_000 });
   let integrations = [];
@@ -220,43 +239,80 @@ function collectOverview() {
   if (mcp.ok && mcp.data?.mcpServers) integrations = Object.keys(mcp.data.mcpServers);
 
   const counts = meta.ok ? meta.data.counts : null;
-  if (!s) {
-    return {
-      adopted: false,
-      product: null,
-      root: ROOT,
-      integrations,
-      counts,
-      stack: clipFilled("memory-bank/technologyStack.md"),
-      ...empty(
-        "This repo has not adopted the product lifecycle. That is valid — the dashboard still shows memory-bank, platform health and whatever caches exist.",
-        'node .cursor/tools/lifecycle.mjs init --name "<product>"',
-      ),
-    };
-  }
-  const derived = deriveAll(s);
-  const g = governance();
-  return {
-    adopted: true,
-    empty: false,
-    product: s.product,
-    mode: s.mode,
-    phase: s.phase,
-    phaseStatus: derived[s.phase]?.status || null,
-    updated: s.updated,
+  const derived = s ? deriveAll(s) : null;
+  const g = s ? governance() : null;
+  const snap = await getProject();
+
+  const ident = snap?.identity;
+  const productName = ident?.name || s?.product || null;
+  const active = snap?.delivery?.active || null;
+  const recs = (snap?.recommendations || []).filter((r) => r.status === "OPEN").slice(0, 8);
+  const blockers = (snap?.delivery?.blockers || []).slice(0, 8);
+  const ideasNew = (snap?.ideas || []).filter((i) => i.status === "CAPTURED" || i.status === "EVALUATING").slice(0, 6);
+  const activeFeatures = (snap?.features || []).filter((f) => ["IN_PROGRESS", "VERIFYING", "BLOCKED"].includes(f.projectStatus)).slice(0, 8);
+
+  const base = {
+    adopted: !!s,
+    projectAdopted: !!snap?.adopted,
+    empty: !s && !snap?.adopted,
+    product: productName,
+    mode: s?.mode || null,
+    phase: s?.phase || null,
+    phaseStatus: derived?.[s?.phase]?.status || null,
+    updated: ident?.updatedAt || s?.updated || null,
     root: ROOT,
     derived,
-    governance: {
+    governance: g ? {
       money: g.money.length > 0,
       pii: g.pii.length > 0,
       auth: g.auth.length > 0,
       regimes: [...(g.regimes?.keys?.() || [])],
       sources: g.read,
-    },
+    } : null,
     integrations,
     counts,
     stack: clipFilled("memory-bank/technologyStack.md"),
+    identity: ident || null,
+    lifecycleLadder: snap?.lifecycle?.phases || null,
+    delivery: active ? {
+      id: active.id,
+      name: active.name,
+      status: active.status,
+      readiness: snap.delivery.readiness,
+    } : null,
+    checkpoints: (snap?.delivery?.checkpoints || []).filter((c) => active && c.phaseId === active.id),
+    featuresSummary: summariseBy(snap?.features || [], (f) => f.projectStatus || "UNKNOWN"),
+    ideasSummary: summariseBy(snap?.ideas || [], (i) => i.status),
+    health: snap?.health || null,
+    blockers,
+    recommendations: recs,
+    newIdeas: ideasNew,
+    activeWork: activeFeatures,
+    recentEvents: (snap?.timeline || []).slice(0, 10),
+    commandCenter: true,
+    projectHint: snap && !snap.adopted ? snap.hint : null,
+    projectCommand: snap && !snap.adopted ? snap.command : null,
   };
+  if (!s) {
+    return {
+      ...base,
+      ...empty(
+        "This repo has not adopted the product lifecycle. That is valid — the dashboard still shows the command center when project/ exists, plus memory-bank and platform health.",
+        'node .cursor/tools/lifecycle.mjs init --name "<product>"',
+      ),
+      empty: !snap?.adopted,
+    };
+  }
+  return { ...base, empty: false };
+}
+
+function summariseBy(list, keyFn) {
+  const by = {};
+  for (const it of list) {
+    const k = keyFn(it) || "UNKNOWN";
+    by[k] = (by[k] || 0) + 1;
+  }
+  return { total: list.length, by };
 }
 
 function collectLifecycle() {
@@ -348,12 +404,14 @@ async function collectImpact(file, object) {
   return fm.impactOf(m, { file: safeFile, object: safeObj });
 }
 
-function collectFeatures() {
+async function collectFeatures() {
   const mapFile = safeRead(".cursor/cache/feature-map.json", { json: true });
   const repoFile = safeRead(".cursor/cache/repo-map.json", { json: true });
   const listed = runTool("feature-map.mjs", ["list", "--json"], { timeout: 20_000 });
 
   const repo = repoFile.ok ? summariseRepo(repoFile.data) : null;
+  const snap = await getProject();
+  if (snap.adopted) return { empty: !snap.features.length, features: snap.features.map((f) => ({ ...f, status: f.projectStatus })), repo, hint: "No traced or planned features yet.", generatedAt: snap.generatedAt };
   if (!mapFile.ok && !listed.ok) {
     return {
       ...empty(
@@ -489,7 +547,7 @@ function summariseRisk(d) {
   };
 }
 
-function collectDelivery() {
+async function collectDelivery() {
   const metrics = runTool("delivery-metrics.mjs", ["report", "--days", "90", "--json"], { timeout: 55_000 });
   const incidents = runTool("incidents.mjs", ["check", "--json"], { timeout: 20_000 });
   const flags = runTool("flag-debt.mjs", ["scan", "--json"], { timeout: 25_000 });
@@ -502,8 +560,18 @@ function collectDelivery() {
     phase: r.lifecycle?.phase,
   }));
   const noReleases = !releases.length;
+  const snap = await getProject();
   return {
     empty: false,
+    projectAdopted: !!snap?.adopted,
+    phases: snap?.delivery?.phases || [],
+    active: snap?.delivery?.active || null,
+    readiness: snap?.delivery?.readiness || null,
+    checkpoints: snap?.delivery?.checkpoints || [],
+    matrix: snap?.delivery?.matrix || null,
+    blockers: snap?.delivery?.blockers || [],
+    hint: snap && !snap.adopted ? snap.hint : null,
+    command: snap && !snap.adopted ? snap.command : null,
     metrics: metrics.ok ? summariseDora(metrics.data) : empty("Could not compute DORA metrics from git.", "node .cursor/tools/delivery-metrics.mjs report --days 90 --json"),
     releases: noReleases
       ? { ...empty("No release records yet.", "node .cursor/tools/release-evidence.mjs cut --version v0.1.0"), items: [] }
@@ -952,6 +1020,54 @@ async function collectActions() {
     },
   });
 
+  const projectExists = existsSync(join(ROOT, "project", "project.json"));
+  if (!projectExists) {
+    actions.push({
+      id: "project-init",
+      tool: "project.mjs",
+      command: "init",
+      group: "project",
+      title: "Initialise Project Command Center",
+      description: "Create project/ identity, default delivery phases and checkpoints. Does not mark phases complete.",
+      fields: [
+        field("--name", "text", { required: false, placeholder: "product name" }),
+        field("--existing", "flag", { required: false, hint: "Brownfield: earlier phases NEEDS_REVIEW, current Post-Release." }),
+        field("--owner", "text", { required: false }),
+      ],
+      preflight: { ok: true, refusals: [], hint: "The dashboard will not run this. Paste it." },
+    });
+  } else {
+    actions.push({
+      id: "idea-add",
+      tool: "project.mjs",
+      command: "idea",
+      group: "project",
+      title: "Capture an idea",
+      description: "Adds IDEA-NNN in CAPTURED. Trace it through approve → implement later.",
+      fields: [
+        field("SUB", "enum", { positional: true, options: ["add"], required: true }),
+        field("--title", "text"),
+        field("--reason", "text", { required: false }),
+        field("--value", "enum", { options: ["HIGH", "MED", "LOW", "UNKNOWN"], required: false }),
+        field("--phase", "text", { required: false, placeholder: "PHASE-003" }),
+      ],
+      preflight: { ok: true, refusals: [] },
+    });
+    actions.push({
+      id: "checkpoint-verify",
+      tool: "project.mjs",
+      command: "checkpoint",
+      group: "project",
+      title: "Verify a checkpoint",
+      description: "Runs the mapped tool when verificationMode is AUTOMATED or HYBRID.",
+      fields: [
+        field("SUB", "enum", { positional: true, options: ["verify"] }),
+        field("ID", "text", { positional: true, placeholder: "CHK-001" }),
+      ],
+      preflight: { ok: true, refusals: [] },
+    });
+  }
+
   return {
     empty: false,
     adopted: !!s,
@@ -1000,6 +1116,23 @@ function collectFindings() {
   return { schema: "finding-report/1", reports, counts, findings, ok: counts.block === 0 };
 }
 
+const PROJECT_SLICES = {
+  project: (s) => s,
+  ideas: (s) => ({ empty: !s.adopted, hint: s.hint, command: s.command, ideas: s.ideas || [] }),
+  checkpoints: (s) => ({
+    empty: !s.adopted, hint: s.hint, command: s.command,
+    checkpoints: s.delivery?.checkpoints || [],
+    matrix: s.delivery?.matrix || null,
+    phases: s.delivery?.phases || [],
+  }),
+  health: (s) => s.health || { metrics: [], fabricated: false },
+  timeline: (s) => ({ empty: !(s.timeline || []).length, events: s.timeline || [], hint: "Events come from lifecycle history, delivery/checkpoint/idea transitions, releases, CRs, incidents and ADRs." }),
+  recommendations: (s) => ({ empty: !s.adopted, hint: s.hint, command: s.command, items: s.recommendations || [] }),
+  graph: (s) => s.graph || { nodes: [], edges: [] },
+  roadmap: (s) => ({ empty: !s.adopted, hint: s.hint, command: s.command, ...(s.roadmap || {}) }),
+  risks: (s) => s.risks || { available: false, items: [], open: null },
+};
+
 const COLLECTORS = {
   overview: collectOverview,
   lifecycle: collectLifecycle,
@@ -1012,15 +1145,28 @@ const COLLECTORS = {
   platform: collectPlatform,
   actions: collectActions,
   impact: () => collectImpact(null, null),
+  project: collectProjectSnap,
+  ideas: () => null,
+  checkpoints: () => null,
+  health: () => null,
+  timeline: () => null,
+  recommendations: () => null,
+  graph: () => null,
+  roadmap: () => null,
+  risks: () => null,
 };
 
 // Collectors may be sync or async; awaiting a plain value is a no-op, so every
 // one of them is awaited and none has to care which kind it is.
 async function cached(name, fresh) {
+  if (PROJECT_SLICES[name] && name !== "project") {
+    return PROJECT_SLICES[name](await getProject(fresh));
+  }
   if (!fresh) {
     const hit = cache.get(name);
     if (hit && Date.now() - hit.at < CACHE_MS) return hit.value;
   }
+  if (fresh && (name === "overview" || name === "delivery")) cache.delete("project");
   const value = await COLLECTORS[name]();
   cache.set(name, { at: Date.now(), value });
   return value;
@@ -1028,7 +1174,13 @@ async function cached(name, fresh) {
 
 async function snapshot() {
   const out = { generatedAt: new Date().toISOString(), root: ROOT };
-  for (const name of Object.keys(COLLECTORS)) out[name] = await COLLECTORS[name]();
+  const snap = await getProject(true);
+  out.project = snap;
+  for (const name of Object.keys(COLLECTORS)) {
+    if (name === "project") continue;
+    if (PROJECT_SLICES[name]) { out[name] = PROJECT_SLICES[name](snap); continue; }
+    out[name] = await COLLECTORS[name]();
+  }
   return out;
 }
 
@@ -1060,6 +1212,28 @@ const API = {
   "/api/memory": "memory",
   "/api/platform": "platform",
   "/api/actions": "actions",
+  "/api/project": "project",
+  "/api/project/overview": "overview",
+  "/api/project/lifecycle": "lifecycle",
+  "/api/project/delivery": "delivery",
+  "/api/project/features": "features",
+  "/api/project/ideas": "ideas",
+  "/api/project/roadmap": "roadmap",
+  "/api/project/checkpoints": "checkpoints",
+  "/api/project/health": "health",
+  "/api/project/timeline": "timeline",
+  "/api/project/recommendations": "recommendations",
+  "/api/project/graph": "graph",
+  "/api/project/impact": "impact",
+  "/api/ideas": "ideas",
+  "/api/checkpoints": "checkpoints",
+  "/api/health": "health",
+  "/api/timeline": "timeline",
+  "/api/recommendations": "recommendations",
+  "/api/graph": "graph",
+  "/api/roadmap": "roadmap",
+  "/api/risks": "risks",
+  "/api/project/risks": "risks",
 };
 
 function onRequest(req, res) {
@@ -1085,6 +1259,25 @@ function onRequest(req, res) {
   if (path === "/api/impact") {
     return Promise.resolve(collectImpact(u.searchParams.get("file"), u.searchParams.get("object")))
       .then((d) => json(res, 200, d)).catch(fail);
+  }
+  if (path === "/api/trace" || path === "/api/project/trace") {
+    const id = u.searchParams.get("id");
+    return getProject(fresh).then((s) => {
+      if (!id) return json(res, 400, { error: "id query parameter required" });
+      const traced = projectModel.traceQuery(id, {
+        ideas: s.ideas || [],
+        features: s.features || [],
+        phases: s.delivery?.phases || [],
+        checkpoints: s.delivery?.checkpoints || [],
+        requirements: s.requirements || [],
+        risks: s.risks?.items || [],
+        releases: (s.graph?.nodes || []).filter((n) => n.kind === "release"),
+        decisions: s.decisions || [],
+        tasks: (s.graph?.nodes || []).filter((n) => n.kind === "task"),
+        requirementIdsKnown: (s.traceability?.total || 0) > 0,
+      });
+      return json(res, traced.kind ? 200 : 404, traced);
+    }).catch(fail);
   }
   if (path === "/api/simulate") {
     const proposed = u.searchParams.get("proposed");
@@ -1126,7 +1319,7 @@ function serve(args) {
   const url = `http://${HOST}:${port}/`;
   const server = createServer(onRequest);
   server.listen(port, HOST, () => {
-    console.log(`cursor-platform dashboard (GET only — composer, not executor)`);
+    console.log(`Project Command Center (GET only — composer, not executor)`);
     console.log(`  ${url}`);
     console.log(`  root  ${ROOT}`);
     console.log(`  Actions compose a command you paste. Nothing is written. Ctrl+C to stop.`);
@@ -1147,7 +1340,7 @@ const PAGE = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>cursor-platform</title>
+<title>Project Command Center</title>
 <style>
 :root {
   --bg:#0e141b; --panel:#17202a; --panel2:#1e2a36; --line:#2a3a4c;
@@ -1160,11 +1353,16 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--text); }
 .app { display:grid; grid-template-columns: 220px 1fr; height:100%; }
 nav {
   background:#0b1016; border-inline-end:1px solid var(--line);
-  padding:20px 12px; display:flex; flex-direction:column; gap:4px;
+  padding:20px 12px; display:flex; flex-direction:column; gap:4px; overflow:auto;
 }
 nav h1 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 8px 16px; font-weight:600; }
 nav button {
   appearance:none; background:transparent; border:0; color:var(--muted);
+  text-align:start; padding:8px 10px; border-radius:8px; cursor:pointer; font:inherit;
+}
+nav button:focus-visible, .graph-node:focus-visible, .act:focus-visible, button:focus-visible {
+  outline:2px solid var(--accent); outline-offset:2px;
+}
   text-align:start; padding:9px 12px; border-radius:8px; cursor:pointer; font:inherit;
 }
 nav button:hover { background:var(--panel2); color:var(--text); }
@@ -1263,9 +1461,32 @@ button.act:hover, .btn:hover { border-color:var(--accent); color:var(--accent); 
   background:var(--panel); color:var(--text); padding:8px 12px; border-radius:6px;
 }
 html[dir="rtl"] .app { direction:rtl; }
+.barwrap { margin:8px 0 12px; }
+.bar { height:10px; background:var(--panel2); border-radius:99px; overflow:hidden; border:1px solid var(--line); }
+.bar > i { display:block; height:100%; background:var(--accent); }
+.strip { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:8px 0 16px; font-size:13px; }
+.strip .arr { color:var(--muted); }
+.nav-label {
+  margin:14px 8px 4px; font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--muted);
+}
+.obj { list-style:none; margin:0; padding:0; }
+.obj li { display:flex; gap:8px; padding:4px 0; font-size:13px; border-bottom:1px solid var(--line); }
+.timeline { border-inline-start:2px solid var(--line); margin:8px 0 0 8px; padding-inline-start:16px; }
+.timeline .ev { margin:0 0 14px; }
+.timeline .ev .when { font-size:11px; color:var(--muted); }
+.graph-node { display:inline-flex; margin:3px; padding:4px 8px; border-radius:8px; border:1px solid var(--line); font-size:12px; background:var(--panel2); color:var(--text); cursor:pointer; }
+.detail { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:12px; margin:8px 0; }
+.detail .drow { display:grid; grid-template-columns:minmax(96px, 140px) minmax(0, 1fr); gap:6px 12px; font-size:13px; padding:3px 0; border-bottom:1px solid var(--line); }
+.detail .k { color:var(--muted); }
+.matrix td { text-align:center; font-weight:650; }
+.cc { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
 @media (max-width: 720px) {
-  .app { grid-template-columns: 1fr; }
-  nav { border-inline-end:0; border-block-end:1px solid var(--line); }
+  .app { grid-template-columns:minmax(0, 1fr); grid-template-rows:auto minmax(0, 1fr); }
+  nav { border-inline-end:0; border-block-end:1px solid var(--line); flex-direction:row; padding:8px; overflow-x:auto; }
+  nav h1, nav .nav-label, nav .spacer { display:none; }
+  nav button { flex:none; white-space:nowrap; }
+  main { min-width:0; padding:20px 16px 40px; }
 }
 </style>
 </head>
@@ -1273,18 +1494,26 @@ html[dir="rtl"] .app { direction:rtl; }
 <a class="skip" href="#content">Skip to content</a>
 <div class="app">
   <nav>
-    <h1>cursor-platform</h1>
-    <button data-panel="overview" class="active">Overview</button>
-    <button data-panel="lifecycle">Lifecycle</button>
-    <button data-panel="features">Features</button>
-    <button data-panel="impact">Impact</button>
-    <button data-panel="traceability">Traceability</button>
-    <button data-panel="quality">Quality</button>
-    <button data-panel="delivery">Delivery</button>
-    <button data-panel="findings">Findings</button>
-    <button data-panel="memory">Memory-bank</button>
-    <button data-panel="platform">Platform</button>
-    <button data-panel="actions">Actions</button>
+    <h1>Command Center</h1>
+    <button type="button" data-panel="overview" class="active">Overview</button>
+    <button type="button" data-panel="lifecycle">Lifecycle</button>
+    <button type="button" data-panel="delivery">Delivery</button>
+    <button type="button" data-panel="checkpoints">Checkpoints</button>
+    <button type="button" data-panel="features">Features</button>
+    <button type="button" data-panel="ideas">Ideas</button>
+    <button type="button" data-panel="roadmap">Roadmap</button>
+    <button type="button" data-panel="timeline">Timeline</button>
+    <button type="button" data-panel="graph">Project Map</button>
+    <button type="button" data-panel="health">Health</button>
+    <div class="nav-label">Existing</div>
+    <button type="button" data-panel="impact">Impact</button>
+    <button type="button" data-panel="traceability">Traceability</button>
+    <button type="button" data-panel="quality">Quality</button>
+    <button type="button" data-panel="recommendations">Improve</button>
+    <button type="button" data-panel="findings">Findings</button>
+    <button type="button" data-panel="memory">Memory-bank</button>
+    <button type="button" data-panel="platform">Platform</button>
+    <button type="button" data-panel="actions">Actions</button>
     <div class="spacer"></div>
     <button type="button" id="refresh" class="btn">Refresh</button>
   </nav>
@@ -1325,15 +1554,65 @@ html[dir="rtl"] .app { direction:rtl; }
     });
     return n;
   }
+  function detailBlock(pairs) {
+    var box = el("div", { class: "detail", tabindex: "0", "aria-live": "polite" });
+    (pairs || []).forEach(function (p) {
+      if (!p) return;
+      var row = el("div", { class: "drow" });
+      row.appendChild(el("div", { class: "k", text: p[0] }));
+      var val = p[1];
+      var v = el("div");
+      if (val && val.nodeType) v.appendChild(val);
+      else v.textContent = val == null || val === "" ? "—" : String(val);
+      row.appendChild(v);
+      box.appendChild(row);
+    });
+    return box;
+  }
   function badge(text, kind) {
     return el("span", { class: "badge " + (kind || "") }, [String(text || "—")]);
   }
   function statusKind(s) {
     s = String(s || "").toUpperCase();
-    if (/APPROVED|PASS|OK|FRESH|FILLED|READY|SIGNED/.test(s)) return "ok";
-    if (/STALE|WARN|INHERITED|IN_PROGRESS|TEMPLATE|AGED/.test(s)) return "warn";
-    if (/FAIL|BLOCKED|NOT_STARTED|MISSING|EMPTY|NO-GO/.test(s)) return "bad";
+    if (/APPROVED|PASS|OK|FRESH|FILLED|READY|SIGNED|COMPLETED|RELEASED|VERIFIED|IMPLEMENTED/.test(s)) return "ok";
+    if (/STALE|WARN|INHERITED|IN_PROGRESS|TEMPLATE|AGED|EVALUATING|NEEDS_REVIEW|HYBRID/.test(s)) return "warn";
+    if (/FAIL|BLOCKED|NOT_STARTED|MISSING|EMPTY|NO-GO|REJECTED/.test(s)) return "bad";
     return "info";
+  }
+  function glyph(s) {
+    s = String(s || "");
+    if (/PASSED|WAIVED|COMPLETED|APPROVED|RELEASED/.test(s)) return "✓";
+    if (/IN_PROGRESS|READY_FOR_REVIEW|IMPLEMENTING/.test(s)) return "●";
+    if (/FAILED/.test(s)) return "✗";
+    if (/BLOCKED/.test(s)) return "!";
+    if (/NOT_APPLICABLE/.test(s)) return "—";
+    return "○";
+  }
+  function bar(ratio, label) {
+    var wrap = el("div", { class: "barwrap" });
+    if (ratio == null) {
+      wrap.appendChild(el("p", { class: "muted", text: label || "Insufficient evidence — no percentage shown" }));
+      return wrap;
+    }
+    var b = el("div", { class: "bar" });
+    var i = document.createElement("i");
+    i.style.width = Math.max(0, Math.min(100, Math.round(ratio * 100))) + "%";
+    b.appendChild(i);
+    wrap.appendChild(b);
+    wrap.appendChild(el("span", { class: "muted", text: label || "" }));
+    return wrap;
+  }
+  function ladderStrip(phases, currentKey) {
+    var strip = el("div", { class: "strip" });
+    (phases || []).forEach(function (p, i) {
+      if (i) strip.appendChild(el("span", { class: "arr", text: "→" }));
+      var name = p.name || p.id;
+      var st = p.status || p.derived || "";
+      var mark = glyph(st);
+      if (p.current || (currentKey && (p.name === currentKey || p.id === currentKey))) mark = "●";
+      strip.appendChild(badge(mark + " " + name, statusKind(st)));
+    });
+    return strip;
   }
   function emptyBox(d) {
     var box = el("div", { class: "empty" });
@@ -1387,44 +1666,109 @@ html[dir="rtl"] .app { direction:rtl; }
   }
 
   function renderOverview(d) {
-    title.textContent = d.product || "This repository";
-    subtitle.textContent = d.adopted
-      ? (d.mode + " · phase " + d.phase + " · " + (d.phaseStatus || ""))
-      : (d.hint || "Lifecycle not adopted.");
+    var ident = d.identity || {};
+    title.textContent = ident.name || d.product || "Project Command Center";
+    var stackBits = [];
+    if (ident.identity && ident.identity.frameworks && ident.identity.frameworks.value) {
+      stackBits = ident.identity.frameworks.value;
+    }
+    subtitle.textContent = (stackBits.length ? stackBits.join(" + ") + " · " : "")
+      + (d.adopted ? ("lifecycle " + d.phase + " · " + (d.phaseStatus || "")) : "lifecycle not adopted")
+      + (d.delivery ? " · delivery " + d.delivery.name : "");
     headBadges.innerHTML = "";
     if (d.phaseStatus) headBadges.appendChild(badge(d.phaseStatus, statusKind(d.phaseStatus)));
-    if (d.governance) {
-      ["money", "pii", "auth"].forEach(function (k) {
-        headBadges.appendChild(badge(k, d.governance[k] ? "warn" : ""));
-      });
+    if (d.delivery && d.delivery.readiness) {
+      headBadges.appendChild(badge(d.delivery.readiness.derived || d.delivery.status, statusKind(d.delivery.readiness.derived)));
     }
     var frag = document.createDocumentFragment();
+    if (!d.projectAdopted && d.projectCommand) {
+      frag.appendChild(emptyBox({ hint: d.projectHint, command: d.projectCommand }));
+      frag.appendChild(actsRow([["project-init", "Initialise project model", null]]));
+    }
+    var cc = el("div", { class: "cc" });
+    cc.appendChild(el("h3", { text: "Lifecycle" }));
+    cc.appendChild(d.lifecycleLadder && d.lifecycleLadder.length
+      ? ladderStrip(d.lifecycleLadder, d.phase)
+      : el("p", { class: "muted", text: d.adopted ? (d.phase || "") : "Not adopted — valid until you decide it has." }));
+    cc.appendChild(el("h3", { text: "Delivery" }));
+    if (d.delivery) {
+      cc.appendChild(el("p", { text: d.delivery.name + "  " + (d.delivery.status || "") }));
+      var prog = d.delivery.readiness && d.delivery.readiness.progress;
+      cc.appendChild(bar(prog ? prog.ratio : null, prog ? prog.label : "No objectives measured"));
+      var ready = d.delivery.readiness;
+      if (ready && !ready.ready && ready.reasons && ready.reasons.length) {
+        cc.appendChild(el("p", { class: "err", text: "Not ready: " + ready.reasons[0] }));
+      }
+    } else {
+      cc.appendChild(el("p", { class: "muted", text: "No delivery phase. Init the project model." }));
+    }
+    cc.appendChild(el("h3", { text: "Checkpoints (active phase)" }));
+    var chkRow = el("div", { class: "row" });
+    (d.checkpoints || []).forEach(function (c) {
+      chkRow.appendChild(badge(glyph(c.status) + " " + c.name, statusKind(c.status)));
+    });
+    if (!(d.checkpoints || []).length) chkRow.appendChild(el("span", { class: "muted", text: "None on the active phase." }));
+    cc.appendChild(chkRow);
+    frag.appendChild(cc);
+
     var g = el("div", { class: "grid" });
-    g.appendChild(card("Product", d.product || "—"));
-    g.appendChild(card("Phase", d.phase || "not adopted", d.phase ? statusKind(d.phaseStatus) : "warn"));
-    g.appendChild(card("Integrations", (d.integrations || []).length));
-    if (d.counts) g.appendChild(card("Skills", d.counts.skills));
+    var fs = d.featuresSummary || { total: 0, by: {} };
+    var isum = d.ideasSummary || { total: 0, by: {} };
+    g.appendChild(card("Features", fs.total));
+    g.appendChild(card("Ideas", isum.total));
+    g.appendChild(card("Blockers", (d.blockers || []).length, (d.blockers || []).length ? "bad" : "ok"));
+    g.appendChild(card("Open recs", (d.recommendations || []).length, (d.recommendations || []).length ? "warn" : "ok"));
     frag.appendChild(g);
+
+    if ((d.blockers || []).length) {
+      frag.appendChild(el("h3", { text: "Delivery blockers" }));
+      frag.appendChild(table(["Id", "Severity", "Phase", "Reason"],
+        d.blockers.map(function (b) { return [b.id, badge(b.severity, "bad"), b.phaseName || b.phaseId, b.reason]; })));
+    }
+    if ((d.activeWork || []).length) {
+      frag.appendChild(el("h3", { text: "Current work" }));
+      frag.appendChild(table(["Id", "Name", "Status", "Phases"],
+        d.activeWork.map(function (f) {
+          var btn = el("button", { class: "act", type: "button", text: f.id });
+          btn.addEventListener("click", function () { location.hash = "features"; document.querySelector('[data-panel="features"]').click(); });
+          return [btn, f.name, badge(f.projectStatus, statusKind(f.projectStatus)), (f.phaseIds || []).join(", ")];
+        })));
+    }
+    if ((d.newIdeas || []).length) {
+      frag.appendChild(el("h3", { text: "New ideas" }));
+      frag.appendChild(table(["Id", "Title", "Status", "Value"],
+        d.newIdeas.map(function (i) {
+          var btn = el("button", { class: "act", type: "button", text: i.id });
+          btn.addEventListener("click", function () { document.querySelector('[data-panel="ideas"]').click(); });
+          return [btn, i.title, badge(i.status, statusKind(i.status)), i.value];
+        })));
+    }
+    if ((d.recommendations || []).length) {
+      frag.appendChild(el("h3", { text: "Recommended next" }));
+      frag.appendChild(table(["Id", "Category", "What", "Why"],
+        d.recommendations.map(function (r) { return [r.id, badge(r.category, r.category === "risk" ? "bad" : "info"), r.what, r.why]; })));
+    }
+    if ((d.recentEvents || []).length) {
+      frag.appendChild(el("h3", { text: "Recent events" }));
+      var tl = el("div", { class: "timeline" });
+      d.recentEvents.forEach(function (e) {
+        var ev = el("div", { class: "ev" });
+        ev.appendChild(el("div", { class: "when", text: (e.at || "").slice(0, 16) + " · " + (e.kind || "") }));
+        ev.appendChild(el("div", { text: e.title || "" }));
+        if (e.detail) ev.appendChild(el("div", { class: "muted", text: String(e.detail).slice(0, 160) }));
+        tl.appendChild(ev);
+      });
+      frag.appendChild(tl);
+    }
     if (d.governance && d.adopted) {
       frag.appendChild(el("h3", { text: "Governance flags" }));
-      var row = el("div", { class: "row" });
-      row.appendChild(badge("money " + (d.governance.money ? "ON" : "off"), d.governance.money ? "warn" : ""));
-      row.appendChild(badge("PII " + (d.governance.pii ? "ON" : "off"), d.governance.pii ? "warn" : ""));
-      row.appendChild(badge("auth " + (d.governance.auth ? "ON" : "off"), d.governance.auth ? "warn" : ""));
-      (d.governance.regimes || []).forEach(function (r) { row.appendChild(badge(r, "warn")); });
-      frag.appendChild(row);
-      if (d.governance.sources && d.governance.sources.length) {
-        frag.appendChild(el("p", { class: "muted", text: "Derived from: " + d.governance.sources.join(", ") }));
-      }
+      var grow = el("div", { class: "row" });
+      grow.appendChild(badge("money " + (d.governance.money ? "ON" : "off"), d.governance.money ? "warn" : ""));
+      grow.appendChild(badge("PII " + (d.governance.pii ? "ON" : "off"), d.governance.pii ? "warn" : ""));
+      grow.appendChild(badge("auth " + (d.governance.auth ? "ON" : "off"), d.governance.auth ? "warn" : ""));
+      frag.appendChild(grow);
     }
-    if (d.integrations && d.integrations.length) {
-      frag.appendChild(el("p", { class: "muted", text: "MCP: " + d.integrations.join(", ") }));
-    }
-    if (d.stack) {
-      frag.appendChild(el("h3", { text: "technologyStack.md" }));
-      frag.appendChild(el("pre", { class: "cmd", text: d.stack }));
-    }
-    if (d.empty && !d.adopted) {
+    if (d.empty && !d.adopted && !d.projectAdopted) {
       frag.appendChild(emptyBox(d));
       frag.appendChild(actsRow([["init", "Initialise lifecycle", null]]));
     }
@@ -1512,11 +1856,26 @@ html[dir="rtl"] .app { direction:rtl; }
       return frag;
     }
     headBadges.appendChild(badge((d.features || []).length + " features", "info"));
+    var featureDetail = el("div");
+    featureDetail.appendChild(el("p", { class: "muted", text: "Select a feature for delivery links and evidence." }));
     frag.appendChild(table(["ID", "Name", "Status", "Conf", "Files", "Freshness"],
       (d.features || []).map(function (f) {
-        var fresh = f.stale ? "STALE" : "fresh";
-        return [f.id, f.name, f.status, f.confidence, f.files, badge(fresh, f.stale ? "warn" : "ok")];
+        var fresh = f.stale === true ? "STALE" : f.stale === false ? "fresh" : "unknown";
+        var btn = el("button", { class: "act", type: "button", text: f.id });
+        btn.addEventListener("click", function () {
+          featureDetail.innerHTML = "";
+          featureDetail.appendChild(detailBlock([
+            ["Id", f.id], ["Name", f.name], ["Status", f.projectStatus || f.status],
+            ["Phases", (f.phaseIds || []).join(", ")], ["Ideas", (f.ideaIds || []).join(", ")],
+            ["Requirements", (f.requirementIds || []).join(", ")],
+            ["Files", Array.isArray(f.fileRefs) ? f.fileRefs.join(", ") : f.files],
+            ["Tests", Array.isArray(f.testRefs) ? f.testRefs.join(", ") : f.tests],
+            ["Source", f.source || ""],
+          ]));
+        });
+        return [btn, f.name, f.status, f.confidence, f.files, badge(fresh, f.stale === false ? "ok" : "warn")];
       })));
+    frag.appendChild(featureDetail);
     return frag;
   }
 
@@ -1603,9 +1962,57 @@ html[dir="rtl"] .app { direction:rtl; }
   }
 
   function renderDelivery(d) {
-    title.textContent = "Delivery & ops";
-    subtitle.textContent = "DORA, releases, incidents, expired flags. Loaded on demand (git).";
+    title.textContent = "Delivery";
+    subtitle.textContent = "Outcome phases and checkpoints, then DORA / releases. Lifecycle is the engineering stage; this is the work package.";
     var frag = document.createDocumentFragment();
+    if (!d.projectAdopted) {
+      frag.appendChild(emptyBox({ hint: d.hint, command: d.command }));
+      frag.appendChild(actsRow([["project-init", "Initialise project model", null]]));
+    } else {
+      if (d.active) {
+        var r = d.readiness || {};
+        frag.appendChild(el("h3", { text: "Active: " + d.active.name }));
+        frag.appendChild(badge(r.derived || d.active.status, statusKind(r.derived || d.active.status)));
+        frag.appendChild(bar(r.progress ? r.progress.ratio : null, r.progress ? r.progress.label : ""));
+        if (r.reasons && r.reasons.length) {
+          frag.appendChild(el("p", { class: "err", text: "Not ready" }));
+          var ul = el("ul");
+          r.reasons.forEach(function (x) { ul.appendChild(el("li", { text: x })); });
+          frag.appendChild(ul);
+        }
+        frag.appendChild(el("h3", { text: "Objectives" }));
+        var ol = el("ul", { class: "obj" });
+        (d.active.objectives || []).forEach(function (o) {
+          ol.appendChild(el("li", null, [badge(glyph(o.status === "COMPLETE" ? "PASSED" : o.status), statusKind(o.status === "COMPLETE" ? "PASSED" : o.status)), " " + o.title + " (" + o.status + ")"]));
+        });
+        frag.appendChild(ol);
+      }
+      frag.appendChild(el("h3", { text: "Phases" }));
+      var phaseDetail = el("div");
+      phaseDetail.appendChild(el("p", { class: "muted", text: "Select a phase for objectives, dependencies, and readiness reasons." }));
+      frag.appendChild(table(["Id", "Name", "Status", "Ready", "Objectives"],
+        (d.phases || []).map(function (p) {
+          var rd = p.readiness || {};
+          var btn = el("button", { class: "act", type: "button", text: p.id });
+          btn.addEventListener("click", function () {
+            var r = p.readiness || {};
+            phaseDetail.innerHTML = "";
+            phaseDetail.appendChild(detailBlock([
+              ["Id", p.id], ["Name", p.name], ["Status", p.status], ["Derived", r.derived],
+              ["Objectives", r.progress ? r.progress.label : ""],
+              ["Dependencies", (p.dependencies || []).join(", ")],
+              ["Not ready", (r.reasons || []).join("; ")],
+            ]));
+          });
+          return [btn, p.name, badge(glyph(p.status) + " " + p.status, statusKind(rd.derived || p.status)), rd.ready ? "yes" : "no", rd.progress ? rd.progress.label : "—"];
+        })));
+      frag.appendChild(phaseDetail);
+      if ((d.blockers || []).length) {
+        frag.appendChild(el("h3", { text: "Blockers" }));
+        frag.appendChild(table(["Id", "Title", "Phase", "Action"],
+          d.blockers.map(function (b) { return [b.id, b.title, b.phaseName, b.action]; })));
+      }
+    }
     frag.appendChild(el("h3", { text: "DORA (90 days)" }));
     if (d.metrics && d.metrics.empty) frag.appendChild(emptyBox(d.metrics));
     else if (d.metrics && d.metrics.cards) {
@@ -1824,6 +2231,227 @@ html[dir="rtl"] .app { direction:rtl; }
     return frag;
   }
 
+  function renderIdeas(d) {
+    title.textContent = "Ideas";
+    subtitle.textContent = "Captured → evaluating → approved → specified → implementing → verified → released. Rejected and parked are exits.";
+    if (d.empty) return emptyBox(d);
+    var frag = document.createDocumentFragment();
+    frag.appendChild(actsRow([["idea-add", "Capture an idea", null]]));
+    var detailHost = el("div");
+    detailHost.appendChild(el("p", { class: "muted", text: "Click an idea id to see its trace (decision → requirements → feature → checkpoints → release)." }));
+    frag.appendChild(table(["Id", "Title", "Status", "Value", "Phase", "Features"],
+      (d.ideas || []).map(function (i) {
+        var btn = el("button", { class: "act", type: "button", text: i.id });
+        btn.addEventListener("click", function () {
+          var t = i.trace || {};
+          var next = detailBlock([
+            ["Id", i.id],
+            ["Title", i.title],
+            ["Status", i.status],
+            ["Decision", t.decision ? (t.decision.verdict || t.decision.id || JSON.stringify(t.decision)) : (i.decisionId || "—")],
+            ["Phase", t.phase ? t.phase.id + " " + t.phase.name : (i.phaseId || "—")],
+            ["Features", (t.features || []).map(function (f) { return f.id + " " + (f.status || ""); }).join(", ")],
+            ["Requirements", (t.requirements || []).join(", ")],
+            ["Tasks", (t.tasks || []).join(", ")],
+            ["Code", (t.implementation || []).join(", ")],
+            ["Tests", (t.tests || []).join(", ")],
+            ["Release", t.release || "—"],
+            ["Gaps", (t.gaps || []).map(function (g) { return g.kind + " " + (g.to || ""); }).join("; ")],
+          ]);
+          detailHost.innerHTML = "";
+          detailHost.appendChild(el("h3", { text: "Trace" }));
+          detailHost.appendChild(next);
+        });
+        return [btn, i.title, badge(i.status, statusKind(i.status)), i.value, i.phaseId || "", (i.featureIds || []).join(", ")];
+      })));
+    frag.appendChild(detailHost);
+    return frag;
+  }
+  function renderCheckpoints(d) {
+    title.textContent = "Checkpoints";
+    subtitle.textContent = "Gates on a delivery phase. PASSED requires evidence when the project says so.";
+    if (d.empty) return emptyBox(d);
+    var frag = document.createDocumentFragment();
+    var chkDetail = el("div");
+    chkDetail.appendChild(el("p", { class: "muted", text: "Click a checkpoint id for evidence and history." }));
+    if (d.matrix && d.matrix.phases) {
+      frag.appendChild(el("h3", { text: "Phase × type" }));
+      var headers = ["Type"].concat(d.matrix.phases.map(function (p) { return p.name; }));
+      var rows = (d.matrix.types || []).map(function (t) {
+        return [t.name].concat(d.matrix.phases.map(function (p) {
+          var cell = t.byPhase[p.id] || {};
+          if (!cell.id) return el("span", { text: "—", "aria-label": "Not applicable" });
+          var btn = el("button", { type: "button", class: "act", text: glyph(cell.status), title: cell.id + ": " + cell.status, "aria-label": p.name + ": " + t.name + " — " + cell.status });
+          btn.addEventListener("click", function () {
+            var c = (d.checkpoints || []).find(function (x) { return x.id === cell.id; }) || {};
+            chkDetail.innerHTML = "";
+            chkDetail.appendChild(detailBlock([
+              ["Id", c.id], ["Name", c.name], ["Status", c.status], ["Mode", c.verificationMode],
+              ["Evidence", (c.evidence || []).map(function (e) { return (e.id || "") + " " + (e.ref || e.summary || ""); }).join("; ")],
+              ["History", (c.history || []).map(function (h) { return (h.status || "") + " " + (h.at || "").slice(0, 10); }).join("; ")],
+            ]));
+            chkDetail.querySelector(".detail") && chkDetail.querySelector(".detail").focus();
+          });
+          return btn;
+        }));
+      });
+      var tbl = table(headers, rows);
+      tbl.className = "matrix";
+      frag.appendChild(tbl);
+      frag.appendChild(el("p", { class: "muted", text: "✓ passed  ● in progress  ○ not started  ✗ failed  ! blocked  — n/a" }));
+    }
+    frag.appendChild(el("h3", { text: "All checkpoints" }));
+    frag.appendChild(table(["Id", "Name", "Phase", "Status", "Mode", "Evidence"],
+      (d.checkpoints || []).map(function (c) {
+        var btn = el("button", { class: "act", type: "button", text: c.id });
+        btn.addEventListener("click", function () {
+          chkDetail.innerHTML = "";
+          chkDetail.appendChild(detailBlock([
+            ["Id", c.id], ["Name", c.name], ["Status", c.status], ["Mode", c.verificationMode],
+            ["Notes", c.notes || ""],
+            ["Features", (c.featureIds || []).join(", ")],
+            ["Requirements", (c.requirementIds || []).join(", ")],
+            ["Evidence", (c.evidence || []).map(function (e) { return (e.ref || e.summary || e.id || ""); }).join("; ")],
+          ]));
+        });
+        return [btn, c.name, c.phaseId, badge(glyph(c.status) + " " + c.status, statusKind(c.status)), c.verificationMode, String((c.evidence || []).length)];
+      })));
+    frag.appendChild(el("h3", { text: "Evidence / history" }));
+    frag.appendChild(chkDetail);
+    return frag;
+  }
+  function renderHealth(d) {
+    title.textContent = "Project health";
+    subtitle.textContent = "Only values that can be computed. Unknown means insufficient evidence, not zero.";
+    var frag = document.createDocumentFragment();
+    var g = el("div", { class: "grid" });
+    (d.metrics || []).forEach(function (m) {
+      var kind = m.kind === "unknown" ? "warn" : m.kind === "bad" ? "bad" : m.kind === "warn" ? "warn" : "";
+      var box = card(m.label, m.value, kind);
+      if (m.note) box.appendChild(el("p", { class: "muted", text: m.note }));
+      g.appendChild(box);
+    });
+    frag.appendChild(g);
+    if (d.fabricated === false) frag.appendChild(el("p", { class: "muted", text: "No fabricated percentages." }));
+    return frag;
+  }
+  function renderTimeline(d) {
+    title.textContent = "Timeline";
+    subtitle.textContent = d.hint || "Project events from existing records.";
+    var frag = document.createDocumentFragment();
+    if (!(d.events || []).length) return emptyBox({ hint: "No dated events yet." });
+    var tl = el("div", { class: "timeline" });
+    d.events.slice(0, 80).forEach(function (e) {
+      var ev = el("div", { class: "ev" });
+      ev.appendChild(el("div", { class: "when", text: (e.at || "").slice(0, 19) + " · " + (e.kind || "") }));
+      ev.appendChild(el("div", { text: e.title || "" }));
+      if (e.detail) ev.appendChild(el("div", { class: "muted", text: String(e.detail).slice(0, 200) }));
+      if (e.ref) ev.appendChild(el("div", { class: "muted", text: String(e.ref) }));
+      tl.appendChild(ev);
+    });
+    frag.appendChild(tl);
+    return frag;
+  }
+  function renderGraph(d) {
+    title.textContent = "Project map";
+    subtitle.textContent = "Derived graph. Nodes are ids that already exist; this is not a second database.";
+    var frag = document.createDocumentFragment();
+    var graphDetail = el("div");
+    graphDetail.appendChild(el("p", { class: "muted", text: "Select a node to inspect its identity, source and relationships." }));
+    function showNode(n) {
+      var rels = (d.edges || []).filter(function (e) { return e.from === n.id || e.to === n.id; });
+      graphDetail.innerHTML = "";
+      graphDetail.appendChild(detailBlock([
+        ["Id", n.id],
+        ["Kind", n.kind],
+        ["Label", n.label || n.id],
+        ["Status", n.status || "—"],
+        ["Source", n.source || n.href || "—"],
+      ]));
+      if (rels.length) {
+        graphDetail.appendChild(el("h3", { text: "Relationships" }));
+        graphDetail.appendChild(table(["From", "Kind", "To"], rels.map(function (e) {
+          var other = e.from === n.id ? e.to : e.from;
+          var btn = el("button", { type: "button", class: "act", text: other });
+          btn.addEventListener("click", function () {
+            var found = (d.nodes || []).find(function (x) { return x.id === other; });
+            if (found) showNode(found);
+          });
+          return [e.from, e.kind, e.from === n.id ? btn : e.to === n.id ? btn : e.to];
+        })));
+      }
+      var focus = graphDetail.querySelector(".detail");
+      if (focus) focus.focus();
+    }
+    var by = {};
+    (d.nodes || []).forEach(function (n) {
+      (by[n.kind] || (by[n.kind] = [])).push(n);
+    });
+    Object.keys(by).forEach(function (k) {
+      frag.appendChild(el("h3", { text: k + " (" + by[k].length + ")" }));
+      var row = el("div", { class: "row" });
+      by[k].slice(0, 60).forEach(function (n) {
+        var btn = el("button", { type: "button", class: "graph-node", text: (n.status ? glyph(n.status) + " " : "") + (n.label || n.id), "aria-label": (n.kind || "node") + " " + (n.label || n.id) + (n.status ? " " + n.status : "") });
+        btn.addEventListener("click", function () { showNode(n); });
+        row.appendChild(btn);
+      });
+      frag.appendChild(row);
+    });
+    frag.appendChild(graphDetail);
+    frag.appendChild(el("h3", { text: "Edges" }));
+    frag.appendChild(table(["From", "Kind", "To"], (d.edges || []).slice(0, 80).map(function (e) {
+      return [e.from, e.kind, e.to];
+    })));
+    return frag;
+  }
+  function renderRoadmap(d) {
+    title.textContent = "Roadmap";
+    subtitle.textContent = "Planned product work. Not a copy of the lifecycle ladder.";
+    if (d.empty) return emptyBox(d);
+    var frag = document.createDocumentFragment();
+    frag.appendChild(el("h3", { text: "Now" }));
+    (d.now || []).forEach(function (p) {
+      frag.appendChild(el("p", { text: p.id + "  " + p.name }));
+      frag.appendChild(bar(p.progress ? p.progress.ratio : null, p.progress ? p.progress.label : ""));
+    });
+    frag.appendChild(el("h3", { text: "Next" }));
+    frag.appendChild(table(["Id", "Name", "Status"], (d.next || []).map(function (p) { return [p.id, p.name, p.status]; })));
+    frag.appendChild(el("h3", { text: "Planned ideas" }));
+    frag.appendChild(table(["Id", "Title", "Status"], (d.planned || []).map(function (i) { return [i.id, i.title, i.status]; })));
+    frag.appendChild(el("h3", { text: "Future / parked" }));
+    frag.appendChild(table(["Id", "Title"], (d.future || []).map(function (i) { return [i.id, i.title]; })));
+    if ((d.milestones || []).length) {
+      frag.appendChild(el("h3", { text: "Milestones" }));
+      frag.appendChild(table(["Id", "Date", "Title", "Phase", "Release"], (d.milestones || []).map(function (m) {
+        return [m.id, m.date || "", m.title, m.phaseId || "", m.releaseId || ""];
+      })));
+    }
+    if ((d.releases || []).length) {
+      frag.appendChild(el("h3", { text: "Release targets" }));
+      frag.appendChild(table(["Release", "Signed", "Ideas", "Features"], (d.releases || []).map(function (r) {
+        return [r.id, r.signed ? "signed" : "unsigned", (r.ideas || []).join(", "), (r.features || []).join(", ")];
+      })));
+    }
+    if ((d.features || []).length) {
+      frag.appendChild(el("h3", { text: "Scheduled features" }));
+      frag.appendChild(table(["Id", "Name", "Status", "Phases"], (d.features || []).map(function (f) {
+        return [f.id, f.name, f.status, (f.phaseIds || []).join(", ")];
+      })));
+    }
+    return frag;
+  }
+  function renderRecs(d) {
+    title.textContent = "Improvements";
+    subtitle.textContent = "Deterministic rules. Category is missing / enhancement / risk / opportunity. Source is rule or detected-gap — never silent AI.";
+    if (d.empty && !(d.items || []).length) return emptyBox(d);
+    var frag = document.createDocumentFragment();
+    frag.appendChild(table(["Id", "Cat", "Source", "Rule", "What", "Why", "Next"],
+      (d.items || []).map(function (r) {
+        return [r.id, badge(r.category, r.category === "risk" ? "bad" : r.category === "opportunity" ? "info" : "warn"), r.source, r.rule, r.what, r.why, r.nextAction];
+      })));
+    return frag;
+  }
+
   var RENDER = {
     overview: renderOverview,
     lifecycle: renderLifecycle,
@@ -1836,6 +2464,13 @@ html[dir="rtl"] .app { direction:rtl; }
     memory: renderMemory,
     platform: renderPlatform,
     actions: renderActions,
+    ideas: renderIdeas,
+    checkpoints: renderCheckpoints,
+    health: renderHealth,
+    timeline: renderTimeline,
+    graph: renderGraph,
+    roadmap: renderRoadmap,
+    recommendations: renderRecs,
   };
 
   var actionsCatalog = null;
@@ -2102,19 +2737,25 @@ html[dir="rtl"] .app { direction:rtl; }
   function closeComposer() { drawer.hidden = true; }
   document.getElementById("drawer-scrim").addEventListener("click", closeComposer);
 
+  var requestSequence = 0;
   function show(name) {
+    var request = ++requestSequence;
     current = name;
     document.querySelectorAll("nav > button[data-panel]").forEach(function (b) {
       b.classList.toggle("active", b.getAttribute("data-panel") === name);
     });
     content.innerHTML = "";
     content.appendChild(el("p", { class: "muted", text: "Loading…" }));
-    fetch("/api/" + name + "?fresh=1").then(function (r) { return r.json(); }).then(function (d) {
+    fetch("/api/" + name + "?fresh=1").then(function (r) {
+      return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || "Could not load project data"); return d; });
+    }).then(function (d) {
+      if (request !== requestSequence) return;
       if (name === "actions") actionsCatalog = d;
       content.innerHTML = "";
       var node = RENDER[name](d);
       content.appendChild(node);
     }).catch(function (e) {
+      if (request !== requestSequence) return;
       content.innerHTML = "";
       content.appendChild(el("p", { class: "err", text: String(e) }));
     });

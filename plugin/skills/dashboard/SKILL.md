@@ -1,6 +1,6 @@
 ---
 name: dashboard
-description: "Opens a localhost UI over the project's platform state: lifecycle phase and gates, traced features, requirement traceability, test and risk coverage, delivery metrics, memory-bank fill and platform health. GET only — the Actions panel composes the exact CLI for gates, releases, change requests and incidents; the human pastes it. Assembled from dashboard.mjs calling the existing validators. Use when asked to see the project, the lifecycle, features, gates, coverage, or to compose a governance command. Invoked as /dashboard."
+description: "Opens the Project Command Center: lifecycle, delivery phases, checkpoints, ideas, features, health and recommendations. GET only — Actions compose CLIs you paste. Assembled from dashboard.mjs + project.mjs. Use when asked to see the project or compose a governance command. Invoked as /dashboard."
 ---
 
 <!-- GENERATED from the cursor-platform source skill "dashboard".
@@ -14,12 +14,13 @@ description: "Opens a localhost UI over the project's platform state: lifecycle 
 
 ## Overview
 
-`dashboard` opens a localhost UI over the project's platform state: lifecycle
-phase and gates, traced features, requirement traceability, test and risk
-coverage, delivery metrics, memory-bank fill, and platform health. It is a
-viewer and a **command composer**, not a source of truth and not an executor.
-Every panel is assembled from JSON that the existing validators already emit.
-If a panel looks wrong, the fix is in that validator, not in this skill.
+`dashboard` opens the **Project Command Center**: a localhost UI over the
+project's platform state — identity, lifecycle phase and gates, delivery
+phases and checkpoints, ideas, traced features, requirement traceability,
+test and risk coverage, recommendations, memory-bank fill, and platform
+health. It is a viewer and a **command composer**, not a source of truth
+and not an executor. Delivery/idea/checkpoint panels are assembled from
+`project.mjs`. If a panel looks wrong, the fix is in that tool, not here.
 
 The Actions panel (and the contextual buttons on Lifecycle, Delivery,
 Traceability, Quality and Overview) builds the exact CLI for every governance

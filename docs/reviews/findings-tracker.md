@@ -32,6 +32,30 @@ is deliberately not done here.
 | H21 | slice | `CONTRIBUTING.md`, `SECURITY.md`, Node 22+ | Point both handbooks at those files the same way |
 | H22 | slice | `docs/reviews/README.md` linked from `progress.md` | Keep new reviews here, not only in `.cursor/cache/` |
 
+## Project Command Center — PCC-G01–G11
+
+From [project-command-center-review-2026-09-10.md](project-command-center-review-2026-09-10.md).
+
+Latest status comes from the
+[2026-09-12 independent verification](project-command-center-verification-2026-09-12.md).
+Implementation slices exist, but their full acceptance criteria are not closed.
+All PCC-V references below resolve to that report. Owner for product corrections:
+platform maintainers; no individual owner or delivery date assigned.
+
+| Id | Status | What is written and tested | Still left |
+|---|---|---|---|
+| PCC-G01 | reopened | Journaled writes, crash recovery and two-writer tests exist | PCC-V01/V02/V09: containment, content-aware recovery, coherent snapshots and read-path immutability |
+| PCC-G02 | reopened | Catalog/phase/checkpoint metadata commands exist | PCC-V03: exit criteria discarded, preview omits actual changes; entry-criteria contract |
+| PCC-G03 | reopened | Risk tables and status variants are parsed | PCC-V07: canonical lifecycle versus delivery mapping; unknown registers and applicable risk propagation |
+| PCC-G04 | reopened | Trace CLI/API and idea/feature distinction exist | PCC-V06/V11: fabricated targets, task adapters, complete journey and release contents |
+| PCC-G05 | reopened | Published schemas and partial runtime/canonical checks exist | PCC-V05/V10: evidence identity, schema parity, milestone/binding/task/file validation |
+| PCC-G06 | reopened | Detection refs, scan controls and confirm/reject commands exist | PCC-V08: confirmation scope, rescan rejection, shared scan budget and depth behavior |
+| PCC-G07 | reopened | More graph nodes and roadmap milestone/release buckets exist | PCC-V05/V06/V10/V12: accurate nodes, validated milestones and complete source navigation |
+| PCC-G08 | reopened | Health adapters and additional rules exist | PCC-V04: insufficient evidence incorrectly becomes measured success |
+| PCC-G09 | reopened | Nine portable page/model checks pass; local Edge smoke also passes | PCC-V12: durable browser behavior and representative large-repository API latency coverage |
+| PCC-G10 | reopened | Verification/waiver/cancel contract and release links exist | PCC-V11: release can promote unverified features; full mutation ownership/history remains incomplete |
+| PCC-G11 | owner | — | Human `self-audit integrity --write` for the three enforcement files |
+
 Ideas 1–14: **first useful + this increment** are in the tools and `ideas.test.mjs` /
 `next.test.mjs`. The L-sized visions in `platform-improvement-ideas-2026-09-10.md`
 are **not** complete.

@@ -123,6 +123,8 @@ export const PROTECTED_FALLBACK = [
   ".cursor/mcp-policy.json",
   ".cursor/lifecycle/**",
   ".cursor/tools/lifecycle.mjs",
+  ".cursor/tools/project.mjs",
+  ".cursor/tools/_project-model.mjs",
   ".cursor/tools/_state.mjs",
   ".cursor/tools/_evidence.mjs",
   ".cursor/tools/self-audit.mjs",
@@ -137,6 +139,9 @@ export const PROTECTED_FALLBACK = [
   "lifecycle/incidents/**",
   "lifecycle/changes/**",
   "lifecycle/fitness-baseline.json",
+  "project/project.json",
+  "project/delivery.json",
+  "project/ideas.json",
   ".cursor/cache/repo-map.json",
   ".cursor/cache/feature-map.json",
 ];

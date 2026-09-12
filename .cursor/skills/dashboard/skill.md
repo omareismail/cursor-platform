@@ -6,12 +6,13 @@
 
 ## Overview
 
-`dashboard` opens a localhost UI over the project's platform state: lifecycle
-phase and gates, traced features, requirement traceability, test and risk
-coverage, delivery metrics, memory-bank fill, and platform health. It is a
-viewer and a **command composer**, not a source of truth and not an executor.
-Every panel is assembled from JSON that the existing validators already emit.
-If a panel looks wrong, the fix is in that validator, not in this skill.
+`dashboard` opens the **Project Command Center**: a localhost UI over the
+project's platform state — identity, lifecycle phase and gates, delivery
+phases and checkpoints, ideas, traced features, requirement traceability,
+test and risk coverage, recommendations, memory-bank fill, and platform
+health. It is a viewer and a **command composer**, not a source of truth
+and not an executor. Delivery/idea/checkpoint panels are assembled from
+`project.mjs`. If a panel looks wrong, the fix is in that tool, not here.
 
 The Actions panel (and the contextual buttons on Lifecycle, Delivery,
 Traceability, Quality and Overview) builds the exact CLI for every governance

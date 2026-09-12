@@ -1,6 +1,6 @@
 ---
 name: dashboard
-description: "Opens a localhost UI over the project's platform state: lifecycle phase and gates, traced features, requirement traceability, test and risk coverage, delivery metrics, memory-bank fill and platform health. GET only — the Actions panel composes the exact CLI for gates, releases, change requests and incidents; the human pastes it. Assembled from dashboard.mjs calling the existing validators. Use when asked to see the project, the lifecycle, features, gates, coverage, or to compose a governance command. Invoked as /dashboard."
+description: "Opens the Project Command Center: lifecycle, delivery phases, checkpoints, ideas, features, health and recommendations. GET only — Actions compose CLIs you paste. Assembled from dashboard.mjs + project.mjs. Use when asked to see the project or compose a governance command. Invoked as /dashboard."
 ---
 
 # dashboard

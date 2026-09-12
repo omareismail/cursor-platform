@@ -56,7 +56,7 @@ Copy-Item $env:TEMP\cursor-platform\CLAUDE.md .
 
 Verify:
 
-- [ ] `${CLAUDE_PLUGIN_ROOT}/skills/` — 98 skill folders
+- [ ] `${CLAUDE_PLUGIN_ROOT}/skills/` — 99 skill folders
 - [ ] `${CLAUDE_PLUGIN_ROOT}/rules/` — 12 `.mdc` rule files
 - [ ] `.claude/hooks/` — guard scripts (`guard-write.mjs`, `guard-phase.mjs`, `guard-bash.mjs`, `guard-mcp.mjs`, `_lib.mjs`, `_sql.mjs`)
 - [ ] `schemas/` — finding and id-grammar schemas the copied tools read
@@ -65,6 +65,7 @@ Verify:
 - [ ] Create `.cursor/settings.local.json` locally (not committed) — see
       [mcp-ecosystem.md](mcp-ecosystem.md)
 - [ ] `node ${CLAUDE_PLUGIN_ROOT}/tools/doctor.mjs diagnose` reports an install mode (copy or plugin) and does not write files
+- [ ] `node ${CLAUDE_PLUGIN_ROOT}/tools/project.mjs init --name "<product>"` created `project/` (Command Center overlay; does not mark phases complete)
 
 ---
 
@@ -164,5 +165,6 @@ Then `/speckit-implement` or the appropriate `*-gen` skill.
 - [ ] `.cursor/` + `memory-bank/` + `AGENTS.md` copied
 - [ ] Tier 2 customized
 - [ ] `/repo-discovery full` + `/context-sync` run
+- [ ] `project.mjs init` run (greenfield or `--existing`)
 - [ ] `.gitignore` excludes cache and local settings
 - [ ] Platform files in first commit

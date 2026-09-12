@@ -1,38 +1,68 @@
 # Active Context
-**Last Updated:** 2026-09-10
+**Last Updated:** 2026-09-12
 **Current branch:** platform-ui
-**Recently modified files:** `guard-bash.mjs` nested parse, `feature-map.mjs` CAS/dependsOn/prune, `_policy.mjs explain`, dashboard Host/RTL/`/api/simulate`, `identity.mjs --author`, `release-evidence.mjs` bundle redact, CI matrix, `CONTRIBUTING.md` / `SECURITY.md` / `docs/reviews/`, plugin rebuild `01d0a9b23424e47b`
-**Active feature:** Next increment of ideas 1–14 plus optional H01–H22
+**Recently reviewed implementation:** `project.mjs`, `_project-model.mjs`, `_project-txn.mjs`, `dashboard.mjs`, project suites; plugin digest `470b08b025141c2c`
+**Active feature:** Project Command Center (`IDEA-001`, IMPLEMENTING)
 
-## Latest work — 2026-09-10
+## Latest independent verification — 2026-09-12
 
-Implemented the next increment of the 14 improvement ideas and the focused
-H01–H22 slices from the project review. Full suite: 24 suites, zero failures.
-Self-audit `run` PASS. Plugin rebuilt (`01d0a9b23424e47b`). Committed as
-`6b551ac`. Integrity PASS (26 attested files).
+**PCC-G01–G10 are partial/reopened, not closed.** Compared all 52 original prompt
+sections, all eleven review gaps and ten optional enhancements. Nine isolated
+negative cases reproduced incorrect recovery, catalog, health, evidence graph,
+trace, risk-mapping, identity-confidence and read-only behavior. Source review
+also found validation, release semantics and UI/test coverage gaps. No application
+fixes were made in this verification.
 
-Durable reviews live under `docs/reviews/` (see `docs/reviews/README.md` and
-`docs/reviews/findings-tracker.md`). Do not treat `derived-status.mjs` output
-as replacing that commentary.
+Evidence: 139 focused assertions; 26 suites, zero failures; self-audit run PASS;
+latest local API and Edge desktop/mobile smoke PASS. Passing those checks does
+not close the reproduced cases. Integrity remains FAIL on the three existing
+enforcement changes; no human attestation performed.
 
-## What shipped this wave
+Report: [current verification and acceptance criteria](../docs/reviews/project-command-center-verification-2026-09-12.md).
 
-| Id | Slice |
-|---|---|
-| H01 | Nested `sh -c` / flag-after-ref force-push refused via shared tokenize |
-| H02 | 14 agents: advisory notice; none declare Write/Edit |
-| H03/H04 | Catalog/index/shim agreement; `phaseExceptions` on classify |
-| H05 | `_policy.mjs explain` with visible `alwaysAllow` exemptions |
-| H06/H07 | Feature-map `commitJson` CAS; `dependsOn`; `prune`; catalog snapshot |
-| H08 | Dashboard HTTP Host/405, skip-link, RTL CSS, `/api/simulate` |
-| H10 | Session-start freshness vs policy/source mtimes |
-| H12 | License remains an owner decision (README / SECURITY) |
-| H13 | CI: Node 22+24 syntax; Windows+Linux guards; failure artifact |
-| H14 | Locked `dotnet restore`; Stylelint labelled advisory |
-| H16 | SQL template grants are SELECT-only (no live Postgres) |
-| H17 | `schemas/feature-map.schema.json` + conformance tests |
-| H19–H22 | `templates/memory-bank/`, CONTRIBUTING, SECURITY, reviews index |
-| ideas 9–14 | worktreeDigest; why/asData; `--author`; isolated `upgrade`; bundle `--redact` |
+## Implementation increment — 2026-09-12
+
+Added implementation slices for PCC-G06–G10 from
+[the Command Center review](../docs/reviews/project-command-center-review-2026-09-10.md):
+discovery source refs and stack class, complete graph/roadmap node kinds,
+health adapters, portable CI page smoke, and the decision/waiver/cancellation
+contract. Command Center assertions: 139 + 9 UI. Full suite: 26 suites, zero
+failures. Plugin rebuilt (`470b08b025141c2c`). Self-audit `run` PASS.
+
+G11 remains owner-only. It is not the only remaining work; see the verification above.
+
+## Latest increment — 2026-09-10
+
+Added implementation slices for high-priority Command Center gaps PCC-G01–G05 from
+[the review](../docs/reviews/project-command-center-review-2026-09-10.md):
+journaled multi-file writes, catalog/phase CLI, risk-register readiness,
+`trace ID`, and delivery/ideas/evidence schemas. Command Center assertions:
+113. Full suite: 25 suites, zero failures.
+
+## Latest verification — 2026-09-10
+
+Reviewed the user's 52-section Command Center prompt against the implementation.
+Corrected readiness/evidence acceptance, unstable recommendation IDs, brownfield
+phase assumptions, core state validation, idea transitions, source adapters,
+feature projections, and dashboard detail/mobile/navigation behavior.
+Report: [Command Center review](../docs/reviews/project-command-center-review-2026-09-10.md).
+
+## What this is
+
+```
+Existing artifacts (lifecycle, feature-map, id graph, evidence)
+          ↓
+Canonical overlay (project/*.json)     ← journaled by _project-txn.mjs
+          ↓
+Derived intelligence (readiness, recommendations, graph, timeline, health)
+          ↓
+Project Command Center UI (dashboard.mjs)
+```
+
+This repo is initialised `--existing`: delivery `PHASE-007` Post-Release is
+`IN_PROGRESS`; earlier phases are `NEEDS_REVIEW` (not fabricated COMPLETED).
+Checkpoints are `NOT_STARTED`. Ideas: IDEA-001 Command Center IMPLEMENTING,
+IDEA-002 license PARKED, IDEA-003–005 leftover H slices CAPTURED.
 
 ## Tests
 
@@ -40,17 +70,29 @@ as replacing that commentary.
 node tests/run.mjs
 node .cursor/tools/self-audit.mjs run
 node .cursor/tools/self-audit.mjs integrity
+node .cursor/tools/dashboard.mjs serve --no-open
 ```
 
 ## Next logical step
 
-Push `platform-ui` if you want this on the remote. Remaining work is the
-leftover H slices and the larger idea visions (see `progress.md` backlog).
+Correct journal containment/recovery and read-path mutation first, then health,
+canonical trace resolution and evidence identity. Follow PCC-V01–V12 acceptance
+criteria in the current verification, convert reproduced defects into regression
+tests, and repeat requirement coverage before declaring the feature complete.
 
-Do not treat derived-status output as replacing human commentary.
+After reviewing the enforcement-surface changes, a human may attest them:
+
+```
+node .cursor/tools/self-audit.mjs integrity --write --by "<name>"
+```
+
+G01–G10 remain reopened. Do not treat derived-status output or a green suite as
+replacing human commentary and requirement-level verification.
 
 ## Open questions for the human
 
+- Integrity is FAIL until `_lib.mjs`, `write-policy.json`, and gate
+  `06-production.gate.md` (99-skill count) are re-attested.
+- License file is still an owner choice (IDEA-002 / H12).
 - The development escape is enabled in this process. Keep its use scoped
   to this platform.
-- License file is still an owner choice (H12).

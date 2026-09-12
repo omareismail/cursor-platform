@@ -30,6 +30,7 @@ section("_skills-index.mjs — classification matches the announcement categorie
   check("dotnet-endpoint-gen is A, requires pattern-finder", idxMod.classify("dotnet-endpoint-gen").category === "A" && idxMod.classify("dotnet-endpoint-gen").requires.includes("pattern-finder"), JSON.stringify(idxMod.classify("dotnet-endpoint-gen")));
   check("database-audit is B / dotnet", idxMod.classify("database-audit").category === "B" && idxMod.classify("database-audit").workflow === "dotnet", JSON.stringify(idxMod.classify("database-audit")));
   check("dashboard is C", idxMod.classify("dashboard").category === "C", JSON.stringify(idxMod.classify("dashboard")));
+  check("project is A", idxMod.classify("project", REPO).category === "A", JSON.stringify(idxMod.classify("project", REPO)));
   check("operability-gen is B from the catalog, not A from the -gen suffix", idxMod.classify("operability-gen", REPO).category === "B", JSON.stringify(idxMod.classify("operability-gen", REPO)));
   check("architecture-map-gen is C from the catalog, not A from the -gen suffix", idxMod.classify("architecture-map-gen", REPO).category === "C", JSON.stringify(idxMod.classify("architecture-map-gen", REPO)));
   check("dotnet-query-optimizer is B from the catalog, not C from the fallback", idxMod.classify("dotnet-query-optimizer", REPO).category === "B", JSON.stringify(idxMod.classify("dotnet-query-optimizer", REPO)));
@@ -46,7 +47,7 @@ section("_skills-index.mjs — classification matches the announcement categorie
   const built = idxMod.build(REPO);
   const bBad = Object.entries(built.skills).filter(([, s]) => s.category === "B" && (s.outputs || []).some((o) => o === "source" || o === "approval"));
   check("no Category B skill declares source or approval", bBad.length === 0, JSON.stringify(bBad));
-  check("this repo's index count equals the skill folders", built.count === 98 && Object.keys(built.skills).length === 98, String(built.count));
+  check("this repo's index count equals the skill folders", built.count === Object.keys(built.skills).length && built.count === idxMod.listSkills(REPO).length, String(built.count));
   check("fingerprint ignores generatedAt", idxMod.fingerprint({ ...built, generatedAt: "2000-01-01" }) === idxMod.fingerprint(built), "");
 }
 

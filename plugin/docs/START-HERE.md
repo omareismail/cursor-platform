@@ -1,6 +1,6 @@
 # START HERE — Workspace Quick Reference
 
-98 skills, 12 rules, 14 subagents. This card tells you which to use for common tasks.
+99 skills, 12 rules, 14 subagents. This card tells you which to use for common tasks.
 Full skill catalog: `${CLAUDE_PLUGIN_ROOT}/docs/skill-catalog.md`
 New app repo bootstrap: `${CLAUDE_PLUGIN_ROOT}/docs/NEW-PROJECT.md`
 Existing repo bootstrap (give to model): `${CLAUDE_PLUGIN_ROOT}/docs/APPLY-TO-PROJECT.md`
@@ -16,14 +16,16 @@ Full execution sequence: `${CLAUDE_PLUGIN_ROOT}/docs/shared-execution-pipeline.m
 /repo-discovery quick        # Check cache freshness (fast if already current)
 ```
 
-To see lifecycle, features, gates and coverage in a browser — and to compose
-the exact CLI for a gate, release, change request or incident (you paste it;
-the page never runs it):
+To see the Project Command Center (lifecycle, delivery phases, checkpoints,
+ideas, features, gates) in a browser — and to compose the exact CLI for a
+gate, release, idea, checkpoint or incident (you paste it; the page never
+runs it):
 
 ```
 node ${CLAUDE_PLUGIN_ROOT}/tools/dashboard.mjs serve
+# or: node ${CLAUDE_PLUGIN_ROOT}/tools/project.mjs dashboard
+# or: /dashboard   /project status
 ```
-# or /dashboard
 
 
 If you're about to start a feature spanning multiple files:
@@ -43,6 +45,7 @@ are. Full runbook: `${CLAUDE_PLUGIN_ROOT}/docs/IDEA-TO-PRODUCTION.md`.
 |---|---|
 | Where are we? What is allowed next? | `/lifecycle` |
 | See the whole project, or compose a governance command | `/dashboard` |
+| Initialise or inspect delivery / ideas / checkpoints | `/project` |
 | Start a new product | `/lifecycle start` |
 | Is this phase finished? | `/lifecycle-gate [PHASE]` |
 | **1** I have an idea | `/product-brief "<the idea>"` |
@@ -212,7 +215,7 @@ node ${CLAUDE_PLUGIN_ROOT}/tools/docs-lint.mjs check                     # broke
 
 **Why this matters here specifically.** DORA's 2025/2026 research found AI
 adoption raises throughput 2–18% while stability degrades — change failure rate
-rising from 8% to 14% in one study, PR size +154%, review time +91%. A 98-skill
+rising from 8% to 14% in one study, PR size +154%, review time +91%. A 99-skill
 platform is a throughput amplifier, which is exactly the configuration that
 finding describes. `/delivery-metrics` exists so you can tell which way yours is
 going instead of assuming.
@@ -334,7 +337,7 @@ matching files are in context (globs). None are slash commands.
 - `SECURITY.md` — vulnerability reporting
 - `docs/reviews/README.md` — durable reviews (not `.cursor/cache/`)
 - `${CLAUDE_PLUGIN_ROOT}/docs/NEW-PROJECT.md` — bootstrap a new application repo
-- `${CLAUDE_PLUGIN_ROOT}/docs/skill-catalog.md` — full 98-skill catalog and routing categories
+- `${CLAUDE_PLUGIN_ROOT}/docs/skill-catalog.md` — full 99-skill catalog and routing categories
 - `${CLAUDE_PLUGIN_ROOT}/docs/skill-graph.md` — who depends on whom
 - `${CLAUDE_PLUGIN_ROOT}/docs/shared-execution-pipeline.md` — canonical execution order
 - Historical records (platform repo only, not shipped in the plugin): `MIGRATION_NOTES_PASS1.md`, `ENTERPRISE_MATURITY_REPORT.md`

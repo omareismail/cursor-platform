@@ -213,7 +213,7 @@ If `/skills` shows nothing, run `node .claude/hooks/sync-skills.mjs` and restart
 
 ## Known rough edges
 
-- **98 skills is a lot.** Each description costs ~100 tokens of always-on
+- **99 skills is a lot.** Each description costs ~100 tokens of always-on
   context at startup — roughly 7k tokens before you type anything. That is
   affordable but not free, and routing accuracy drops as near-duplicate
   descriptions accumulate. `/skill-maturity-audit all` will show you the

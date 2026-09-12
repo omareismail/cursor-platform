@@ -14,7 +14,7 @@ description: "Generates live architecture diagrams from the real codebase: depen
 
 1. **Read `.cursor/skills/architecture-map-gen/skill.md` now** and follow every step literally.
 2. Apply the platform contract in `AGENTS.md`:
-   - **Category:** A (generates/modifies files) - announce, then wait for go-ahead
+   - **Category:** C (docs/diagrams) - announce, then proceed
    - Announcement (unless Category D): `**Matched skill:** architecture-map-gen - [one-line description].`
 3. Guard rules in `.cursor/rules/` are binding. Claude Code does not auto-load
    `.mdc` files, so read the matching rule before generating:

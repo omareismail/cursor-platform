@@ -11,6 +11,11 @@ node .cursor/tools/lifecycle.mjs init --name "<product>"             # greenfiel
 node .cursor/tools/lifecycle.mjs init --name "<product>" --existing --by "<claimant>" [--review-by "<second person>"]  # brownfield
 ```
 
+Delivery phases, checkpoints and ideas are a **sibling** overlay in
+[`project/`](../project/README.md),
+written by `project.mjs`. They do not live here. See
+`.cursor/docs/PROJECT-COMMAND-CENTER.md`.
+
 ## What lives here
 
 | Path | Owner | Committed |

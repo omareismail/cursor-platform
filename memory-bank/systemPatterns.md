@@ -9,6 +9,8 @@ contents were the adopter-app template.
 - Hooks in `.claude/hooks/` are host-agnostic via `_lib.mjs` (Claude Code + Cursor)
 - Policy is data: `.cursor/lifecycle/write-policy.json`, `.cursor/mcp-policy.json`
 - Lifecycle status is derived from persisted, versioned state and artifact hashes; records are chained
+- Delivery phases, checkpoints and ideas live in `project/` (sibling of `lifecycle/`); the dashboard is a projection, never the writer
+- `project.mjs` writes `project/*.json` through a write-ahead journal (`_project-txn.mjs`); a crash mid-command completes on the next invocation
 - Skills live in `.cursor/skills/`; Claude shims in `.claude/skills/` are generated
 - The plugin is a generated self-contained tree; never hand-edit `plugin/`
 - Subagents are advisory readers; file writes stay on the main thread

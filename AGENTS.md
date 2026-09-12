@@ -1,6 +1,6 @@
 # Agent instructions
 
-You work in a **cursor-platform** workspace: 98 skills, guard rules, and a
+You work in a **cursor-platform** workspace: 99 skills, guard rules, and a
 memory-bank. Follow this file before generating or changing code.
 
 ## Session start (mandatory)
@@ -20,6 +20,7 @@ memory-bank. Follow this file before generating or changing code.
 | Working on a product repo, any request | `/lifecycle` first — the phase decides what is allowed. No `lifecycle/state.json` means the repo never adopted it; carry on |
 | Asked to implement before the design gate | Refuse and say which phase the work belongs to. `guard-phase.mjs` blocks the write anyway |
 | User asks how existing code works | `/feature-trace` — never answer from a guess about a codebase you have not read |
+| User asks to see the whole project | `/dashboard` / `/project status` — Command Center is a projection, not a source of truth |
 | User is about to change existing code | `/impact-analysis` **before** editing |
 | Work is too big for one sitting | `/work-breakdown` — never hand-wave a multi-file change into one task |
 | A task looks finished | `/task-verify` — never mark Done from a green suite alone |
@@ -84,7 +85,8 @@ changed and the next logical step.
 ## More detail
 
 - [START-HERE.md](.cursor/docs/START-HERE.md) — task → skill map
-- [skill-catalog.md](.cursor/docs/skill-catalog.md) — all 98 skills
+- [skill-catalog.md](.cursor/docs/skill-catalog.md) — all 99 skills
+- [PROJECT-COMMAND-CENTER.md](.cursor/docs/PROJECT-COMMAND-CENTER.md) — delivery phases, ideas, checkpoints
 - [LIFECYCLE.md](.cursor/docs/LIFECYCLE.md) — the six phases, their gates and owners
 - [IDEA-TO-PRODUCTION.md](.cursor/docs/IDEA-TO-PRODUCTION.md) — one idea, every command in order
 - [NEW-PROJECT.md](.cursor/docs/NEW-PROJECT.md) — bootstrap a new repo with this platform

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cursor-platform/schemas/delivery.schema.json",
+  "title": "Project Command Center delivery overlay",
+  "//": "Authored phases, checkpoints and feature bindings. Lifecycle status is not stored here. Completion statuses and evidence cannot be imported from a catalog.",
+  "type": "object",
+  "required": ["schemaVersion", "revision", "phases", "checkpoints"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "updatedAt": { "type": "string" },
+    "phases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status", "order"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^PHASE-\\d+$" },
+          "slug": { "type": "string" },
+          "name": { "type": "string" },
+          "status": { "enum": ["PLANNED", "READY", "IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED", "NEEDS_REVIEW"] },
+          "order": { "type": "number" },
+          "objectives": { "type": "array" },
+          "dependencies": { "type": "array", "items": { "type": "string" } },
+          "riskIds": { "type": "array", "items": { "type": "string" } },
+          "featureIds": { "type": "array", "items": { "type": "string" } },
+          "requirementIds": { "type": "array", "items": { "type": "string" } },
+          "taskIds": { "type": "array", "items": { "type": "string" } },
+          "evidence": { "type": "array" }
+        }
+      }
+    },
+    "checkpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "phaseId", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^CHK-\\d+$" },
+          "phaseId": { "type": "string", "pattern": "^PHASE-\\d+$" },
+          "status": { "enum": ["NOT_STARTED", "IN_PROGRESS", "READY_FOR_REVIEW", "PASSED", "FAILED", "BLOCKED", "WAIVED", "NOT_APPLICABLE"] },
+          "verificationMode": { "enum": ["AUTOMATED", "MANUAL", "HYBRID"] },
+          "evidence": { "type": "array" },
+          "riskIds": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "featureBindings": { "type": "array" },
+    "milestones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "date": { "type": ["string", "null"] },
+          "phaseId": { "type": ["string", "null"] },
+          "featureIds": { "type": "array", "items": { "type": "string" } },
+          "releaseId": { "type": ["string", "null"] },
+          "status": { "type": "string" }
+        }
+      }
+    },
+    "history": { "type": "array" }
+  }
+}

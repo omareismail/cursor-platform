@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cursor-platform/schemas/evidence.schema.json",
+  "title": "Project Command Center evidence record",
+  "//": "A file hash proves bytes have not changed. It does not prove the review's conclusions are true. Tool evidence must be a successful, non-skipped finding report bound to a worktree digest.",
+  "type": "object",
+  "required": ["kind"],
+  "properties": {
+    "id": { "type": "string" },
+    "kind": { "enum": ["manual", "tool"] },
+    "ref": { "type": "string" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "inputDigest": { "type": "string" },
+    "ok": { "type": "boolean" },
+    "valid": { "type": "boolean" },
+    "skipped": { "type": "boolean" },
+    "summary": { "type": "string" },
+    "resultSummary": { "type": "string" },
+    "exit": { "type": "integer" },
+    "at": { "type": "string" },
+    "by": { "type": ["string", "null"] }
+  }
+}

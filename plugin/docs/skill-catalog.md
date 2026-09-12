@@ -3,10 +3,10 @@
 Referenced by `${CLAUDE_PLUGIN_ROOT}/rules/00-memory-think.mdc` Step 2.5. Kept as a
 separate doc (not inlined in the rule) on purpose — this file is read
 on-demand, only at the moment the agent is actually routing a request to
-a skill, instead of loading all 98 skills' descriptions into every single
+a skill, instead of loading all 99 skills' descriptions into every single
 message. If you edit skill descriptions, edit them here, not in the rule.
 
-## Step 2.5 — Skill Auto-Routing (all 98 skills, announce before running)
+## Step 2.5 — Skill Auto-Routing (all 99 skills, announce before running)
 
 Skills are written as slash commands (`/dotnet-migration`, `/database-audit`,
 etc.) for manual invocation, but the user should not have to know or type
@@ -34,6 +34,7 @@ issue: `dotnet-migration`").
 | Skill | When to use it |
 |---|---|
 | `lifecycle` | Product lifecycle control — status, start, advance, rollback across the six phases |
+| `project` | Project Command Center — identity, delivery phases, checkpoints, ideas, readiness and recommendations (`project.mjs`) |
 | `product-brief` | **Phase 1.** Turn one sentence of intent into a bounded problem statement with an explicit anti-scope |
 | `product-requirements` | **Phase 1.** The PRD — functional requirements, quantified NFRs, MVP boundary, regulatory surface |
 | `persona-gen` | **Phase 1.** Personas with jobs-to-be-done, device, language and what makes them quit |
@@ -165,7 +166,7 @@ trace reads 30-50 files and will otherwise fill the main context window.
 | `onboarding-doc-gen` | Generate/refresh `README.md` and `CONTRIBUTING.md` from the actual repo |
 | `changelog-gen` | Generate a Keep-a-Changelog-format entry |
 | `release-notes-gen` | Generate customer-facing release notes in plain language |
-| `dashboard` | Localhost UI of lifecycle, features, coverage and delivery; Actions panel composes governance CLIs you paste |
+| `dashboard` | Localhost Project Command Center over lifecycle, delivery, ideas, checkpoints, features, coverage; Actions compose CLIs you paste |
 
 ### Category D — Workspace/session housekeeping → run silently, no announcement needed
 

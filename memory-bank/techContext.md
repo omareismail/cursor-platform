@@ -13,7 +13,7 @@ placeholders that used to live here are the adopter-app template. Do not treat
 them as this platform's stack.
 
 ## What this repo is
-A skill/hook/lifecycle platform: 98 skills, 12 rules, 14 subagents, hooks,
+A skill/hook/lifecycle platform: 99 skills, 12 rules, 14 subagents, hooks,
 validators under `.cursor/tools/`, and a distributable plugin under `plugin/`.
 
 ## Build & Test Commands

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "id": "PROJ-001",
+  "name": "cursor-platform",
+  "description": "Agent platform for .NET + React: skills, lifecycle gates, and the Project Command Center.",
+  "status": "ACTIVE",
+  "owner": "platform",
+  "createdAt": "2026-09-10T11:53:44.507Z",
+  "updatedAt": "2026-09-10T11:55:08.455Z",
+  "repositoryPath": "D:/repos/cursor",
+  "currentDeliveryPhaseId": "PHASE-007",
+  "currentCheckpointId": null,
+  "identity": {
+    "name": {
+      "value": "cursor-platform",
+      "confidence": "confirmed"
+    },
+    "description": {
+      "value": "Agent platform for .NET + React: skills, lifecycle gates, and the Project Command Center.",
+      "confidence": "confirmed"
+    },
+    "owner": {
+      "value": "platform",
+      "confidence": "confirmed"
+    },
+    "stack": {
+      "value": [
+        "Node.js ESM"
+      ],
+      "confidence": "detected"
+    },
+    "languages": {
+      "value": [
+        "JavaScript"
+      ],
+      "confidence": "detected"
+    },
+    "frameworks": {
+      "value": [
+        "Node.js ESM"
+      ],
+      "confidence": "detected"
+    },
+    "applications": {
+      "value": {
+        "dotnetProjects": 0,
+        "reactApps": 0,
+        "databases": 0,
+        "apiEndpoints": 0,
+        "tests": 25,
+        "infrastructure": [
+          "GitHub Actions"
+        ]
+      },
+      "confidence": "detected"
+    },
+    "services": {
+      "value": null,
+      "confidence": "unknown"
+    },
+    "databases": {
+      "value": [],
+      "confidence": "unknown"
+    },
+    "apis": {
+      "value": null,
+      "confidence": "unknown"
+    },
+    "tests": {
+      "value": 25,
+      "confidence": "detected"
+    },
+    "infrastructure": {
+      "value": [
+        "GitHub Actions"
+      ],
+      "confidence": "detected"
+    }
+  },
+  "recommendationDispositions": {},
+  "config": {
+    "evidenceRequiredDefault": true,
+    "allowCompleteWithoutReady": false
+  }
+}

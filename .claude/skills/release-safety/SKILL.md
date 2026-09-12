@@ -14,7 +14,7 @@ description: "Plans how a change reaches users without a big-bang cutover, and h
 
 1. **Read `.cursor/skills/release-safety/skill.md` now** and follow every step literally.
 2. Apply the platform contract in `AGENTS.md`:
-   - **Category:** A (generates/modifies files) - announce, then wait for go-ahead
+   - **Category:** B (analysis; may write reports/caches, never source or approvals) - announce, then proceed
    - Announcement (unless Category D): `**Matched skill:** release-safety - [one-line description].`
 3. Guard rules in `.cursor/rules/` are binding. Claude Code does not auto-load
    `.mdc` files, so read the matching rule before generating:

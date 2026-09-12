@@ -20,6 +20,17 @@ Brownfield instead? `--existing`. Phases 1-3 become `INHERITED`, the design gate
 clears, and you start in `DEVELOPMENT`. Then run `/feature-inventory full` and
 `/context-sync` before anything else.
 
+Delivery phases, checkpoints and ideas are a **sibling** overlay, not a second
+lifecycle. After init:
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/tools/project.mjs init --name "motors-online"
+# brownfield: add --existing  (phases start NEEDS_REVIEW, not completed)
+node ${CLAUDE_PLUGIN_ROOT}/tools/dashboard.mjs serve   # Project Command Center, GET only
+```
+
+Full model: [PROJECT-COMMAND-CENTER.md](PROJECT-COMMAND-CENTER.md).
+
 ---
 
 ## 1 — Requirements

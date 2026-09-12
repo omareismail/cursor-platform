@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cursor-platform/schemas/project.schema.json",
+  "title": "Project Command Center authored identity",
+  "//": "Identity and recommendation dispositions are authored. Delivery lives in delivery.schema.json, ideas in ideas.schema.json. Recommendations, graph, timeline and health are derived and must not be stored here.",
+  "type": "object",
+  "required": ["schemaVersion", "revision", "id", "name"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "id": { "type": "string", "pattern": "^PROJ-\\d+$" },
+    "name": { "type": "string", "minLength": 1 },
+    "status": { "type": "string" },
+    "description": { "type": "string" },
+    "owner": { "type": ["string", "null"] },
+    "createdAt": { "type": "string" },
+    "updatedAt": { "type": "string" },
+    "repositoryPath": { "type": ["string", "null"] },
+    "currentDeliveryPhaseId": { "type": ["string", "null"] },
+    "currentCheckpointId": { "type": ["string", "null"] },
+    "identity": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "confidence"],
+        "properties": {
+          "value": {},
+          "confidence": { "enum": ["detected", "confirmed", "unknown"] }
+        }
+      }
+    },
+    "recommendationDispositions": { "type": "object" },
+    "config": { "type": "object" }
+  }
+}

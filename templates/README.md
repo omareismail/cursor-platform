@@ -5,7 +5,7 @@ prose in `.cursor/rules/*.mdc` into compiler errors, failing tests, and red CI.
 
 ## Why this layer exists
 
-The platform already has 12 guard rules and 98 skills. Those work on the agent —
+The platform already has 12 guard rules and 99 skills. Those work on the agent —
 they shape what it generates. But a rule that only exists in a prompt has three
 failure modes:
 

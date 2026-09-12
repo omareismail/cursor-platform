@@ -32,6 +32,8 @@ section("guard-write.mjs — the enforcement surface is not the agent's to edit"
     "lifecycle/incidents/INC-0001.json", "lifecycle/changes/CR-0001.json", "lifecycle/fitness-baseline.json",
     "lifecycle/integrity.json", "lifecycle/index.jsonl",
     ".cursor/tools/_state.mjs", ".cursor/tools/_evidence.mjs", ".cursor/tools/self-audit.mjs", ".cursor/tools/release-evidence.mjs",
+    ".cursor/tools/project.mjs", ".cursor/tools/_project-model.mjs",
+    "project/project.json", "project/delivery.json", "project/ideas.json",
   ]) denies(`refuses: ${f}`, runHook(H, write(join(root, f)), root), "enforcement surface");
 
   denies("machine-owned: state.json keeps its own message", runHook(H, write(join(root, "lifecycle/state.json")), root), "owned\nby .cursor/tools/lifecycle.mjs");

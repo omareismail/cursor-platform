@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cursor-platform/schemas/ideas.schema.json",
+  "title": "Project Command Center ideas",
+  "//": "Authored ideas and their transitions. Feature, requirement, decision and release links are ids, not copies. VERIFIED is a review of the idea, not of the bound feature.",
+  "type": "object",
+  "required": ["schemaVersion", "revision", "ideas"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "updatedAt": { "type": "string" },
+    "ideas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^IDEA-\\d+$" },
+          "title": { "type": "string" },
+          "status": { "enum": ["CAPTURED", "EVALUATING", "APPROVED", "SPECIFIED", "IMPLEMENTING", "VERIFIED", "RELEASED", "REJECTED", "PARKED"] },
+          "featureIds": { "type": "array", "items": { "type": "string" } },
+          "requirementIds": { "type": "array", "items": { "type": "string" } },
+          "taskIds": { "type": "array", "items": { "type": "string" } },
+          "checkpointIds": { "type": "array", "items": { "type": "string" } },
+          "phaseId": { "type": ["string", "null"] },
+          "decisionId": { "type": ["string", "null"] },
+          "releaseId": { "type": ["string", "null"] },
+          "implementationRefs": { "type": "array" },
+          "testRefs": { "type": "array" },
+          "evidence": { "type": "array" },
+          "history": { "type": "array" }
+        }
+      }
+    }
+  }
+}

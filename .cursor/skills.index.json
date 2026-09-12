@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "count": 98,
+  "count": 99,
   "retired": {
     "refactor-assistant": "Absorbed by enterprise-report-gen refactor",
     "security-perf-report": "Absorbed by enterprise-report-gen security-perf"
@@ -642,6 +642,17 @@
         "report"
       ],
       "workflow": "lifecycle",
+      "requires": []
+    },
+    "project": {
+      "category": "A",
+      "phase": null,
+      "phaseExceptions": [],
+      "capability": "generate",
+      "outputs": [
+        "report"
+      ],
+      "workflow": "platform",
       "requires": []
     },
     "prompt-quality-audit": {

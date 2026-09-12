@@ -14,7 +14,7 @@ description: "onboarding-doc-gen generates or refreshes README.md and CONTRIBUTI
 
 1. **Read `.cursor/skills/onboarding-doc-gen/skill.md` now** and follow every step literally.
 2. Apply the platform contract in `AGENTS.md`:
-   - **Category:** A (generates/modifies files) - announce, then wait for go-ahead
+   - **Category:** C (docs/diagrams) - announce, then proceed
    - Announcement (unless Category D): `**Matched skill:** onboarding-doc-gen - [one-line description].`
 3. Guard rules in `.cursor/rules/` are binding. Claude Code does not auto-load
    `.mdc` files, so read the matching rule before generating:

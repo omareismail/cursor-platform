@@ -95,7 +95,7 @@ into compiler errors.
 
 ## 4. `.cursor/` — the source of truth
 
-### `.cursor/skills/` — 98 skills
+### `.cursor/skills/` — 99 skills
 
 **This is where skills live.** Each is a directory containing `skill.md`. Cursor
 reads them directly; Claude Code reads generated shims in `.claude/skills/`.
@@ -223,7 +223,7 @@ reads them directly; Claude Code reads generated shims in `.claude/skills/`.
 
 ---
 
-### `.cursor/tools/` — 32 validators
+### `.cursor/tools/` — validators
 
 Plain Node, no dependencies, cross-platform. These are what make the rules
 checkable rather than hopeful.
@@ -246,7 +246,8 @@ checkable rather than hopeful.
 | `incidents.mjs` | *Is the guard that incident bought still standing?* Records the incident-to-guard link `/postmortem` never had, and fails when a guard is deleted, commented out, or sitting in a skipped test. | `open` · `check` · `learned` · `show` |
 | `delivery-intel.mjs` | *Is the process producing anything, or being performed?* Cross-references gate verdicts, overrides, releases, incidents and the debt baseline. Scores nothing — each observation gets both readings and the evidence that separates them. | `report` · `questions` |
 | `self-audit.mjs` | *Is every control actually reachable?* Hook scripts wired in both hosts and in the built plugin, gate reviewers that exist, tools nothing runs, every deliberate fail-closed copy still matching the file that owns it, and every check this repo owns actually running in `.github/workflows/` rather than only in a template for somebody else — the class of defect where a control exists but fires for nobody. | `run` · `wiring` |
-| `dashboard.mjs` | *Can I see the whole project on one screen?* Localhost UI over lifecycle, features, traceability, coverage, delivery and memory-bank. GET only; binds 127.0.0.1. Actions compose a command you paste — the server never runs it. | `serve` · `snapshot --json` |
+| `dashboard.mjs` | *Can I see the whole project on one screen?* Project Command Center over lifecycle, delivery phases, checkpoints, ideas, features, traceability, coverage and memory-bank. GET only; binds 127.0.0.1. Actions compose a command you paste — the server never runs it. | `serve` · `snapshot --json` |
+| `project.mjs` | *Where are we, what are we delivering, what blocks us, what happened to that idea?* Canonical writer for `project/`. Readiness and recommendations are derived. | `init` · `status` · `scan` · `delivery` · `checkpoint` · `idea` · `recommend` |
 | `memory-bank.mjs` | *What does the memory bank actually contain, and is any of it real?* Owns the two tiers, the SessionStart digest and the template heuristic that `guard-write`, `session-start` and `dashboard` used to each write down for themselves. A file that exists and says nothing is reported apart from one that is absent. | `status` · `tiers` · `check` |
 | `platform-metadata.mjs` | *Does any document still claim a count that stopped being true?* | `show` · `write` · `check [--fix]` |
 | `signed-lifecycle-range.mjs` | *Which commits in this push or PR actually touched `lifecycle/`?* Full `before..after` (or PR base..head); first push and invalid ranges fail instead of becoming an empty success. Used by `templates/ci/signed-lifecycle.yml`. | env-driven; prints SHAs |
@@ -272,11 +273,12 @@ the command. The server never writes state.
 | Doc | Read it when |
 |---|---|
 | `START-HERE.md` | **"I want to do X" → which skill.** The one to keep open. |
-| `skill-catalog.md` | Full 98-skill catalog with auto-routing categories |
+| `skill-catalog.md` | Full 99-skill catalog with auto-routing categories |
 | `skill-graph.md` | Which skills call which |
 | `shared-execution-pipeline.md` | Canonical order: discovery → pattern → generate → validate |
 | `NEW-PROJECT.md` | Bootstrapping a brand-new app repo |
 | `APPLY-TO-PROJECT.md` | **Give this to the agent** to bootstrap an existing repo |
+| `PROJECT-COMMAND-CENTER.md` | Delivery phases, checkpoints, ideas, and the dashboard overlay |
 | `DUAL-AGENT-SETUP.md` | How Cursor and Claude Code share one source of truth |
 | `mcp-ecosystem.md` | MCP servers, env vars, and the ⚠ 2026 corrections |
 | `GOVERNANCE_REPORT.md` | How 24 proposed rules became 11 | <!-- count-ok: describes a frozen proposal, not the live rule set -->
@@ -305,13 +307,13 @@ Your local Cursor settings and MCP servers. Mirrors `.mcp.json`. The
 
 ## 5. `.claude/` — the Claude Code layer
 
-### `.claude/skills/` — 98 generated shims
+### `.claude/skills/` — 99 generated shims
 
 Each `SKILL.md` is frontmatter plus "read `.cursor/skills/<name>/skill.md`".
 Claude Code needs YAML frontmatter to discover a skill; the `.cursor` files have
 none. **Never edit these by hand.**
 
-`_descriptions.json` holds 16 hand-written description overrides for skills whose
+`_descriptions.json` holds 18 hand-written description overrides for skills whose
 auto-extracted description read badly. Description quality *is* the routing
 mechanism — if Claude picks the wrong skill, fix the description here.
 
@@ -691,7 +693,7 @@ node .cursor/tools/docs-lint.mjs check
 
 ## 14. Gotchas
 
-**98 skills costs ~7k tokens of always-on context** in Claude Code, and routing
+**99 skills costs ~7k tokens of always-on context** in Claude Code, and routing
 accuracy drops as near-duplicate descriptions accumulate. `/skill-maturity-audit all`
 shows the overlaps. Prune rather than keep adding.
 

@@ -47,7 +47,7 @@ export const RETIRED = {
 export const HOUSEKEEPING = new Set(["repo-discovery", "context-builder", "context-sync", "pattern-finder"]);
 export const GENERATORS = new Set([
   "refactor-apply", "dotnet-migration", "work-breakdown", "postmortem", "release-safety",
-  "lifecycle", "product-brief", "product-requirements", "user-story-map",
+  "lifecycle", "project", "product-brief", "product-requirements", "user-story-map",
   "risk-register", "solution-architecture", "api-contract-design",
   "data-model-design", "ux-design-bridge", "test-strategy",
   "feature-pipeline", "go-live", "change-request",
@@ -176,6 +176,7 @@ const OUTPUT_OF = {
   "load-test-gen": ["report"],
   "postmortem": ["source"],
   "lifecycle": ["report"],
+  "project": ["report"],
   "dashboard": ["read"],
   "technical-debt-tracker": ["report"],
   "enterprise-report-gen": ["report"],

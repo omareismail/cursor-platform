@@ -28,7 +28,11 @@
 # it. The hash inside each record catches an accidental edit; git history is what
 # makes it evidence. Ignoring them would delete the point of writing them.
 
-# Archives / local backups
+# Interrupted Command Center multi-file write. Recovered on the next project.mjs
+# command; it is not authored state.
+project/.txn.json
+project/.txn.json.lock
+
 *.rar
 *.zip
 

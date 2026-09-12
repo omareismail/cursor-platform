@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "revision": 10,
+  "updatedAt": "2026-09-10T11:55:32.548Z",
+  "ideas": [
+    {
+      "id": "IDEA-001",
+      "title": "Project Command Center",
+      "description": "Dashboard projection of project/ overlay plus existing lifecycle and feature-map.",
+      "reason": "Living project intelligence over lifecycle, delivery, ideas and evidence.",
+      "value": "HIGH",
+      "priority": "HIGH",
+      "effort": "UNKNOWN",
+      "risk": "UNKNOWN",
+      "status": "IMPLEMENTING",
+      "createdAt": "2026-09-10T11:55:29.234Z",
+      "updatedAt": "2026-09-10T11:55:30.311Z",
+      "author": "omar.ismail",
+      "requirementIds": [],
+      "featureIds": [
+        "project-command-center"
+      ],
+      "phaseId": "PHASE-007",
+      "checkpointIds": [],
+      "taskIds": [],
+      "evidence": [],
+      "decision": {
+        "verdict": "Approved",
+        "at": "2026-09-10T11:55:30.018Z",
+        "by": null,
+        "reason": "Required to represent delivery work separately from the six engineering gates."
+      },
+      "decisionId": null,
+      "implementationRefs": [],
+      "testRefs": [],
+      "releaseId": null,
+      "history": [
+        {
+          "at": "2026-09-10T11:55:29.488Z",
+          "status": "CAPTURED",
+          "by": "cli"
+        },
+        {
+          "at": "2026-09-10T11:55:29.733Z",
+          "status": "EVALUATING",
+          "by": "cli",
+          "detail": null
+        },
+        {
+          "at": "2026-09-10T11:55:30.018Z",
+          "status": "APPROVED",
+          "by": "cli",
+          "detail": null
+        },
+        {
+          "at": "2026-09-10T11:55:30.311Z",
+          "status": "IMPLEMENTING",
+          "by": "cli",
+          "detail": null
+        }
+      ]
+    },
+    {
+      "id": "IDEA-002",
+      "title": "Choose a repository license file",
+      "description": "",
+      "reason": "H12: license remains an owner decision.",
+      "value": "MED",
+      "priority": "MED",
+      "effort": "UNKNOWN",
+      "risk": "UNKNOWN",
+      "status": "PARKED",
+      "createdAt": "2026-09-10T11:55:30.633Z",
+      "updatedAt": "2026-09-10T11:55:31.115Z",
+      "author": "omar.ismail",
+      "requirementIds": [],
+      "featureIds": [],
+      "phaseId": null,
+      "checkpointIds": [],
+      "taskIds": [],
+      "evidence": [],
+      "decision": null,
+      "decisionId": null,
+      "implementationRefs": [],
+      "testRefs": [],
+      "releaseId": null,
+      "history": [
+        {
+          "at": "2026-09-10T11:55:30.838Z",
+          "status": "CAPTURED",
+          "by": "cli"
+        },
+        {
+          "at": "2026-09-10T11:55:31.115Z",
+          "status": "PARKED",
+          "by": "cli",
+          "detail": "Owner decision; README/SECURITY still the place."
+        }
+      ]
+    },
+    {
+      "id": "IDEA-003",
+      "title": "H01 quoting and alias bash matrices",
+      "description": "",
+      "reason": "Leftover H01: quoting / alias bash matrices.",
+      "value": "MED",
+      "priority": "MED",
+      "effort": "UNKNOWN",
+      "risk": "UNKNOWN",
+      "status": "CAPTURED",
+      "createdAt": "2026-09-10T11:55:31.325Z",
+      "updatedAt": "2026-09-10T11:55:31.326Z",
+      "author": "omar.ismail",
+      "requirementIds": [],
+      "featureIds": [],
+      "phaseId": null,
+      "checkpointIds": [],
+      "taskIds": [],
+      "evidence": [],
+      "decision": null,
+      "decisionId": null,
+      "implementationRefs": [],
+      "testRefs": [],
+      "releaseId": null,
+      "history": [
+        {
+          "at": "2026-09-10T11:55:31.503Z",
+          "status": "CAPTURED",
+          "by": "cli"
+        }
+      ]
+    },
+    {
+      "id": "IDEA-004",
+      "title": "H02 installed-host Write withhold smoke",
+      "description": "",
+      "reason": "Leftover H02: installed-host smoke that Write is actually withheld.",
+      "value": "MED",
+      "priority": "MED",
+      "effort": "UNKNOWN",
+      "risk": "UNKNOWN",
+      "status": "CAPTURED",
+      "createdAt": "2026-09-10T11:55:31.859Z",
+      "updatedAt": "2026-09-10T11:55:31.860Z",
+      "author": "omar.ismail",
+      "requirementIds": [],
+      "featureIds": [],
+      "phaseId": null,
+      "checkpointIds": [],
+      "taskIds": [],
+      "evidence": [],
+      "decision": null,
+      "decisionId": null,
+      "implementationRefs": [],
+      "testRefs": [],
+      "releaseId": null,
+      "history": [
+        {
+          "at": "2026-09-10T11:55:31.982Z",
+          "status": "CAPTURED",
+          "by": "cli"
+        }
+      ]
+    },
+    {
+      "id": "IDEA-005",
+      "title": "H14 execute extracted workflow steps against fixtures",
+      "description": "",
+      "reason": "",
+      "value": "MED",
+      "priority": "MED",
+      "effort": "UNKNOWN",
+      "risk": "UNKNOWN",
+      "status": "CAPTURED",
+      "createdAt": "2026-09-10T11:55:32.256Z",
+      "updatedAt": "2026-09-10T11:55:32.256Z",
+      "author": "omar.ismail",
+      "requirementIds": [],
+      "featureIds": [],
+      "phaseId": null,
+      "checkpointIds": [],
+      "taskIds": [],
+      "evidence": [],
+      "decision": null,
+      "decisionId": null,
+      "implementationRefs": [],
+      "testRefs": [],
+      "releaseId": null,
+      "history": [
+        {
+          "at": "2026-09-10T11:55:32.548Z",
+          "status": "CAPTURED",
+          "by": "cli"
+        }
+      ]
+    }
+  ]
+}

@@ -55,7 +55,7 @@ const SRC_AGENTS = join(ROOT, ".claude", "agents");
 const SHIPPED_DOCS = new Set([
   "skill-catalog.md", "skill-graph.md", "shared-execution-pipeline.md",
   "START-HERE.md", "mcp-ecosystem.md", "APPLY-TO-PROJECT.md", "NEW-PROJECT.md",
-  "IDEA-TO-PRODUCTION.md", "LIFECYCLE.md",
+  "IDEA-TO-PRODUCTION.md", "LIFECYCLE.md", "PROJECT-COMMAND-CENTER.md",
 ]);
 const SRC_HOOKS = join(ROOT, ".claude", "hooks");
 const DESCRIPTIONS = join(ROOT, ".claude", "skills", "_descriptions.json");

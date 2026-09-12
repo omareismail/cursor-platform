@@ -17,7 +17,7 @@ decision requires their authority (secrets, production deploy, branch merge).
 **Companion docs (read after install):**
 - `AGENTS.md` — every-session agent brief
 - `${CLAUDE_PLUGIN_ROOT}/docs/START-HERE.md` — task → skill map
-- `${CLAUDE_PLUGIN_ROOT}/docs/skill-catalog.md` — all 98 skills
+- `${CLAUDE_PLUGIN_ROOT}/docs/skill-catalog.md` — all 99 skills
 
 ---
 
@@ -59,7 +59,7 @@ Copy-Item $env:TEMP\cursor-platform\CLAUDE.md .
 ```
 
 **Verify (must all pass):**
-- [ ] `${CLAUDE_PLUGIN_ROOT}/skills/` contains 98 subfolders
+- [ ] `${CLAUDE_PLUGIN_ROOT}/skills/` contains 99 subfolders
 - [ ] `${CLAUDE_PLUGIN_ROOT}/rules/` contains 12 `.mdc` files
 - [ ] `.claude/hooks/` contains `guard-write.mjs`, `guard-phase.mjs`, `guard-bash.mjs`, `guard-mcp.mjs`, `_lib.mjs`
 - [ ] `schemas/` contains `finding.schema.json`
@@ -185,6 +185,14 @@ Then:
 - [ ] `memory-bank/techContext.md` lists real packages from `.csproj` files
 - [ ] `memory-bank/systemPatterns.md` describes Autofac + API→Business pattern
 - [ ] `memory-bank/activeContext.md` updated with project name, branch, date
+
+Then initialise the Project Command Center overlay. `--existing` marks earlier
+delivery phases `NEEDS_REVIEW`; it does not fabricate PASSED checkpoints.
+
+```
+node ${CLAUDE_PLUGIN_ROOT}/tools/project.mjs init --name "<product>" --existing
+node ${CLAUDE_PLUGIN_ROOT}/tools/dashboard.mjs serve
+```
 
 Optional:
 

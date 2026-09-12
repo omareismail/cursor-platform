@@ -14,7 +14,7 @@ description: "Applies STRIDE threat modelling at design time, before the code ex
 
 1. **Read `.cursor/skills/threat-model/skill.md` now** and follow every step literally.
 2. Apply the platform contract in `AGENTS.md`:
-   - **Category:** B (read-only analysis) - announce, then proceed
+   - **Category:** B (analysis; may write reports/caches, never source or approvals) - announce, then proceed
    - Announcement (unless Category D): `**Matched skill:** threat-model - [one-line description].`
 3. Guard rules in `.cursor/rules/` are binding. Claude Code does not auto-load
    `.mdc` files, so read the matching rule before generating:

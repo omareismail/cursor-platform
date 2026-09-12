@@ -23,7 +23,7 @@
 
 | العنصر | العدد | أين |
 |---|---|---|
-| مهارات (skills) | 98 | `.cursor/skills/` |
+| مهارات (skills) | 99 | `.cursor/skills/` |
 | قواعد حراسة (rules) | 12 | `.cursor/rules/` |
 | وكلاء فرعيون (subagents) | 14 | `.claude/agents/` |
 | خطّافات إنفاذ (hooks) | 7 | `.claude/hooks/` |
@@ -87,7 +87,7 @@ cursor/
 ├── .gitignore
 │
 ├── .cursor/               ← المصدر الوحيد للحقيقة
-│   ├── skills/            98 مهارة — كل واحدة مجلد فيه skill.md
+│   ├── skills/            99 مهارة — كل واحدة مجلد فيه skill.md
 │   ├── rules/             12 قاعدة .mdc (5 عامة + 7 مرتبطة بأنماط ملفات)
 │   ├── lifecycle/gates/   6 تعريفات بوابات — معايير كل مرحلة
 │   ├── docs/              التوثيق: الخرائط، الفهارس، الحوكمة
@@ -96,7 +96,7 @@ cursor/
 │   └── settings.local.json  إعدادات Cursor المحلية (غير مُلتزَم بها)
 │
 ├── .claude/               ← طبقة Claude Code
-│   ├── skills/            98 shim مولّد — يشير لـ .cursor/skills/ (لا تعدّله يدوياً)
+│   ├── skills/            99 shim مولّد — يشير لـ .cursor/skills/ (لا تعدّله يدوياً)
 │   ├── skills/_descriptions.json   أوصاف مكتوبة يدوياً تتفوّق على الاستخراج التلقائي
 │   ├── agents/            14 وكيلاً فرعياً للقراءة فقط (عزل السياق)
 │   ├── hooks/             7 خطّافات إنفاذ + sync-skills.mjs + _lib.mjs
@@ -388,7 +388,7 @@ node .cursor/tools/lifecycle.mjs init --name "المنتج" --existing
 
 ---
 
-## 6. المهارات الـ98
+## 6. المهارات الـ99
 
 ### كيف تُستدعى المهارة
 
@@ -858,7 +858,7 @@ node .cursor/tools/delivery-metrics.mjs trend  --days 180   # اتجاه الس�
 > **لماذا يهمّ هذا هنا تحديداً:** أبحاث DORA لعامَي 2025/2026 وجدت أن تبنّي
 > الذكاء الاصطناعي يرفع الإنتاجية 2–18% بينما يتدهور الاستقرار — معدّل فشل
 > التغيير من 8% إلى 14% في إحدى الدراسات، وحجم الـ PR +154%، ووقت المراجعة
-> +91%. منصة من 98 مهارة **مُضخِّم إنتاجية**، وهي بالضبط ذلك التكوين.
+> +91%. منصة من 99 مهارة **مُضخِّم إنتاجية**، وهي بالضبط ذلك التكوين.
 > شغّل `/delivery-metrics` بدل افتراض أي اتجاه تسير فيه.
 
 ### `artifact-schema.mjs` — مصفوفة التتبّع
@@ -879,7 +879,7 @@ FR ← ── S ── → UC ── → EP, SC          NFR ── → ADR, EP
 **لماذا لم أجعل Markdown مُولَّداً من JSON.** القراءة البديهية لـ«أضف schemas»
 هي: اكتب المتطلبات JSON وارسم منها Markdown. وهذا خطأ هنا: قيمة المنصة أن
 وكيلاً يكتب هذه المستندات **نثراً** بخيارات ومقايضات وتعليل، وPRD مضغوط في
-كائن JSON يفقد بالضبط الجزء الذي يستحق القراءة — والـ98 مهارة كلها تنتج
+كائن JSON يفقد بالضبط الجزء الذي يستحق القراءة — والـ99 مهارة كلها تنتج
 Markdown.
 
 فالنمط المتَّبع هو ما تفعله `ac-trace` عندك أصلاً وينجح: **وسم مقروء آلياً
@@ -1338,10 +1338,14 @@ node .cursor/tools/release-evidence.mjs verify
 واجهة محلية للقراءة فقط على مستوى الخادم: GET فقط، وتربط `127.0.0.1`.
 لوحة Actions تبني أمر CLI (approve / record-gate / cut / sign…) وتنسخه؛
 أنت تلصقه في الطرفية. الصفحة لا تنفّذ الأمر ولا تكتب `lifecycle/state.json`.
+مراحل التسليم ونقاط التفتيش والأفكار مصدرها `project.mjs` (`project/*.json`)،
+وليست نسخة ثانية من دورة حياة المنتج.
 
 ```bash
 node .cursor/tools/dashboard.mjs serve              # http://127.0.0.1:7777
 node .cursor/tools/dashboard.mjs snapshot --json    # كل اللوحات بلا متصفّح
+node .cursor/tools/project.mjs init --name "<product>" [--existing]
+node .cursor/tools/project.mjs status
 ```
 
 اللوحات الفارغة تسمّي الأمر الذي يملأها (`lifecycle.mjs init`، `/feature-trace`،
@@ -1786,7 +1790,7 @@ node .cursor/tools/lifecycle.mjs init --name "المنتج" --existing
 
 ### قبل إضافة مهارة جديدة — اقرأ هذا
 
-**98 مهارة تكلّف ~9 آلاف رمز من السياق دائم التفعيل** في Claude Code، ودقّة
+**99 مهارة تكلّف ~9 آلاف رمز من السياق دائم التفعيل** في Claude Code، ودقّة
 التوجيه **تتدهور** مع الأوصاف شبه المتطابقة. المهارة الجديدة ليست مجانية.
 
 قبل الإضافة:
@@ -1830,7 +1834,7 @@ node .cursor/tools/lifecycle.mjs init --name "المنتج" --existing
 | [.cursor/docs/LIFECYCLE.md](.cursor/docs/LIFECYCLE.md) | المراحل الست وبواباتها ومُلّاكها ومُخرَجاتها |
 | [.cursor/docs/IDEA-TO-PRODUCTION.md](.cursor/docs/IDEA-TO-PRODUCTION.md) | الدليل التشغيلي: فكرة واحدة، كل الأوامر بالترتيب |
 | [.cursor/docs/START-HERE.md](.cursor/docs/START-HERE.md) | "أريد أن أفعل X" ← أي مهارة |
-| [.cursor/docs/skill-catalog.md](.cursor/docs/skill-catalog.md) | فهرس المهارات الـ98 والتوجيه التلقائي |
+| [.cursor/docs/skill-catalog.md](.cursor/docs/skill-catalog.md) | فهرس المهارات الـ99 والتوجيه التلقائي |
 | [.cursor/docs/skill-graph.md](.cursor/docs/skill-graph.md) | تبعيات المهارات وتوصيلاتها |
 | [.cursor/docs/shared-execution-pipeline.md](.cursor/docs/shared-execution-pipeline.md) | الترتيب القانوني: اكتشاف ← نمط ← توليد ← تحقّق |
 | [.cursor/docs/NEW-PROJECT.md](.cursor/docs/NEW-PROJECT.md) | تهيئة مستودع تطبيق جديد |

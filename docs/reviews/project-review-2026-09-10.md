@@ -28,7 +28,7 @@ prose sentence or external host integration was exercised.
 |---|---|
 | JavaScript syntax | All 88 existing `.mjs` files parsed |
 | JSON syntax | All 28 existing JSON files parsed |
-| Skill structure | All 98 skills checked; dashboard lacks the standard Output section |
+| Skill structure | All 98 skills checked; dashboard lacks the standard Output section | <!-- count-ok -->
 | Rules | All 12 rule names and required frontmatter fields checked |
 | Full test run | 18 suites; 17 passed, concurrency failed; 839 assertions passed and 2 failed |
 | Concurrency retry | All 30 assertions passed; initial failure remains a recorded intermittent issue |
@@ -302,7 +302,7 @@ error-handling defect, not data loss.
   descriptions.
 5. **Dashboard skill format is incomplete.** It lacks the standard `## Output` section. The header scan found
   no other missing
-  Overview/Steps/Output section among the 98 skills.
+  Overview/Steps/Output section among the 98 skills. <!-- count-ok -->
 6. **The hardening status page lacks an inbound filename reference in the scanned source docs.** Link it from
   an entry point.
   Template files flagged by a simple filename scan are generally linked through `templates/README.md` or
@@ -320,7 +320,7 @@ exist or that every item is required for this release.
 | `.claude/hooks/` | Common host adapter, SQL classifier, write/phase/shell/MCP controls; adversarial tests | H01: Add argument-order, quoting, separator, alias, and nested-command test matrices. Use shared parsing where possible instead of adding unrelated regular expressions. |
 | `.claude/agents/` | All 14 advisory notices present; cartographer no longer declares Write | H02: Exercise actual host tool restrictions in an installed-host smoke test. Keep advisory instruction separate from enforceable permissions. |
 | `.claude/skills/` | Generated shims and descriptions | H03: Validate routing category, prerequisite, and target-path semantics, not merely generated file counts. |
-| `.cursor/skills/`, `.cursor/skills.index.json` | 98 skills, generated category/phase/capability/dependency metadata | H04: Define explicit metadata for prerequisites and phase constraints, including cross-phase exceptions; validate catalog, index, and skill body agreement. |
+| `.cursor/skills/`, `.cursor/skills.index.json` | 98 skills, generated category/phase/capability/dependency metadata | H04: Define explicit metadata for prerequisites and phase constraints, including cross-phase exceptions; validate catalog, index, and skill body agreement. | <!-- count-ok -->
 | `.cursor/rules/`, `.cursor/lifecycle/` | Twelve rule files, gate templates, protected paths and source policy | H05: Use one effective policy model for host guards, status, artifact coverage, and adoption CI. Make intentional exemptions visible. |
 | `.cursor/tools/` | Syntax checked; runtime coverage through 18 suites and targeted reproductions | H06: Extend atomic revision-aware writes to feature-map updates; test two concurrent feature/object upserts and interruption during save. |
 | `.cursor/tools/feature-map.mjs` | v2 catalog objects, v1 migration, queries and lineage | H07: Add explicit data-source identity, provider-aware identifier handling, object-to-object dependencies, and live-catalog snapshot provenance. Evaluate large-graph performance with representative fixtures. |

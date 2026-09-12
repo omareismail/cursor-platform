@@ -1,0 +1,1462 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "updatedAt": "2026-09-10T11:53:44.531Z",
+  "phases": [
+    {
+      "id": "PHASE-000",
+      "slug": "discovery",
+      "name": "Discovery",
+      "description": "Understand the problem, users and anti-scope.",
+      "status": "NEEDS_REVIEW",
+      "order": 0,
+      "owner": null,
+      "startDate": null,
+      "targetDate": null,
+      "completedAt": null,
+      "objectives": [
+        {
+          "id": "OBJ-discovery-01",
+          "title": "Problem and anti-scope written",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-discovery-02",
+          "title": "Personas named",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-discovery-03",
+          "title": "Success looks like X, measured how",
+          "required": true,
+          "status": "UNKNOWN"
+        }
+      ],
+      "entryCriteria": [
+        "Project identity exists"
+      ],
+      "exitCriteria": [
+        "Required objectives complete or UNKNOWN-and-accepted",
+        "Required checkpoints PASSED or WAIVED"
+      ],
+      "featureIds": [],
+      "requirementIds": [],
+      "taskIds": [],
+      "riskIds": [],
+      "evidence": [],
+      "dependencies": [],
+      "releaseId": null
+    },
+    {
+      "id": "PHASE-001",
+      "slug": "foundation",
+      "name": "Foundation",
+      "description": "Identity, architecture, repo wiring, first vertical slice.",
+      "status": "NEEDS_REVIEW",
+      "order": 1,
+      "owner": null,
+      "startDate": null,
+      "targetDate": null,
+      "completedAt": null,
+      "objectives": [
+        {
+          "id": "OBJ-foundation-01",
+          "title": "Repo and lifecycle adopted",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-foundation-02",
+          "title": "Architecture chosen",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-foundation-03",
+          "title": "First vertical slice runs",
+          "required": true,
+          "status": "UNKNOWN"
+        }
+      ],
+      "entryCriteria": [
+        "Discovery completed or waived"
+      ],
+      "exitCriteria": [
+        "Required objectives complete or UNKNOWN-and-accepted",
+        "Required checkpoints PASSED or WAIVED"
+      ],
+      "featureIds": [],
+      "requirementIds": [],
+      "taskIds": [],
+      "riskIds": [],
+      "evidence": [],
+      "dependencies": [
+        "PHASE-000"
+      ],
+      "releaseId": null
+    },
+    {
+      "id": "PHASE-002",
+      "slug": "core",
+      "name": "Core Functionality",
+      "description": "The capabilities the product is for.",
+      "status": "NEEDS_REVIEW",
+      "order": 2,
+      "owner": null,
+      "startDate": null,
+      "targetDate": null,
+      "completedAt": null,
+      "objectives": [
+        {
+          "id": "OBJ-core-01",
+          "title": "Primary user journey works",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-core-02",
+          "title": "Domain rules enforced",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-core-03",
+          "title": "Acceptance criteria exist",
+          "required": true,
+          "status": "UNKNOWN"
+        }
+      ],
+      "entryCriteria": [
+        "Foundation completed or waived"
+      ],
+      "exitCriteria": [
+        "Required objectives complete or UNKNOWN-and-accepted",
+        "Required checkpoints PASSED or WAIVED"
+      ],
+      "featureIds": [],
+      "requirementIds": [],
+      "taskIds": [],
+      "riskIds": [],
+      "evidence": [],
+      "dependencies": [
+        "PHASE-001"
+      ],
+      "releaseId": null
+    },
+    {
+      "id": "PHASE-003",
+      "slug": "integration",
+      "name": "Integration",
+      "description": "APIs, data, external systems, end-to-end paths.",
+      "status": "NEEDS_REVIEW",
+      "order": 3,
+      "owner": null,
+      "startDate": null,
+      "targetDate": null,
+      "completedAt": null,
+      "objectives": [
+        {
+          "id": "OBJ-integration-01",
+          "title": "API contract held",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-integration-02",
+          "title": "Data path proven",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-integration-03",
+          "title": "External dependency has a timeout",
+          "required": true,
+          "status": "UNKNOWN"
+        }
+      ],
+      "entryCriteria": [
+        "Core Functionality completed or waived"
+      ],
+      "exitCriteria": [
+        "Required objectives complete or UNKNOWN-and-accepted",
+        "Required checkpoints PASSED or WAIVED"
+      ],
+      "featureIds": [],
+      "requirementIds": [],
+      "taskIds": [],
+      "riskIds": [],
+      "evidence": [],
+      "dependencies": [
+        "PHASE-002"
+      ],
+      "releaseId": null
+    },
+    {
+      "id": "PHASE-004",
+      "slug": "hardening",
+      "name": "Hardening",
+      "description": "Security, performance, observability, failure modes.",
+      "status": "NEEDS_REVIEW",
+      "order": 4,
+      "owner": null,
+      "startDate": null,
+      "targetDate": null,
+      "completedAt": null,
+      "objectives": [
+        {
+          "id": "OBJ-hardening-01",
+          "title": "Security review of the new surface",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-hardening-02",
+          "title": "Failure modes named",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-hardening-03",
+          "title": "Performance targets evidenced or marked unknown",
+          "required": true,
+          "status": "UNKNOWN"
+        }
+      ],
+      "entryCriteria": [
+        "Integration completed or waived"
+      ],
+      "exitCriteria": [
+        "Required objectives complete or UNKNOWN-and-accepted",
+        "Required checkpoints PASSED or WAIVED"
+      ],
+      "featureIds": [],
+      "requirementIds": [],
+      "taskIds": [],
+      "riskIds": [],
+      "evidence": [],
+      "dependencies": [
+        "PHASE-003"
+      ],
+      "releaseId": null
+    },
+    {
+      "id": "PHASE-005",
+      "slug": "release-prep",
+      "name": "Release Preparation",
+      "description": "Evidence, runbooks, flags, cut record.",
+      "status": "NEEDS_REVIEW",
+      "order": 5,
+      "owner": null,
+      "startDate": null,
+      "targetDate": null,
+      "completedAt": null,
+      "objectives": [
+        {
+          "id": "OBJ-release-prep-01",
+          "title": "Release record can be cut",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-release-prep-02",
+          "title": "Runbook exists",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-release-prep-03",
+          "title": "Flags have owners and expiry",
+          "required": true,
+          "status": "UNKNOWN"
+        }
+      ],
+      "entryCriteria": [
+        "Hardening completed or waived"
+      ],
+      "exitCriteria": [
+        "Required objectives complete or UNKNOWN-and-accepted",
+        "Required checkpoints PASSED or WAIVED"
+      ],
+      "featureIds": [],
+      "requirementIds": [],
+      "taskIds": [],
+      "riskIds": [],
+      "evidence": [],
+      "dependencies": [
+        "PHASE-004"
+      ],
+      "releaseId": null
+    },
+    {
+      "id": "PHASE-006",
+      "slug": "launch",
+      "name": "Production Launch",
+      "description": "Cutover, abort criteria, first live verification.",
+      "status": "NEEDS_REVIEW",
+      "order": 6,
+      "owner": null,
+      "startDate": null,
+      "targetDate": null,
+      "completedAt": null,
+      "objectives": [
+        {
+          "id": "OBJ-launch-01",
+          "title": "Abort criteria written",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-launch-02",
+          "title": "Rollback named",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-launch-03",
+          "title": "First live check listed",
+          "required": true,
+          "status": "UNKNOWN"
+        }
+      ],
+      "entryCriteria": [
+        "Release Preparation completed or waived"
+      ],
+      "exitCriteria": [
+        "Required objectives complete or UNKNOWN-and-accepted",
+        "Required checkpoints PASSED or WAIVED"
+      ],
+      "featureIds": [],
+      "requirementIds": [],
+      "taskIds": [],
+      "riskIds": [],
+      "evidence": [],
+      "dependencies": [
+        "PHASE-005"
+      ],
+      "releaseId": null
+    },
+    {
+      "id": "PHASE-007",
+      "slug": "post-release",
+      "name": "Post-Release Improvement",
+      "description": "What production taught, and the next increment.",
+      "status": "IN_PROGRESS",
+      "order": 7,
+      "owner": null,
+      "startDate": null,
+      "targetDate": null,
+      "completedAt": null,
+      "objectives": [
+        {
+          "id": "OBJ-post-release-01",
+          "title": "Incidents have guards",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-post-release-02",
+          "title": "Next increment chosen",
+          "required": true,
+          "status": "UNKNOWN"
+        },
+        {
+          "id": "OBJ-post-release-03",
+          "title": "Stale traces refreshed",
+          "required": true,
+          "status": "UNKNOWN"
+        }
+      ],
+      "entryCriteria": [
+        "Production Launch completed or waived"
+      ],
+      "exitCriteria": [
+        "Required objectives complete or UNKNOWN-and-accepted",
+        "Required checkpoints PASSED or WAIVED"
+      ],
+      "featureIds": [],
+      "requirementIds": [],
+      "taskIds": [],
+      "riskIds": [],
+      "evidence": [],
+      "dependencies": [
+        "PHASE-006"
+      ],
+      "releaseId": null
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "CHK-001",
+      "name": "Requirements",
+      "description": "Requirements checkpoint for Discovery.",
+      "type": "requirements",
+      "phaseId": "PHASE-000",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Requirements evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-002",
+      "name": "Documentation",
+      "description": "Documentation checkpoint for Discovery.",
+      "type": "documentation",
+      "phaseId": "PHASE-000",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Documentation evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-003",
+      "name": "Requirements",
+      "description": "Requirements checkpoint for Foundation.",
+      "type": "requirements",
+      "phaseId": "PHASE-001",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Requirements evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-004",
+      "name": "Architecture",
+      "description": "Architecture checkpoint for Foundation.",
+      "type": "architecture",
+      "phaseId": "PHASE-001",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Architecture evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-005",
+      "name": "Documentation",
+      "description": "Documentation checkpoint for Foundation.",
+      "type": "documentation",
+      "phaseId": "PHASE-001",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Documentation evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-006",
+      "name": "Requirements",
+      "description": "Requirements checkpoint for Core Functionality.",
+      "type": "requirements",
+      "phaseId": "PHASE-002",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Requirements evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-007",
+      "name": "Architecture",
+      "description": "Architecture checkpoint for Core Functionality.",
+      "type": "architecture",
+      "phaseId": "PHASE-002",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Architecture evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-008",
+      "name": "API",
+      "description": "API checkpoint for Core Functionality.",
+      "type": "api",
+      "phaseId": "PHASE-002",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "API evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-009",
+      "name": "Database",
+      "description": "Database checkpoint for Core Functionality.",
+      "type": "database",
+      "phaseId": "PHASE-002",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Database evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-010",
+      "name": "UI",
+      "description": "UI checkpoint for Core Functionality.",
+      "type": "ui",
+      "phaseId": "PHASE-002",
+      "status": "NOT_STARTED",
+      "required": false,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "UI evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-011",
+      "name": "Testing",
+      "description": "Testing checkpoint for Core Functionality.",
+      "type": "testing",
+      "phaseId": "PHASE-002",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Testing evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-012",
+      "name": "API",
+      "description": "API checkpoint for Integration.",
+      "type": "api",
+      "phaseId": "PHASE-003",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "API evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-013",
+      "name": "Database",
+      "description": "Database checkpoint for Integration.",
+      "type": "database",
+      "phaseId": "PHASE-003",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Database evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-014",
+      "name": "Security",
+      "description": "Security checkpoint for Integration.",
+      "type": "security",
+      "phaseId": "PHASE-003",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Security evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-015",
+      "name": "Integration tests",
+      "description": "Integration tests checkpoint for Integration.",
+      "type": "integration",
+      "phaseId": "PHASE-003",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Integration tests evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-016",
+      "name": "Testing",
+      "description": "Testing checkpoint for Integration.",
+      "type": "testing",
+      "phaseId": "PHASE-003",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Testing evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-017",
+      "name": "Observability",
+      "description": "Observability checkpoint for Integration.",
+      "type": "observability",
+      "phaseId": "PHASE-003",
+      "status": "NOT_STARTED",
+      "required": false,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Observability evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-018",
+      "name": "Security",
+      "description": "Security checkpoint for Hardening.",
+      "type": "security",
+      "phaseId": "PHASE-004",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Security evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-019",
+      "name": "Testing",
+      "description": "Testing checkpoint for Hardening.",
+      "type": "testing",
+      "phaseId": "PHASE-004",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Testing evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-020",
+      "name": "Performance",
+      "description": "Performance checkpoint for Hardening.",
+      "type": "performance",
+      "phaseId": "PHASE-004",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Performance evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-021",
+      "name": "Observability",
+      "description": "Observability checkpoint for Hardening.",
+      "type": "observability",
+      "phaseId": "PHASE-004",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Observability evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-022",
+      "name": "Testing",
+      "description": "Testing checkpoint for Release Preparation.",
+      "type": "testing",
+      "phaseId": "PHASE-005",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Testing evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-023",
+      "name": "Performance",
+      "description": "Performance checkpoint for Release Preparation.",
+      "type": "performance",
+      "phaseId": "PHASE-005",
+      "status": "NOT_STARTED",
+      "required": false,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Performance evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-024",
+      "name": "Observability",
+      "description": "Observability checkpoint for Release Preparation.",
+      "type": "observability",
+      "phaseId": "PHASE-005",
+      "status": "NOT_STARTED",
+      "required": false,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Observability evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-025",
+      "name": "Documentation",
+      "description": "Documentation checkpoint for Release Preparation.",
+      "type": "documentation",
+      "phaseId": "PHASE-005",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Documentation evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-026",
+      "name": "Release readiness",
+      "description": "Release readiness checkpoint for Release Preparation.",
+      "type": "release-readiness",
+      "phaseId": "PHASE-005",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Release readiness evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-027",
+      "name": "Release readiness",
+      "description": "Release readiness checkpoint for Production Launch.",
+      "type": "release-readiness",
+      "phaseId": "PHASE-006",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Release readiness evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-028",
+      "name": "Production readiness",
+      "description": "Production readiness checkpoint for Production Launch.",
+      "type": "production-readiness",
+      "phaseId": "PHASE-006",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Production readiness evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "MANUAL",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-029",
+      "name": "Observability",
+      "description": "Observability checkpoint for Production Launch.",
+      "type": "observability",
+      "phaseId": "PHASE-006",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Observability evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-030",
+      "name": "Observability",
+      "description": "Observability checkpoint for Post-Release Improvement.",
+      "type": "observability",
+      "phaseId": "PHASE-007",
+      "status": "NOT_STARTED",
+      "required": false,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Observability evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-031",
+      "name": "Documentation",
+      "description": "Documentation checkpoint for Post-Release Improvement.",
+      "type": "documentation",
+      "phaseId": "PHASE-007",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Documentation evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    },
+    {
+      "id": "CHK-032",
+      "name": "Testing",
+      "description": "Testing checkpoint for Post-Release Improvement.",
+      "type": "testing",
+      "phaseId": "PHASE-007",
+      "status": "NOT_STARTED",
+      "required": true,
+      "optional": false,
+      "owner": null,
+      "dueDate": null,
+      "entryCriteria": [],
+      "completionCriteria": [
+        "Testing evidenced or waived by name"
+      ],
+      "evidence": [],
+      "requirementIds": [],
+      "featureIds": [],
+      "riskIds": [],
+      "blockers": [],
+      "completedAt": null,
+      "reviewer": null,
+      "notes": "",
+      "verificationMode": "HYBRID",
+      "evidenceRequired": true,
+      "history": [
+        {
+          "at": "2026-09-10T11:53:44.531Z",
+          "status": "NOT_STARTED",
+          "by": "init"
+        }
+      ]
+    }
+  ],
+  "featureBindings": [
+    {
+      "featureId": "project-command-center",
+      "ideaId": "IDEA-001",
+      "phaseId": "PHASE-007",
+      "status": "IN_PROGRESS"
+    }
+  ],
+  "history": [
+    {
+      "at": "2026-09-10T11:53:44.531Z",
+      "event": "init",
+      "detail": "Brownfield defaults; statuses are NEEDS_REVIEW, not completed."
+    }
+  ]
+}

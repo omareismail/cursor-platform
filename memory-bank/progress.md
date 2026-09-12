@@ -1,11 +1,16 @@
 # Progress
-**Last Updated:** 2026-09-10
-**Generated/updated by:** Commit `6b551ac`; integrity PASS (26 files)
+**Last Updated:** 2026-09-12
+**Generated/updated by:** Independent Command Center verification; G01–G10 reopened; plugin digest `470b08b025141c2c`; integrity FAIL until human review/attestation
 
 Durable reviews: [docs/reviews/README.md](../docs/reviews/README.md). Owners and
 completion evidence: [docs/reviews/findings-tracker.md](../docs/reviews/findings-tracker.md).
 
 ## Done
+- [x] 2026-09-12 — Independent verification completed: all 52 prompt sections, G01–G11 and ten enhancements reviewed. Nine defects reproduced; G01–G10 reopened. 139 focused assertions and full 26 suites pass; latest API/Edge smoke and self-audit run pass. [Current verdict and required fixes](../docs/reviews/project-command-center-verification-2026-09-12.md). Application behavior was not changed by this verification.
+- [x] 2026-09-12 — Implementation slices for PCC-G06–G10: discovery refs, graph/roadmap node kinds, health adapters, portable page checks, verification contract. 139 + 9 assertions; 26 suites, 0 failed; plugin `470b08b025141c2c`. Acceptance was reopened by the independent verification above.
+- [x] 2026-09-10 — Implementation slices for PCC-G01–G05: journal, catalog/phase CLI, risk parsing, trace, schemas. 113 assertions; 25 suites, 0 failed; plugin `3bbe3a2f937b178f`. Acceptance was reopened on 2026-09-12.
+- [x] 2026-09-10 — Independent Command Center prompt review and corrections: 71 focused assertions, 25 suites with zero failures, live API/browser smoke. See [historical corrections and enhancements](../docs/reviews/project-command-center-review-2026-09-10.md). Current status is the September 12 verification above.
+- [x] 2026-09-10 — Project Command Center: `project/` overlay, delivery phases, checkpoints, ideas, deterministic readiness/recommendations, dashboard projection. Full suite: 25 suites, 0 failed. Plugin rebuilt (`a0b6707571a69060`). Self-audit `run` PASS. Integrity FAIL until a human attests `_lib.mjs`, `write-policy.json`, `06-production.gate.md`.
 - [x] 2026-09-10 — Next increment of ideas 1–14 plus optional H01–H22 from `docs/reviews/project-review-2026-09-10.md`. Full suite: 24 suites, 0 failed. Plugin rebuilt (`01d0a9b23424e47b`). Self-audit `run` PASS. Integrity PASS (26 files). Committed as `6b551ac`.
 - [x] 2026-09-10 — First useful releases for all 14 items in `docs/reviews/platform-improvement-ideas-2026-09-10.md`. Full suite: 23 suites, 0 failed. Plugin rebuilt (`48ba58d7490a0f7e`). Self-audit `run` PASS. Integrity FAIL until a human attests.
 - [x] 2026-09-10 — Sequence A first useful releases: skill output classes + `_policy.mjs`, plugin-only smoke, read-only `doctor.mjs`. Full suite: 22 suites, 0 failed. Plugin rebuilt (`60acd23ac0019940`). Self-audit PASS. Integrity FAIL until a human attests `guard-bash.mjs` and `lifecycle.mjs`.
@@ -22,6 +27,8 @@ completion evidence: [docs/reviews/findings-tracker.md](../docs/reviews/findings
 - [x] 2026-09-09 — Follow-up review F1–F3 implemented (CR close no longer absorbs CHANGED; skipped-suite strings; PayTests.cs scoped AC match).
 
 ## In Progress
+- [ ] PCC-G01–G10 reopened: resolve PCC-V01–V12 in the [current verification](../docs/reviews/project-command-center-verification-2026-09-12.md), then repeat requirement-level checks. Prioritize journal safety/read isolation, honest health, canonical trace resolution, evidence identity and release proof.
+- [ ] Human: `node .cursor/tools/self-audit.mjs integrity --write --by "<name>"` after reviewing the enforcement-surface diff.
 - [ ] Push `platform-ui` when you want it on the remote.
 
 ## Backlog (known, not started)
@@ -34,4 +41,4 @@ completion evidence: [docs/reviews/findings-tracker.md](../docs/reviews/findings
 - [ ] H12 remaining: owner chooses a license file.
 
 ## Blocked
-- None for this wave. Integrity PASS: 26 enforcement files match the 2026-09-10 attestation.
+- Integrity FAIL: `_lib.mjs`, `write-policy.json`, and `06-production.gate.md` differ from the last attestation. A human must re-attest; the agent cannot.
