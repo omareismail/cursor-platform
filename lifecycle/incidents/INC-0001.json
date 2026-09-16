@@ -1,0 +1,20 @@
+{
+  "id": "INC-0001",
+  "title": "Trailing separator defeated every exact-file protected path",
+  "at": "2026-09-16T11:34:27.538Z",
+  "openedBy": "omar.ismail",
+  "detected": "manual",
+  "impact": "All 20 exact-file protected paths were shell-writable with no escape variable and no cd; the 7 glob entries held, so nothing looked broken.",
+  "falsifies": [],
+  "guards": [
+    {
+      "spec": "tests/adversarial/paths.test.mjs#P2G-1",
+      "rung": 8,
+      "mechanism": "a line in a document"
+    }
+  ],
+  "unmechanisable": "",
+  "postmortem": "",
+  "note": "",
+  "recurrenceOf": []
+}
