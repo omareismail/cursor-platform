@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "writtenAt": "2026-09-10T10:54:48.337Z",
-  "by": "<omar ismail>",
+  "writtenAt": "2026-09-16T11:19:34.398Z",
+  "by": "omar ismail",
   "recordedBy": {
     "os": "MSI",
     "git": "omar.ismail",
@@ -11,14 +11,14 @@
   },
   "note": "sha256 of every file that enforces a control. `self-audit.mjs integrity --check` fails when any of them changes without this file changing with it. Written by a human; guard-bash refuses --write from the agent's shell.",
   "files": {
-    ".claude/hooks/_lib.mjs": "6838948c2c67640ee3c29282ba977086768b82d74631000486ba8d9844a91192",
+    ".claude/hooks/_lib.mjs": "4aa1a17f9d29cc803783adf63d1abd34c403f440c164c7477f4b267b136efa60",
     ".claude/hooks/_sql.mjs": "539f623ad0fc74321f0c11ad4fbe1e55d80da5607db94e918ebfeb8af98a5935",
-    ".claude/hooks/guard-bash.mjs": "c32e1f08b2b93812a09bcb8cd226a723d28c2e24c736e43d353b36300bc137d7",
+    ".claude/hooks/guard-bash.mjs": "f40828e719f864fd921e4782bb7cb4401780ecf076ca9b0daf1920c26d841979",
     ".claude/hooks/guard-mcp.mjs": "6e9012433be249a7b3a2bea437982d3e97cb6ba4c68dc0e252483e18f1abb9a5",
     ".claude/hooks/guard-phase.mjs": "77d70ce9c907aadbe517c1a944e3aa0881e45a9d50ae1d7c688bd792dbd4ec82",
     ".claude/hooks/guard-write.mjs": "037938b54b146cbcc27f4c555585ee3d5b1f426716bb16233450471afba89eff",
     ".claude/hooks/post-edit-verify.mjs": "fab01f0e32c73fc61c36cd144b505d1ab7b3b839ddcaa0d26425a1fbb6077fd3",
-    ".claude/hooks/session-start.mjs": "4bfdad298073856664aca01be6c078cc9c9884def3e3573cc827390126b42159",
+    ".claude/hooks/session-start.mjs": "b96e5696ce42fa914b40c7647a61c244e88473e72262cbc246675c1355f39eea",
     ".claude/hooks/stop-memory-check.mjs": "f37bf38feec09db2de89ea5a5cbbf005a50c0524cb63769f3e0d26cf2d67f91c",
     ".claude/hooks/sync-skills.mjs": "8f802d812d18c3f843b4e75ae52e2cc232797470a851278a9589655e233915f5",
     ".claude/settings.json": "7f864a2f2fb6da0398df6ad43f9c6bc0d80c0939a3f6c769f7a3a7596c9df338",
@@ -28,14 +28,14 @@
     ".cursor/lifecycle/gates/03-design.gate.md": "8cc37baafbe88cc39a5c5717e0d24eb4b971deb8c21fa0b30b1332b4cd165469",
     ".cursor/lifecycle/gates/04-development.gate.md": "6881803c287665a473eeb0432abef96096647a5738a4a36a5340f3c89c65d886",
     ".cursor/lifecycle/gates/05-testing.gate.md": "516793a54ed2ca1a855e3f99dc3e16ce4582c6f5b43e0c79aa4553d63af30dbe",
-    ".cursor/lifecycle/gates/06-production.gate.md": "23329bc329614308ca4acd349cf19572819097c01456659c4ad57580ffd6139b",
-    ".cursor/lifecycle/write-policy.json": "dd97c84e830bcd0cf2c40da94d87369c4f970b1670b4a2e0a4c25b9d6f563322",
-    ".cursor/mcp-policy.json": "35475e837a4810d734003a534f6920115b7e1fa121c8129d6ebfeba98b64b6e4",
+    ".cursor/lifecycle/gates/06-production.gate.md": "b888f1a15db24d610af7951bd6adaffd4252ef80538677980cf769ef445cdf7b",
+    ".cursor/lifecycle/write-policy.json": "9733dc3249f6a28dff084558f58cf7f1c0cb3235597311e3185d956b4351bc33",
+    ".cursor/mcp-policy.json": "8e5dc61bc4535209cc7a5829491c1cd6211dcd2e67591104b234ac5b5eb4b7a4",
     ".cursor/tools/_evidence.mjs": "7091bb20931623167fd1188969df5db208cea1b03573b5672bc3fd9c63f65e4e",
     ".cursor/tools/_state.mjs": "3aec8fd6a2f0edb3e65d53dd50ad9ac8aefe9de179936c5f9b9f0897f5a54380",
     ".cursor/tools/lifecycle.mjs": "fae1b8850641c72e366f58dc4338bc51d37725dd2cf9ee60ea2b197f18ef4104",
     ".cursor/tools/release-evidence.mjs": "e04dbdd5c7fabeea5151a6e07cc9bef868deafa03fac9a025d189279a96b4625",
     ".cursor/tools/self-audit.mjs": "abff2bd2f4f6a2a5533ad863cf484f7be50e22aadf277c96786348a50c1e916b",
-    ".mcp.json": "b4cfb1ab2bc76b9380844665978fd41312fbf542182e231088f7ffd223abd528"
+    ".mcp.json": "506b8dcd3c5ecd12b33773bcc52400b8a89a228d50238728c61317e8cd60afa2"
   }
 }

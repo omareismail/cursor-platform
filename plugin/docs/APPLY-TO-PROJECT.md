@@ -36,15 +36,28 @@ decision requires their authority (secrets, production deploy, branch merge).
 
 Copy from platform source into **project root**:
 
+**Copy from a fresh clone, never from a working checkout.** A working checkout
+carries `.cursor/cache/` — including a `repo-map.json` describing *the platform*,
+which this project's first session then reports as "fresh" — and the developer's
+`settings.local.json` and its timestamped backup. A clone carries only tracked
+files, so all of that is excluded by the platform's own `.gitignore`.
+
 ```powershell
 # Run from D:\repos\MotorsReports
-Copy-Item -Recurse D:\repos\cursor\.cursor .
-Copy-Item -Recurse D:\repos\cursor\.claude .
-Copy-Item -Recurse D:\repos\cursor\memory-bank .
-Copy-Item -Recurse D:\repos\cursor\schemas .
-Copy-Item D:\repos\cursor\AGENTS.md .
-Copy-Item D:\repos\cursor\CLAUDE.md .
+git clone --depth 1 https://github.com/omareismail/cursor-platform.git $env:TEMP\cursor-platform
+Copy-Item -Recurse $env:TEMP\cursor-platform\.cursor .
+Copy-Item -Recurse $env:TEMP\cursor-platform\.claude .
+Copy-Item -Recurse $env:TEMP\cursor-platform\schemas .
+Copy-Item $env:TEMP\cursor-platform\AGENTS.md .
+Copy-Item $env:TEMP\cursor-platform\CLAUDE.md .
+Remove-Item -Recurse -Force $env:TEMP\cursor-platform
 ```
+
+**`memory-bank/` is deliberately not copied.** It is the platform's own Tier 1
+and Tier 2 context — "a Node ESM tooling repo, not a CQRS/.NET application" —
+and every generator reads it. Copying it makes this project's agents imitate
+another codebase's conventions. Create the directory empty and fill it with
+`/context-sync` in Phase 4.
 
 If local platform path unavailable:
 
@@ -236,11 +249,22 @@ See `${CLAUDE_PLUGIN_ROOT}/docs/mcp-ecosystem.md`. Minimum optional env vars:
 Suggest branch: `chore/cursor-platform`
 
 Files to commit:
-- `.cursor/` (except `settings.local.json` and `cache/*` except `.gitkeep`)
+- `.cursor/` (except `settings.local.json*` and `cache/*` except `.gitkeep`)
+- **`.claude/`** — settings, hook wiring, the hooks themselves, agents, shims
+- **`schemas/`** — the tools read these at runtime
+- **`CLAUDE.md`** — the Claude Code entry point
 - `memory-bank/`
 - `AGENTS.md`
 - `${CLAUDE_PLUGIN_ROOT}/docs/APPLY-TO-PROJECT.md` (copy of this file, optional)
 - `.gitignore` changes
+
+> The three bolded entries were missing from this list. Without them a teammate
+> who clones the repository gets: no `.claude/settings.json`, so **no Claude Code
+> hooks at all**; a `.cursor/hooks.json` pointing at `.claude/hooks/*.mjs` files
+> that are not there; and `artifact-schema.mjs` throwing `schema id-grammar.json
+> not found`, which makes `lifecycle.mjs approve` refuse every phase. The person
+> who ran the install has working guards and nobody else does — with nothing on
+> screen to say so.
 
 **Do not commit without explicit human request.**
 

@@ -36,10 +36,10 @@ If you are copying from a checkout instead of installing the plugin, take the co
 git clone https://github.com/omareismail/cursor-platform.git /tmp/cursor-platform
 cp -r /tmp/cursor-platform/.cursor .
 cp -r /tmp/cursor-platform/.claude .
-cp -r /tmp/cursor-platform/memory-bank .
 cp -r /tmp/cursor-platform/schemas .
 cp /tmp/cursor-platform/AGENTS.md .
 cp /tmp/cursor-platform/CLAUDE.md .
+mkdir -p memory-bank            # empty on purpose - see the note below
 ```
 
 **Windows (PowerShell):**
@@ -48,11 +48,19 @@ cp /tmp/cursor-platform/CLAUDE.md .
 git clone https://github.com/omareismail/cursor-platform.git $env:TEMP\cursor-platform
 Copy-Item -Recurse $env:TEMP\cursor-platform\.cursor .
 Copy-Item -Recurse $env:TEMP\cursor-platform\.claude .
-Copy-Item -Recurse $env:TEMP\cursor-platform\memory-bank .
 Copy-Item -Recurse $env:TEMP\cursor-platform\schemas .
 Copy-Item $env:TEMP\cursor-platform\AGENTS.md .
 Copy-Item $env:TEMP\cursor-platform\CLAUDE.md .
+New-Item -ItemType Directory -Force memory-bank | Out-Null   # empty on purpose
 ```
+
+> **`memory-bank/` is not copied, on purpose.** The platform's own copy is
+> tracked, so a clone carries it: Tier 1 files describing "a **Node ESM tooling
+> repo**, not a CQRS/.NET application", on the platform's branch, with its
+> progress log. Every `*-gen` skill reads that directory, so copying it makes
+> this project's agents imitate another codebase. The first session's digest
+> will report the four Tier 1 files as missing — that is the correct starting
+> state. Fill it with `/context-sync` in Step 4.
 
 Verify:
 
@@ -115,12 +123,29 @@ Ensure project `.gitignore` includes:
 
 ```gitignore
 .cursor/settings.local.json
+.cursor/settings.local.json.bak-*
+.claude/settings.local.json
 .cursor/cache/*
 !.cursor/cache/.gitkeep
+project/.txn.json
+project/.lock
 ```
 
-- [ ] Commit `.cursor/`, `memory-bank/`, and `AGENTS.md`
-- [ ] Do **not** commit `settings.local.json` or `repo-map.json`
+- [ ] Commit `.cursor/`, **`.claude/`**, **`schemas/`**, **`CLAUDE.md`**,
+      `memory-bank/`, and `AGENTS.md`
+- [ ] Do **not** commit `settings.local.json`, its `.bak-*` backup, or `repo-map.json`
+
+> **Why `.claude/`, `schemas/` and `CLAUDE.md` are on that list.** They were not,
+> and the result is invisible: the person who ran the install keeps working
+> guards, while every teammate who clones gets no `.claude/settings.json` (so no
+> Claude Code hooks fire at all), a `.cursor/hooks.json` pointing at hook scripts
+> that are not in the clone, and `artifact-schema.mjs` throwing `schema
+> id-grammar.json not found` — which makes `lifecycle.mjs approve` refuse every
+> phase. Nothing reports any of it.
+>
+> The `.bak-*` line matters for the same reason: the backup holds the same
+> credentials as `settings.local.json`, and a pattern without the wildcard does
+> not match it.
 
 ---
 
