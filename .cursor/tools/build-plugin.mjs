@@ -56,6 +56,7 @@ const SHIPPED_DOCS = new Set([
   "skill-catalog.md", "skill-graph.md", "shared-execution-pipeline.md",
   "START-HERE.md", "mcp-ecosystem.md", "APPLY-TO-PROJECT.md", "NEW-PROJECT.md",
   "IDEA-TO-PRODUCTION.md", "LIFECYCLE.md", "PROJECT-COMMAND-CENTER.md",
+  "OMNIROUTE.md",
 ]);
 const SRC_HOOKS = join(ROOT, ".claude", "hooks");
 const DESCRIPTIONS = join(ROOT, ".claude", "skills", "_descriptions.json");
@@ -310,19 +311,27 @@ ${rewritePaths(body)}
       emit(`hooks/${f}`, read(join(SRC_HOOKS, f)));
     }
     const P = "${CLAUDE_PLUGIN_ROOT}";
+    // The events MUST sit under a top-level `hooks` key. They used to be emitted
+    // at the root, which `claude plugin validate` rejects with "hooks: Invalid
+    // input: expected record, received undefined" - so the wiring was copied in,
+    // named every guard, and was refused by the host. self-audit's A4 passed
+    // throughout, because wiredIn() accepts both shapes on purpose; the shape
+    // the HOST accepts is the one that decides whether a guard runs.
     emit("hooks/hooks.json", JSON.stringify({
       "//": "GENERATED. Hook wiring for the installed plugin. Paths are plugin-relative because the plugin does not live in the consuming repo.",
-      SessionStart: [{ hooks: [{ type: "command", command: `node ${P}/hooks/session-start.mjs`, timeout: 20 }] }],
-      PreToolUse: [
-        { matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [
-          { type: "command", command: `node ${P}/hooks/guard-write.mjs`, timeout: 15 },
-          { type: "command", command: `node ${P}/hooks/guard-phase.mjs`, timeout: 15 },
-        ] },
-        { matcher: "Bash", hooks: [{ type: "command", command: `node ${P}/hooks/guard-bash.mjs`, timeout: 15 }] },
-        { matcher: "mcp__.*", hooks: [{ type: "command", command: `node ${P}/hooks/guard-mcp.mjs`, timeout: 15 }] },
-      ],
-      PostToolUse: [{ matcher: "Write|Edit|MultiEdit", hooks: [{ type: "command", command: `node ${P}/hooks/post-edit-verify.mjs`, timeout: 120 }] }],
-      Stop: [{ hooks: [{ type: "command", command: `node ${P}/hooks/stop-memory-check.mjs`, timeout: 20 }] }],
+      hooks: {
+        SessionStart: [{ hooks: [{ type: "command", command: `node ${P}/hooks/session-start.mjs`, timeout: 20 }] }],
+        PreToolUse: [
+          { matcher: "Write|Edit|MultiEdit|NotebookEdit", hooks: [
+            { type: "command", command: `node ${P}/hooks/guard-write.mjs`, timeout: 15 },
+            { type: "command", command: `node ${P}/hooks/guard-phase.mjs`, timeout: 15 },
+          ] },
+          { matcher: "Bash", hooks: [{ type: "command", command: `node ${P}/hooks/guard-bash.mjs`, timeout: 15 }] },
+          { matcher: "mcp__.*", hooks: [{ type: "command", command: `node ${P}/hooks/guard-mcp.mjs`, timeout: 15 }] },
+        ],
+        PostToolUse: [{ matcher: "Write|Edit|MultiEdit", hooks: [{ type: "command", command: `node ${P}/hooks/post-edit-verify.mjs`, timeout: 120 }] }],
+        Stop: [{ hooks: [{ type: "command", command: `node ${P}/hooks/stop-memory-check.mjs`, timeout: 20 }] }],
+      },
     }, null, 2) + "\n");
 
     // Cursor wiring, same scripts. Its events are camelCase and it has a
@@ -441,9 +450,21 @@ ${rewritePaths(body)}
     keywords: src.keywords,
   };
 
+  // `shared`, not `...src`: the source manifest carries `//skills` and `//hooks`
+  // documentation keys, and `claude plugin validate` counts unrecognised root
+  // keys as ERRORS ("root: Unrecognized keys"), not warnings as the vendor docs
+  // say. Documentation about the plugin belongs in its README, not in a field
+  // the host parses.
+  //
+  // `agents` is deliberately OMITTED. The vendor schema takes a file path or an
+  // array of them and REPLACES the default `agents/` directory when present, so
+  // `"./agents"` - a directory - is rejected outright, and listing the 14 files
+  // would mean editing this emitter every time an agent is added. Omitting the
+  // key auto-discovers `agents/`, which is what the old comment claimed the
+  // explicit value was documenting. Verified: both the omitted and the
+  // file-array forms validate clean; the directory string does not.
   emit(".claude-plugin/plugin.json", JSON.stringify({
-    ...src,
-    agents: "./agents",
+    ...shared,
     hooks: "./hooks/hooks.json",
     mcpServers: "./.mcp.json",
   }, null, 2) + "\n");

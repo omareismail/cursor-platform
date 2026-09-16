@@ -1,7 +1,7 @@
 {
   "name": "cursor-platform",
+  "description": "Agent platform for .NET + React in regulated/fintech contexts. 99 skills, 14 specialist subagents, 7 enforcement hooks and 38 validators covering the whole loop: understand existing code, plan and size the work, generate it against local convention, prove it is done, and ship it safely.",
   "version": "1.0.0",
-  "description": "Agent platform for .NET + React in regulated/fintech contexts. 99 skills, 14 specialist subagents, 7 enforcement hooks and 35 validators covering the whole loop: understand existing code, plan and size the work, generate it against local convention, prove it is done, and ship it safely.",
   "author": {
     "name": "Mahmoud",
     "email": "mahmo12ab@gmail.com"
@@ -30,9 +30,6 @@
     "slo",
     "production-readiness"
   ],
-  "//skills": "Directory is auto-discovered at .claude/skills/. Listed explicitly so the manifest documents what ships.",
-  "//hooks": "Not declared here. This repo wires its hooks in .claude/settings.json; the distributable plugin gets its own generated ./hooks/hooks.json from build-plugin.mjs, which sets this key itself.",
-  "agents": "./agents",
-  "mcpServers": "./.mcp.json",
-  "hooks": "./hooks/hooks.json"
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
 }

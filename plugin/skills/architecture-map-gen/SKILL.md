@@ -73,6 +73,14 @@ of one flat graph (group by the top-level folder/namespace segment) and
 offer a `--full` flag for the complete (likely unreadable without zooming)
 version.
 
+When a human has run Graphify on the repo and
+`node ${CLAUDE_PLUGIN_ROOT}/tools/graphify.mjs status` exits 0, group by its communities
+instead. `node ${CLAUDE_PLUGIN_ROOT}/tools/graphify.mjs communities` clusters by what calls and
+imports what, not by folder names that may have stopped meaning anything. Put
+each project in the community holding most of its files and name each subgraph
+after that community's hub. On exit 1 or 2, say so and group by top-level folder
+as above.
+
 **Step 2 — `erd` type.**
 
 From `repo-map.json`'s `dataAccess.efCoreContexts` (entity configurations)

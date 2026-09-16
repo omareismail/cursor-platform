@@ -13,8 +13,8 @@ skill files but not enforced as an always-on rule:
 2. **Hallucination prevention** (never reference a class, interface,
    service, method, table, column, or config key whose existence hasn't
    been confirmed)
-3. **Dependency safety** (never introduce a new NuGet or npm package, new
-   infrastructure, or new framework unless it's already in use or
+3. **Dependency safety** (never introduce a new NuGet, npm or PyPI package,
+   new infrastructure, or new framework unless it's already in use or
    explicitly requested)
 
 These three are grouped because they share the same root failure mode:
@@ -62,6 +62,7 @@ or by direct inspection:
 - NuGet package names (even common ones — confirm the exact package name
   and version already present in `Directory.Packages.props` or `*.csproj`)
 - npm package names (confirm in `package.json`)
+- PyPI package names (confirm in `pyproject.toml` or `requirements*.txt`)
 - Database table and column names
 - `appsettings.json` key paths
 - Route paths
@@ -85,6 +86,12 @@ task:
 - A new NuGet package (including moving from one version to another of a
   package not in `Directory.Packages.props` yet)
 - A new npm/yarn package
+- A new PyPI package, by any installer (`pip`, `uv`, `pipx`) — including the
+  ephemeral runners `uvx` and `pipx run`, which fetch and execute in one step
+  with nothing prompting in between
+- A skill fetched from a remote repository (`npx skills add …`). Skills live in
+  `${CLAUDE_PLUGIN_ROOT}/skills/` and are reviewed in git; a global install puts an always-on
+  directive outside the repository, where it never appears in a diff
 - A new Docker base image
 - A new infrastructure service (Redis, RabbitMQ, a new database, etc.)
 - A new framework or library (even if widely used — the team's choice to

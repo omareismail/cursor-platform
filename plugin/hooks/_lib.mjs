@@ -173,11 +173,31 @@ export function protectedPatterns() {
   return [...new Set([...PROTECTED_FALLBACK, ...(Array.isArray(fromPolicy) ? fromPolicy : [])])];
 }
 
-/** The pattern a project-relative path is protected by, or null. */
+/**
+ * The pattern a project-relative path is protected by, or null.
+ *
+ * The trailing-slash strip is load-bearing. A shell token that ends in the
+ * backslash its quote was escaped with (`> \".mcp.json\"`) survives the token
+ * scan as `.mcp.json\`, which the backslash rule above turns into `.mcp.json/`.
+ * A `**` glob still matched that, but an EXACT-FILE entry never did - so all
+ * twenty exact-file protected paths were shell-writable while the seven glob
+ * entries held, with no escape variable and no `cd` needed. Normalise the shape
+ * before matching, not after.
+ */
 export function isProtected(rel) {
   if (!rel) return null;
-  const s = String(rel).replace(/\\/g, "/").replace(/^\.\//, "");
-  return protectedPatterns().find((g) => globMatch(g, s)) || null;
+  const raw = String(rel).replace(/\\/g, "/").replace(/^\.\//, "");
+  const trimmed = raw.replace(/\/+$/, "");
+  if (!trimmed) return null;
+  const patterns = protectedPatterns();
+  // Both shapes, and never fewer matches than before. `trimmed` is what closes
+  // the bypass: it lets an exact-file entry match `.mcp.json/`. `raw` is kept
+  // because a `**` glob matches `.claude/hooks/` and NOT `.claude/hooks`, so
+  // trimming alone would have un-protected every directory form - a second
+  // hole opened by the fix for the first.
+  return patterns.find((g) => globMatch(g, trimmed))
+      || patterns.find((g) => globMatch(g, raw))
+      || null;
 }
 
 /**

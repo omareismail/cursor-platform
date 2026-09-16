@@ -81,6 +81,14 @@ For each category flagged in Step 1, find matching files:
 - Tests — existing test files for the closest adjacent functionality, so
   new tests follow the same structure
 
+If a human has run Graphify on this repo, widen each match from its graph. When
+`node ${CLAUDE_PLUGIN_ROOT}/tools/graphify.mjs status` exits 0, run
+`node ${CLAUDE_PLUGIN_ROOT}/tools/graphify.mjs neighbours <matched file> --depth 1` and file
+what it returns under the category each result belongs to, marked *(from graph)*
+so a reader can tell a structural neighbour from a naming match. On exit 1 or 2,
+say which on the context object's **Graph:** line and resolve from
+`repo-map.json` alone.
+
 **Step 3 — Surface conflicts and gaps, don't silently fill them in.**
 
 If two related entities use inconsistent patterns (one uses `Result<T>`,
@@ -94,6 +102,8 @@ elicitation, not something to resolve silently inside context assembly.
 
 ```
 ## Context for: "implement refund processing for DirectPay gateway"
+
+**Graph:** none (no Graphify graph in this repo; resolved from repo-map.json alone)
 
 **Entities/DTOs:**
 - PaymentTransaction (Tamkeen.Payments.Domain/Entities/PaymentTransaction.cs)

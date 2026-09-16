@@ -56,6 +56,16 @@ indexes turn this skill from a whole-repo grep into a lookup. If a feature
 relevant to the change is **STALE**, say so in the report header and treat its
 trace as a hypothesis rather than fact — or re-run `/feature-trace` on it first.
 
+If a human has run Graphify on this repo, its graph is a third source, between
+the map and grep. Run `node ${CLAUDE_PLUGIN_ROOT}/tools/graphify.mjs status`, then
+`node ${CLAUDE_PLUGIN_ROOT}/tools/graphify.mjs neighbours <file-or-symbol> --depth 2` for each
+thing the change touches, and add what it returns to the sweep: it knows callers
+no trace has recorded. Exit 0 means the graph matches the code. Exit 1 means the
+code moved after it was built, so its neighbours are candidates to confirm, never
+findings on their own. Exit 2 means there is no graph; say so. A neighbourhood is
+not a blast radius: it shows what is connected, and Step 1 still decides what
+breaks.
+
 If the map is empty, proceed with grep-based analysis and note in the output that
 coverage would improve after tracing the affected features. Do not silently
 degrade — the user should know which mode produced the answer.
@@ -205,6 +215,7 @@ contract with a cache-key bump, and names the two test files to run first.
 
 **Change type:** <classification>
 **Analysis mode:** feature-map (n features indexed) | grep-only (map empty)
+**Graph:** Graphify, fresh | Graphify, stale (candidates only) | none
 **Blast radius:** <n> files, <n> traced features, <n> tables, <n> data objects
 **Stale traces in scope:** <ids, or "none">
 

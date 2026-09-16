@@ -89,6 +89,12 @@ what the codebase *already does*, as opposed to generating something new or
 judging quality. Reach for these before changing anything that already exists.
 They share a cache, `.cursor/cache/feature-map.json`, owned by
 `${CLAUDE_PLUGIN_ROOT}/tools/feature-map.mjs`.
+If a human has run Graphify on the repo, `${CLAUDE_PLUGIN_ROOT}/tools/graphify.mjs` reads its
+`graphify-out/graph.json` without changing it and says whether it still matches
+the code: `feature-trace`, `impact-analysis` and `context-builder` consult its
+neighbourhoods before grepping, `architecture-map-gen` groups large diagrams by
+its communities, and each says so when there is no graph. Nothing in the
+platform installs or runs Graphify.
 
 | Skill | Answers |
 |---|---|
@@ -109,6 +115,17 @@ delivery is improving. Delegate to the `ops-reviewer` subagent in Claude Code.
 | `release-safety` | "How does this reach users without a big-bang?" — flag lifecycle, rings, rollback, migration reversibility |
 | `threat-model` | "What could an attacker do with this design?" — STRIDE, at design time |
 | `delivery-metrics` | "Is delivery getting better or worse?" — DORA four keys + rework rate |
+
+If the session runs behind an LLM gateway such as
+[OmniRoute](https://github.com/diegosouzapw/OmniRoute),
+`${CLAUDE_PLUGIN_ROOT}/tools/omniroute.mjs` says which real model sits behind each Claude tier:
+`tiers` answers from the session's environment alone and exits 1 when a tier a
+gate reviewer runs on has been remapped to something that is not an Anthropic
+model, `status` adds one loopback `GET /v1/models`, and `models` lists the
+catalog. `lifecycle-gate` consults it before recording a verdict and `lifecycle`
+reports it; with no gateway both say so and carry on. Nothing in the platform
+installs, starts or configures OmniRoute, and nothing here ever asks it for a
+completion. The rules and the hardening checklist: `${CLAUDE_PLUGIN_ROOT}/docs/OMNIROUTE.md`.
 
 **Verifying it is actually done** — `task-verify` (Category B) runs the task's
 `Verify` command, checks acceptance-criteria coverage via
@@ -157,6 +174,13 @@ trace reads 30-50 files and will otherwise fill the main context window.
 | `impact-analysis` | Blast radius of a proposed change, before editing anything |
 | `feature-inventory` | Capability map of the whole system from harvested entry points |
 | `spec-drift-audit` | Verify a spec, business rule, or ADR against the actual implementation |
+
+`platform-health-validator` asks whether the workspace is wired;
+`node ${CLAUDE_PLUGIN_ROOT}/tools/context-cost.mjs report` asks what it costs — the always-on
+text every session carries before the first user word, per host, including the
+description lines the host shows the model so it can route. Bytes are measured,
+tokens estimated. Nothing is scored, because a context budget is a target and
+the cheapest way to hit one is to delete guidance that was doing work.
 
 ### Category C — Diagrams & docs → announce, then proceed automatically
 

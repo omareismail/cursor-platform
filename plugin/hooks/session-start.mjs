@@ -147,6 +147,27 @@ try {
   }
 } catch { /* no map yet - /feature-inventory or /feature-trace will create it */ }
 
+// --- LLM gateway ------------------------------------------------------------
+// Silent unless this session is actually behind one, and environment-only: a
+// SessionStart hook that waited on a socket would make every session pay for a
+// gateway that is usually not there. Anthropic's own endpoint is the default
+// written down, not a gateway, so it is not news either.
+// The blocking half is `node .cursor/tools/omniroute.mjs tiers`; this line only
+// makes sure nobody reaches /lifecycle-gate without knowing to run it.
+{
+  const base = (process.env.ANTHROPIC_BASE_URL || "").trim();
+  let host = null;
+  try { host = base ? new URL(base).host : null; } catch { host = "an unparseable URL"; }
+  if (host && !/(^|\.)anthropic\.com(:|$)/i.test(host)) {
+    out.push(`\n**LLM gateway:** this session's ANTHROPIC_BASE_URL points at ${host}, not Anthropic directly.`);
+    problems.push(
+      `This session runs through an LLM gateway (${host}). Run ` +
+      `\`node .cursor/tools/omniroute.mjs tiers\` before recording any gate verdict: ` +
+      `a reviewer tier remapped to a non-Anthropic model makes the verdict a form, not a control. ` +
+      `.cursor/docs/OMNIROUTE.md`);
+  }
+}
+
 // --- Tier 1 digest ----------------------------------------------------------
 // A file full of [square-bracket] template slots is not context - it is the
 // unfilled template. Flag it rather than injecting noise the agent will trust.

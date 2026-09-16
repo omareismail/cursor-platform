@@ -76,4 +76,49 @@ section("_lib.isProtected");
   check("the fallback list is a literal array self-audit can read", Array.isArray(lib.PROTECTED_FALLBACK) && lib.PROTECTED_FALLBACK.length > 10, "");
 }
 
+/*
+ * The trailing slash (P2G-1, Critical).
+ *
+ * A shell token that ends in the backslash its quote was escaped with -
+ * `printf x > \".mcp.json\"` - survived guard-bash's token scan as `.mcp.json\`.
+ * The backslash rule above turned that into `.mcp.json/`, and a `**` glob still
+ * matched it while an EXACT-FILE entry never did. Result: all twenty exact-file
+ * protected paths were shell-writable with no escape variable and no `cd`,
+ * while the seven glob entries held - which is why nothing looked broken.
+ *
+ * The section above passed throughout, because every spelling it tried was one
+ * a human would type. These are the spellings a token scan produces.
+ */
+section("_lib.isProtected — a trailing separator is still the same file (P2G-1)");
+{
+  const exact = [
+    ".mcp.json",
+    ".cursor/mcp-policy.json",
+    ".claude/settings.json",
+    ".cursor/hooks.json",
+    "lifecycle/state.json",
+    "lifecycle/integrity.json",
+    ".cursor/tools/lifecycle.mjs",
+  ];
+  for (const p of exact) {
+    check(`${p} is protected with a trailing slash`, lib.isProtected(`${p}/`) !== null, "");
+    check(`${p} is protected with a trailing backslash`, lib.isProtected(`${p}\\`) !== null, "");
+  }
+  check("repeated trailing slashes collapse", lib.isProtected(".mcp.json///") !== null, "");
+  check("a leading ./ and a trailing slash together", lib.isProtected("./.mcp.json/") !== null, "");
+  check("mixed separators and a trailing backslash", lib.isProtected(".cursor\\tools/lifecycle.mjs\\") !== null, "");
+
+  // The other direction: the fix must not start protecting things it should not.
+  // A guard that denies ordinary work is a guard somebody switches off.
+  check("a document is still not protected with a trailing slash", lib.isProtected("docs/x.md/") === null, "");
+  check("a source file is still not protected", lib.isProtected("src/Api/Program.cs/") === null, "");
+  check("a bare directory outside the list is still not protected", lib.isProtected("docs/") === null, "");
+  check("the empty string is still null", lib.isProtected("") === null, "");
+  check("a lone separator is still null", lib.isProtected("/") === null, "");
+
+  // The glob entries that held before must still hold.
+  check("a hooks glob holds with a trailing slash", lib.isProtected(".claude/hooks/guard-bash.mjs/") !== null, "");
+  check("the hooks directory itself is protected", lib.isProtected(".claude/hooks/") !== null, "");
+}
+
 report("Path handling gives the same answer for every spelling of the same file.");

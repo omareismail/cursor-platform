@@ -337,6 +337,30 @@ Required environment variables:
 | `GITHUB_PAT` | github | Fine-grained PAT. Read-only scopes unless you actually want the agent opening PRs. |
 | `POSTGRES_READONLY_URL` | postgres | **A role with SELECT only.** `--access-mode=restricted` is defence in depth, not the boundary. |
 | `CONTEXT7_API_KEY` | context7 | Optional; raises rate limits. |
+| `OMNIROUTE_MCP_KEY` | omniroute | Optional, and only if you run the gateway. A scoped read token: `omniroute tokens create --name claude-mcp --scope read`. |
+
+## OmniRoute — the gateway, and its 110 MCP tools
+
+[OmniRoute](https://github.com/diegosouzapw/OmniRoute) is a local LLM gateway,
+not a documentation or data server, so most of this file does not apply to it.
+Two things here do.
+
+**Its MCP server is registered read-only, with the writes enumerated.** It
+announces 110 tools across 33 scopes and its own scope enforcement is off by
+default. The policy entry gives it `access: read-only`, lists the reads whose
+names this guard cannot classify, and denies by glob everything that sends a
+completion, fetches the web through the gateway, writes configuration, or mints a
+token — denied even at `full`, so raising the level later does not quietly open
+them. `omniroute_route_request` is refused on purpose: a completion fetched
+through MCP is a second model in the loop that no record names. Mirror the list
+on the gateway with `OMNIROUTE_MCP_ENFORCE_SCOPES=1` and `MCP_TOOL_ALLOW`; that
+lock is the server's to keep, and the policy file is the one that fails the build.
+
+**The gateway itself is adopted as a router and never as a rewriter**, which is
+what keeps it on the right side of the `caveman` and `headroom` rows in the table
+above. Everything about running it — the hardening checklist, the reviewer-tier
+pinning, and the compression features that must stay off — is in
+[OMNIROUTE.md](OMNIROUTE.md).
 
 ## Deliberately omitted — and why
 
@@ -350,6 +374,8 @@ measurably degrades routing. These were dropped on purpose:
 | `server-memory` | It creates a **second, competing memory store** alongside `memory-bank/`. Two sources of truth about the project is strictly worse than one. `memory-bank/` is git-tracked, reviewable, and diffable; the MCP knowledge graph is none of those. |
 | `server-sequential-thinking` | Both Cursor and Claude Code have native extended reasoning. This duplicates it and burns tokens re-implementing it as tool calls. |
 | `mcp-server-git` | `git` via Bash is faster, more flexible, and already available. The MCP wrapper only narrows what you can do. |
+| `caveman` (`caveman_compress` / `_retrieve` / `_stats`) | A context-compression proxy at `ANTHROPIC_BASE_URL` plus three tools. It collapses repetitive arrays and drops non-error log lines — which is the shape of every `findings[]` list here and of the raw test output `/task-verify` refuses to mark a task Done without. Its skill half is an always-on style directive that contradicts the announcement contract in `AGENTS.md`. Assessed in [token-tools-assessment-2026-09-15.md](../../docs/reviews/token-tools-assessment-2026-09-15.md). |
+| `headroom` (`headroom_compress` / `_retrieve` / `_stats`) | The same architecture, plus it appends steering to the system prompt, lowers reasoning effort on turns it judges routine, and installs a second navigation server into `~/.claude.json` at user scope. A proxy that rewrites every request is a control `lifecycle/integrity.json` cannot hash — the defect class `self-audit.mjs` exists to catch, facing the other way. Same assessment. |
 | Oracle / SQL Server | **This entry is outdated — see § Correction below.** |
 
 ## Rule of thumb
