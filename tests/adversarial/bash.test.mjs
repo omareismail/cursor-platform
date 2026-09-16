@@ -14,7 +14,7 @@
  */
 
 import { join } from "node:path";
-import { fixture, runHook, bash, cursorBash, denies, allows, cursorDenies, cursorAllows, report, section } from "../_harness.mjs";
+import { fixture, runHook, bash, cursorBash, denies, allows, cursorDenies, cursorAllows, check, report, section } from "../_harness.mjs";
 
 const H = "guard-bash.mjs";
 const root = fixture("gb-adv");
@@ -217,4 +217,164 @@ section("guard-bash.mjs — remaining shell bypasses (E-18)");
   ]) allows(`allows: ${cmd}`, runHook(H, bash(cmd), root));
 }
 
-report("guard-bash refuses the human-only commands, shell writes to the enforcement surface, and SQL writes through psql.");
+section("guard-bash.mjs — the local LLM gateway is a human's service (ADR-0001)");
+{
+  const root = fixture("bash-gateway");
+  const G = "omni" + "route";                  // split so this file is not refused by its own rule
+  for (const [cmd, needle] of [
+    [`${G} serve`, "human's service"],
+    [`${G} serve --port 20128`, "human's service"],
+    [`${G} launch`, "human's service"],
+    [`${G} launch --model openai/gpt-5.4`, "human's service"],
+    [`npx ${G} launch`, "human's service"],
+    [`npx -y ${G} serve`, "human's service"],
+    [`${G} setup-claude`, "human's service"],
+    [`${G} configure claude`, "human's service"],
+    [`${G} connect 192.168.0.15`, "human's service"],
+    [`${G} --mcp`, "human's service"],
+    [`${G} tokens create --name ci --scope read`, "human's service"],
+    [`${G}.cmd serve`, "human's service"],
+    [`echo hi; ${G} serve`, "human's service"],
+    [`docker run -p 20128:20128 diegosouzapw/${G}`, "human's service"],
+    [`docker compose up -d ${G}`, "human's service"],
+  ]) denies(`refuses: ${cmd}`, runHook(H, bash(cmd), root), needle);
+
+  // The read-only adapter is the whole point of having one; refusing it too
+  // would leave the rule with nothing to offer instead.
+  for (const cmd of [
+    `node .cursor/tools/${G}.mjs status`,
+    `node .cursor/tools/${G}.mjs tiers --json`,
+    `node .cursor/tools/${G}.mjs models --filter claude`,
+    `${G} --version`,
+    `${G} --help`,
+    "curl -s http://127.0.0.1:20128/v1/models",
+  ]) allows(`allows: ${cmd}`, runHook(H, bash(cmd), root));
+}
+
+section("guard-bash.mjs — Python installers and remote skill installers (gap B11)");
+{
+  // Refused. The needle is the phrase unique to each of the three new messages.
+  for (const [cmd, needle] of [
+    ["pip install requests", "new Python package"],
+    ["pip3 install requests", "new Python package"],
+    ["python -m pip install requests", "new Python package"],
+    ["python3 -m pip install --upgrade requests", "new Python package"],
+    ["py -3 -m pip install requests", "new Python package"],
+    ["python -W ignore -m pip install requests", "new Python package"],
+    ["pip install -U requests", "new Python package"],
+    ["pip install -i https://mirror.example requests", "new Python package"],
+    ["pip install --index-url=https://mirror.example requests", "new Python package"],
+    ['pip install "requests>=2"', "new Python package"],
+    // A package smuggled in beside a requirements file is the case an `exempt`
+    // on -r would have waved through.
+    ["pip install -r requirements.txt requests", "new Python package"],
+    ["pip install requests -r requirements.txt", "new Python package"],
+    ["pip install -e . requests", "new Python package"],
+    ["pip install -e git+https://github.com/x/y#egg=y", "new Python package"],
+    ["pip install -t ./vendor requests", "new Python package"],
+    ["pipx install graphifyy", "new Python package"],
+    ["uv pip install requests", "new Python package"],
+    ["uv add requests", "new Python package"],
+    ["uv add --dev pytest", "new Python package"],
+    ['uv add "fastapi[standard]"', "new Python package"],
+    ["uv tool install graphifyy", "new Python package"],
+    ["cd api && pip install flask", "new Python package"],
+    ["pip install requests && pytest", "new Python package"],
+    ["sudo pip install requests", "new Python package"],
+    ["uvx graphify extract .", "not in\nthe lockfile"],
+    ["uvx ruff@latest check .", "not in\nthe lockfile"],
+    ["uvx --from graphifyy graphify", "not in\nthe lockfile"],
+    ["uv tool run ruff check", "not in\nthe lockfile"],
+    ["pipx run black .", "not in\nthe lockfile"],
+    ["uvx postgres-mcp --access-mode=restricted", "not in\nthe lockfile"],
+    ["npx skills add vercel-labs/agent-skills", "remote repository"],
+    ["npx skills@latest add owner/repo", "remote repository"],
+    ["npx skills install owner/repo", "remote repository"],
+    ["npx skills add owner/repo -g", "remote repository"],
+    ["npx --no-install skills add x/y", "remote repository"],
+    // Both this rule and the --yes rule match; the skills message must win,
+    // because "a remote skill" is the more specific thing that is wrong.
+    ["npx -y skills add x/y", "remote repository"],
+    ["pnpm dlx skills add x/y", "remote repository"],
+    ["yarn dlx skills add x/y", "remote repository"],
+    ["bunx skills add x/y", "remote repository"],
+    ["npm exec -- skills add x/y", "remote repository"],
+  ]) denies(`refuses: ${cmd}`, runHook(H, bash(cmd), root), needle);
+
+  // Allowed. A guard that refuses the declared restore is a guard someone turns off.
+  for (const cmd of [
+    "pip install -r requirements.txt",
+    "pip install --requirement requirements.txt",
+    "pip install --requirement=requirements.txt",
+    "pip install -r requirements.txt -r dev.txt",
+    "pip install -q -r requirements.txt --no-deps",
+    "pip install -c constraints.txt -r requirements.txt",
+    "pip install --index-url https://mirror.example -r requirements.txt",
+    "python -m pip install -r requirements.txt",
+    "pip install -e .",
+    "pip install -e .[dev]",
+    'pip install -e ".[dev]"',
+    "pip install .",
+    "pip install ./",
+    "pip install -e ./packages/core",
+    "pip install --no-deps -e .",
+    "pip install -e . --no-deps",
+    "pip install /abs/pkg",
+    // A drive-lettered path starts with a word character, so only the path
+    // lookahead keeps it out of the package branch. Without these two the
+    // lookahead could be deleted and every test would still pass.
+    "pip install C:\\src\\vendor\\pkg",
+    "pip install -e D:\\repos\\thing",
+    "uv pip install C:/src/vendor/pkg",
+    "uv pip install -r requirements.txt",
+    "uv pip install -e .",
+    "uv add -r requirements.txt",
+    "uv sync",
+    "uv sync --frozen",
+    "uv lock",
+    "uv run pytest",
+    "uv run ruff check .",
+    "uv run python -m pytest",
+    "uv pip list",
+    "uv pip freeze",
+    "uv pip compile requirements.in",
+    "uv pip sync requirements.txt",
+    "uv tool list",
+    "pip --version",
+    "pip list",
+    "pip freeze",
+    "pip show requests",
+    "python -m pip list",
+    "python -m pip --version",
+    "pip install",
+    "pipx list",
+    "pipx upgrade-all",
+    "pip uninstall requests",
+    "pip-compile requirements.in",
+    "uvx --version",
+    "uvx --help",
+    "uvx",
+    "pipx run --help",
+    "npx skills find testing",
+    "npx skills check",
+    "npx skills",
+    "npx skills-cli add x",
+    "npx --no-install tsc --noEmit",
+  ]) allows(`allows: ${cmd}`, runHook(H, bash(cmd), root));
+
+  // Rule order, asserted rather than assumed. Both the remote-skill rule and the
+  // --yes rule match this command, and the loop blocks on the first. If the two
+  // were ever reordered the command would still be refused - for the blander
+  // reason - and nothing else here would notice.
+  const both = runHook(H, bash("npx -y skills add x/y"), root);
+  check("the more specific rule answers first: a remote skill, not merely an unlocked package",
+    both.exit === 2 && both.err.includes("remote repository") && !both.err.includes("not in\nthe lockfile"),
+    `exit ${both.exit}: ${both.err.slice(0, 200)}`);
+
+  cursorDenies("Cursor is told the same thing, in its own envelope",
+    runHook(H, cursorBash(root, "pip install requests"), root), "new Python package");
+  denies("CURSOR_PLATFORM_DEV does not unlock a package install",
+    runHook(H, bash("pip install requests"), root, { CURSOR_PLATFORM_DEV: "1" }), "new Python package");
+}
+
+report("guard-bash refuses the human-only commands, shell writes to the enforcement surface, SQL writes through psql, and unlocked package or remote skill installs.");

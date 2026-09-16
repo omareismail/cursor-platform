@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "revision": 10,
-  "updatedAt": "2026-09-10T11:55:32.548Z",
+  "revision": 11,
+  "updatedAt": "2026-09-16T07:53:59.361Z",
   "ideas": [
     {
       "id": "IDEA-001",
@@ -189,6 +189,38 @@
       "history": [
         {
           "at": "2026-09-10T11:55:32.548Z",
+          "status": "CAPTURED",
+          "by": "cli"
+        }
+      ]
+    },
+    {
+      "id": "IDEA-006",
+      "title": "OmniRoute local LLM gateway",
+      "description": "Optional human-run LLM gateway (localhost:20128) for agent sessions, with a read-only adapter that blocks gate verdicts from remapped reviewer tiers.",
+      "reason": "Provider fallback and a cost ceiling for sessions, plus visibility into which real model sits behind each Claude tier.",
+      "value": "MED",
+      "priority": "MED",
+      "effort": "M",
+      "risk": "MED",
+      "status": "CAPTURED",
+      "createdAt": "2026-09-16T07:53:59.233Z",
+      "updatedAt": "2026-09-16T07:53:59.233Z",
+      "author": "omar.ismail",
+      "requirementIds": [],
+      "featureIds": [],
+      "phaseId": null,
+      "checkpointIds": [],
+      "taskIds": [],
+      "evidence": [],
+      "decision": null,
+      "decisionId": "ADR-0001",
+      "implementationRefs": [],
+      "testRefs": [],
+      "releaseId": null,
+      "history": [
+        {
+          "at": "2026-09-16T07:53:59.361Z",
           "status": "CAPTURED",
           "by": "cli"
         }

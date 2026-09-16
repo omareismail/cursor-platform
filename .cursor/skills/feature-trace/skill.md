@@ -89,6 +89,17 @@ divergence is very often the actual bug the user is hunting.
 
 Follow real references, not naming conventions. At each hop record `file:line`.
 
+If a human has run Graphify on this repo, let its graph order the reads before
+you spend them. Run `node .cursor/tools/graphify.mjs status`. On exit 0 the graph
+still matches the code: run
+`node .cursor/tools/graphify.mjs neighbours <entry file> --depth 2` and take its
+"Files in neighbourhood" list as the order for the hops below. The graph says
+which files touch the entry point; only the hops say what they do, so every hop
+is still read and cited. Exit 1 means the code moved after the graph was built
+and exit 2 means there is no graph: say which, and walk by references alone.
+Either way the report states its trace mode, and the cached feature object keeps
+its shape.
+
 Frontend (if the entry point is a UI route):
 
 1. Route definition → lazy import → page component
@@ -236,6 +247,7 @@ follow-up `/impact-analysis` costs nothing.
 
 **Entry points:** <n>   **Files:** <n>   **Confidence:** high|medium|low
 **Cached as:** <feature-id>   **Untraced:** <anything capped out, or "none">
+**Trace mode:** graph-ordered (Graphify graph fresh) | reference walk (graph stale or absent)
 
 ### What it does
 <3-5 sentences a domain expert would agree with>

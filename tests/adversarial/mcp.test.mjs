@@ -9,7 +9,9 @@
  * `command` was never inspected. Every one is a regression test now.
  */
 
-import { fixture, runHook, repoMcpPolicy, mcp, cursorMcp, check, denies, allows, cursorDenies, cursorAllows, report, section } from "../_harness.mjs";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fixture, runHook, repoMcpPolicy, mcp, cursorMcp, check, denies, allows, cursorDenies, cursorAllows, report, section, REPO } from "../_harness.mjs";
 
 const H = "guard-mcp.mjs";
 
@@ -93,6 +95,35 @@ section("guard-mcp.mjs — this repository's own policy behaves as documented");
   allows("playwright: full", runHook(H, mcp("playwright", "browser_click"), root));
   check("the repo policy denies unlisted servers", repoMcpPolicy().unlisted === "deny", "unlisted must be deny");
   check("ANALYZE is no longer an allowed leading keyword", !repoMcpPolicy().servers.postgres.sqlAllow.includes("ANALYZE"), "ANALYZE rewrites statistics / executes under EXPLAIN");
+
+  // OmniRoute announces 110 tools and enforces its own scopes only when asked
+  // to, so this entry is the lock that fails the build. The reads pass on their
+  // names; the three groups below must not, and must not start passing because
+  // somebody raised the access level later.
+  allows("omniroute: health is a read", runHook(H, mcp("omniroute", "omniroute_get_health"), root));
+  allows("omniroute: the model catalog is a read", runHook(H, mcp("omniroute", "omniroute_list_models_catalog"), root));
+  allows("omniroute: quota is a read", runHook(H, mcp("omniroute", "omniroute_check_quota"), root));
+  allows("omniroute: explaining a route is a read", runHook(H, mcp("omniroute", "omniroute_explain_route"), root));
+  allows("omniroute: the spend report is listed under allow", runHook(H, mcp("omniroute", "omniroute_cost_report"), root));
+  denies("omniroute: sending a completion is refused", runHook(H, mcp("omniroute", "omniroute_route_request", { model: "auto" }), root), "deny list");
+  denies("omniroute: testing a combo sends completions too", runHook(H, mcp("omniroute", "omniroute_test_combo"), root), "deny list");
+  // "search" and "fetch" are read verbs, so without the deny globs these two
+  // would pass as reads - a page fetched through the gateway, with no provenance.
+  denies("omniroute: web search would pass as a read, so it is on the deny list", runHook(H, mcp("omniroute", "omniroute_web_search", { q: "x" }), root), "deny list");
+  denies("omniroute: so would web fetch", runHook(H, mcp("omniroute", "omniroute_web_fetch", { url: "https://example.com" }), root), "deny list");
+  denies("omniroute: a dynamic skill tool is refused whatever it is named", runHook(H, mcp("omniroute", "skill_get_weather"), root), "deny list");
+  denies("omniroute: changing the budget is refused", runHook(H, mcp("omniroute", "omniroute_set_budget_guard"), root), "deny list");
+  denies("omniroute: flushing the cache is refused", runHook(H, mcp("omniroute", "omniroute_cache_flush"), root), "deny list");
+  denies("omniroute: configuring compression is refused - ADR-0001 rule 8", runHook(H, mcp("omniroute", "omniroute_compression_configure"), root), "deny list");
+  denies("omniroute: minting a token is refused", runHook(H, mcp("omniroute", "omniroute_create_api_key"), root), "deny list");
+  denies("omniroute: switching the active combo is refused", runHook(H, mcp("omniroute", "omniroute_switch_combo"), root), "deny list");
+  const or = repoMcpPolicy().servers.omniroute;
+  check("omniroute is read-only in the policy", or && or.access === "read-only", JSON.stringify(or?.access));
+  check("and its allow list stays short enough to read", (or?.allow || []).length <= 3, JSON.stringify(or?.allow));
+  const mcpJson = JSON.parse(readFileSync(join(REPO, ".mcp.json"), "utf8")).mcpServers.omniroute;
+  check(".mcp.json reaches it over HTTP, so this file never spawns the package", mcpJson?.type === "http", JSON.stringify(mcpJson?.type));
+  check("and points at loopback", /^http:\/\/(127\.0\.0\.1|localhost|\[::1\]):/.test(mcpJson?.url || ""), String(mcpJson?.url));
+  check("with no literal secret, only an env reference", JSON.stringify(mcpJson?.headers || {}).includes("${OMNIROUTE_MCP_KEY}"), JSON.stringify(mcpJson?.headers));
 }
 
 /* ------------------------------------------------------------------- SQL */

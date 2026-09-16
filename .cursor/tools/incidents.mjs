@@ -50,6 +50,7 @@
  *        [--unmechanisable "why"] --by "name"
  *   node .cursor/tools/incidents.mjs check [--json]     # are the guards still there
  *   node .cursor/tools/incidents.mjs learned [--json]   # what production falsified
+ *   node .cursor/tools/incidents.mjs reclassify --by "name"   # after a ladder fix
  *   node .cursor/tools/incidents.mjs list | show INC-0001
  *
  * Exit codes:  0 = every guard stands   1 = a guard is gone, disabled or absent
@@ -58,7 +59,7 @@
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { writeJsonAtomic } from "./_state.mjs";
-import { recordFile } from "./_evidence.mjs";
+import { recordFile, commitIndexedRecord } from "./_evidence.mjs";
 import { report, emit, block } from "./_findings.mjs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -87,7 +88,13 @@ const allOf = (a, f) => a.reduce((acc, x, i) => (x === f && a[i + 1] ? [...acc, 
 const RUNGS = [
   { rung: 1, what: "BannedSymbols.txt entry — compile time, forever", re: /BannedSymbols\.txt$/i },
   { rung: 2, what: "analyzer severity — compile time", re: /\.editorconfig$|Directory\.Build\.props$|\.ruleset$/i },
-  { rung: 3, what: "architecture or convention test — CI, every PR", re: /(architecture|convention).*tests?|tests?\/.*\.(cs|ts|tsx|js)$|Tests?\.cs$/i },
+  // `mjs|cjs|jsx` belong here with `js`. Without them this repository could not
+  // classify a single one of its own guards: all 29 suites under tests/ are
+  // `.mjs`, so every test named as a guard fell through to rung 8, "a line in a
+  // document", and `check` failed on "no real guard" no matter what was written.
+  // A check that cannot pass is a check somebody switches off - which is the
+  // failure this tool exists to prevent, arriving through its own classifier.
+  { rung: 3, what: "architecture or convention test — CI, every PR", re: /(architecture|convention).*tests?|tests?\/.*\.(cs|ts|tsx|jsx|js|mjs|cjs)$|Tests?\.cs$/i },
   { rung: 4, what: "ESLint rule or AST ban — lint time", re: /eslint|\.eslintrc|lint.*\.(js|cjs|mjs|json)$/i },
   { rung: 5, what: "hook tripwire — while the agent is writing it", re: /\.claude\/hooks\/|hooks\.json$/i },
   { rung: 6, what: "guard rule — generation time, advisory", re: /\.cursor\/rules\/.*\.mdc$/i },
@@ -207,6 +214,67 @@ const CMDS = {
     return 0;
   },
 
+  /*
+   * The rung is computed at open time and STORED, so a record written before a
+   * classifier fix keeps the wrong one forever - `check` reads the stored value,
+   * not a fresh classification. That is right for everything else in the record
+   * (what happened, how it was found, what was decided, who signed) and wrong
+   * for this one field, which is derived rather than judged.
+   *
+   * INC-0001 is why this exists: it named a real `.mjs` test as its guard and
+   * was stored rung 8, "a line in a document", because the ladder's extension
+   * list omitted `mjs`. Fixing the classifier could not reach the record, and
+   * `check` had no way to pass on a record it had already got wrong - a check
+   * that cannot pass is a check somebody switches off.
+   *
+   * It recomputes the rung and nothing else. Title, detection, guard specs,
+   * falsified ids and owner are untouched; every prior rung is kept in
+   * `reclassified[]` so a rung that improved stays distinguishable from a rung
+   * that was always right; and the replacement goes through commitIndexedRecord,
+   * so the evidence chain GAINS an entry instead of losing one.
+   */
+  reclassify(args) {
+    const by = valueOf(args, "--by");
+    if (!by) die(`reclassify needs --by "<name>" — recomputing a rung can turn a failing check green.`, 2);
+    const only = (args.find((a) => /^INC-\d+$/i.test(a)) || "").toUpperCase();
+    const list = all().filter((i) => !only || i.id.toUpperCase() === only);
+    if (only && !list.length) die(`${only} is not in lifecycle/incidents/.`, 2);
+    if (!list.length) { out("No incidents recorded — nothing to reclassify."); return 0; }
+
+    let moved = 0;
+    for (const i of list) {
+      const changes = [];
+      const guards = (i.guards || []).map((g) => {
+        const r = classify(g.spec);
+        if (r.rung !== g.rung) changes.push({ spec: g.spec, from: g.rung, to: r.rung });
+        return { ...g, rung: r.rung, mechanism: r.what };
+      });
+      if (!changes.length) { out(`  ${i.id}  unchanged`); continue; }
+
+      const rec = { ...i, guards,
+        reclassified: [...(i.reclassified || []), { at: new Date().toISOString(), by, changes }] };
+      try {
+        commitIndexedRecord(ROOT, `lifecycle/incidents/${i.id}.json`, rec,
+          { kind: "incident-reclassified", meta: { id: i.id, by, changes: changes.length } });
+      } catch (e) {
+        die(`${i.id} was not rewritten: ${e.message}`, 1);
+      }
+      moved++;
+      out(`  ${i.id}  ${i.title}`);
+      for (const c of changes) {
+        const dir = c.to < c.from ? "stronger" : "weaker";
+        out(`      rung ${c.from} -> ${c.to}  ${dir}   ${c.spec}`);
+      }
+    }
+
+    if (!moved) { out(`\nEvery stored rung already matches the ladder. Nothing written.`); return 0; }
+    out(`\n${moved} record(s) rewritten by ${by}; the evidence chain gained an entry for each.`);
+    out(`The previous rung is kept in reclassified[] — a guard that silently improved`);
+    out(`would otherwise be indistinguishable from one that was right all along.`);
+    out(`\nCommit lifecycle/incidents/ and lifecycle/index.jsonl together.`);
+    return 0;
+  },
+
   check(args) {
     const list = all();
     if (args.includes("--json")) {
@@ -323,6 +391,8 @@ if (!cmd || !CMDS[cmd]) {
   open --title --detected --guard [--falsifies] [--unmechanisable] --by
                        record an incident and the guard it bought
   check [--json]       are those guards still there, and still switched on
+  reclassify [INC-N] --by "name"
+                       recompute stored rungs after a ladder fix; appends to the chain
   learned [--json]     which written ids production disproved
   list | show INC-0001
 

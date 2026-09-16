@@ -311,6 +311,29 @@ for (const dialect of ["posix", "pwsh"]) {
   }
 }
 
+/* ------------------------------------------- Python installers (gap B11) */
+// Built from pieces for the same reason WRITES is: a 500-character literal is
+// a regex nobody reviews. Two things the npm rule never needed:
+//
+//   a flag that takes a VALUE (`-r requirements.txt`, `-i <url>`) must not have
+//   that value read as the package name, hence the lookbehind - which is why
+//   `pip install -r requirements.txt foo` is refused while `-r requirements.txt`
+//   alone is not. An `exempt` on -r would have excused the foo along with it.
+//
+//   a PATH is this repository's own code, not a dependency: `.`, `./pkg`,
+//   `-e .`, an absolute path. Hence the lookahead. `pip install --upgrade pip`
+//   is refused on purpose; pip is a package.
+//
+// Not covered, because nothing here documents them: pipenv, poetry, conda,
+// `uv run --with`. Like every rule in this file it matches the whole command
+// text, so a note ABOUT one of these commands is refused too (finding B11-3).
+const PY_VALUED = String.raw`(?:-r|--requirement|-c|--constraint|-t|--target|-i|--index-url|--extra-index-url|-f|--find-links|-p|--python|--prefix|--root)`;
+const PY_PATH = String.raw`(?:[.\/~\\]|[a-z]:)`;
+const PY_FLAGS = String.raw`(?:\s+(?:${PY_VALUED}(?:\s+|=)\S+|(?:-e|--editable)(?:\s+|=)["']?${PY_PATH}\S*|-{1,2}[\w.=:\/-]+))*`;
+const PY_PKG = String.raw`\s+(?<!(?:^|\s)${PY_VALUED}\s+)["']?(?!${PY_PATH})\w[^\s|;&]*`;
+const PY_INSTALL = String.raw`(?:(?:python[\w.]*|py)(?:\.exe)?\s+(?:[^\s|;&]+\s+)*?-m\s+pip|pip[0-9.]*(?:\.exe)?|pipx(?:\.exe)?|uv(?:\.exe)?\s+pip|uv(?:\.exe)?\s+tool)\s+install|uv(?:\.exe)?\s+add`;
+const PY_RUN_VALUED = String.raw`(?:--from|--with|--python|-p|--index|--index-url|--spec)`;
+
 const RULES = [
   {
     // dotnet add package Foo   /  dotnet package add Foo
@@ -336,6 +359,32 @@ or add it to Directory.Packages.props.`,
 .cursor/rules/10-evidence-and-dependency-guard.mdc: no new dependencies unless
 already in package.json or explicitly requested. Restoring the existing
 lockfile (\`npm ci\`, \`npm install\` with no package name) is allowed.`,
+  },
+  {
+    // pip / pip3 / python -m pip / pipx / uv pip install <pkg>; uv add; uv tool install
+    re: new RegExp(String.raw`\b(?:${PY_INSTALL})\b${PY_FLAGS}${PY_PKG}`, "i"),
+    msg: `BLOCKED: installing a new Python package.
+.cursor/rules/10-evidence-and-dependency-guard.mdc: no new dependencies unless
+already in pyproject.toml / requirements.txt or explicitly requested. Restoring
+what the repository already declares stays allowed: \`pip install -r
+requirements.txt\`, \`pip install -e .\`, \`uv sync\`. If the user approved the
+package, they run the install themselves and commit the lockfile change.`,
+  },
+  {
+    // uvx <pkg> / uv tool run <pkg> / pipx run <pkg>.
+    //
+    // This is the `npx --yes` rule for Python, not the `npx eslint` case: plain
+    // npx prompts before fetching a package that is not installed, and none of
+    // these ever do. A tool the project declares runs from the project's own
+    // environment, which stays open.
+    re: new RegExp(String.raw`\b(?:uvx(?:\.exe)?|uv(?:\.exe)?\s+tool\s+run|pipx(?:\.exe)?\s+run)\b(?:\s+(?:${PY_RUN_VALUED}(?:\s+|=)\S+|-{1,2}[\w.=:\/-]+))*\s+(?<!(?:^|\s)${PY_RUN_VALUED}\s+)["']?(?!-)\w[^\s|;&]*`, "i"),
+    msg: `BLOCKED: \`uvx\` / \`pipx run\` downloads and runs a package that is not in
+the lockfile. Nothing prompts before the fetch, which makes it the \`npx --yes\`
+case, not the \`npx eslint\` one.
+.cursor/rules/10-evidence-and-dependency-guard.mdc: no new dependencies unless
+already in the repo or explicitly requested. A tool this project declares runs
+from its own environment (\`uv run <tool>\`, \`python -m <tool>\`). The servers in
+.mcp.json are launched by the MCP host, never from this shell.`,
   },
   {
     re: /\bdotnet\s+ef\s+database\s+update/i,
@@ -371,6 +420,52 @@ run; never execute it. (.cursor/rules/06-database-provider-guard.mdc)`,
     re: /(\|\s*(iex|Invoke-Expression)\b|\b(iex|Invoke-Expression)\b\s*\([^)]*\b(irm|iwr|Invoke-WebRequest|Invoke-RestMethod|curl|wget)\b)/i,
     msg: `BLOCKED: downloading and Invoke-Expression. Fetch the script, review it,
 then run it. Never \`iex (irm ...)\` or \`curl | iex\`.`,
+  },
+  {
+    // A skill fetched from a remote repository at run time.
+    //
+    // Before the --yes rule below on purpose: the loop blocks on the first
+    // match, and `npx -y skills add x/y` should say why a remote SKILL is
+    // refused, not merely why an unlocked package is.
+    re: /\b(?:npx|npm\s+exec|pnpm\s+dlx|yarn\s+dlx|bunx)\b(?:\s+-{1,2}[\w.=:\/-]+)*\s+(?:--\s+)?skills(?:@[\w.^~<>=*-]+)?\s+(?:add|install|i)\b/i,
+    msg: `BLOCKED: this installs a skill from a remote repository.
+Skills live in .cursor/skills/<name>/skill.md and are reviewed in git like any
+other code. One fetched at run time is an always-on directive nobody here has
+read, and with -g / --global it lands outside this repository altogether, where
+it will never appear in a diff.
+.cursor/rules/10-evidence-and-dependency-guard.mdc: no new dependencies unless
+explicitly requested. If the user wants it, they run the command themselves and
+commit the result so it can be reviewed.`,
+  },
+  {
+    // Starting, configuring or exposing the local LLM gateway.
+    //
+    // Subcommands, not a bare \`omniroute\`, because \`node
+    // .cursor/tools/omniroute.mjs status\` is the read-only adapter and must stay
+    // usable, and \`omniroute --version\` answers a question rather than changing
+    // anything. The gateway is a human's service: it holds every provider key,
+    // `serve` binds 0.0.0.0 by default, and `configure`/`setup-claude` write
+    // ~/.claude/profiles/<name>/settings.json, outside the surface
+    // lifecycle/integrity.json attests. docs/adr/0001, rules 1 and 2.
+    re: /(?:^|[\s;&|(])(?:npx\s+(?:-{1,2}[\w.=:\/-]+\s+)*)?omniroute(?:\.cmd|\.exe)?\s+(?:serve|start|launch|run|connect|configure|setup-[\w-]+|tokens?|login|sync|import|install|update|--mcp)\b/i,
+    msg: `BLOCKED: OmniRoute is a human's service, not the agent's to start.
+
+Starting it, pointing a session at it, writing a CLI's config through it, or
+minting a token from the agent's shell puts a gateway under this session that
+nobody set up and no record names. It holds every provider key, \`serve\` binds
+0.0.0.0 by default, and \`configure\`/\`setup-claude\` write outside the surface
+lifecycle/integrity.json attests.
+
+Print the command and let the user run it. The read-only view is:
+  node .cursor/tools/omniroute.mjs status | tiers | models
+The hardening checklist and the rules: .cursor/docs/OMNIROUTE.md`,
+  },
+  {
+    re: /\bdocker\s+(?:run|create|compose\s+up|start)\b[^|;&]*\bomniroute\b/i,
+    msg: `BLOCKED: OmniRoute is a human's service, not the agent's to start.
+
+Same rule as the CLI: the container holds every provider key and publishes a
+port. Print the command; the user runs it. .cursor/docs/OMNIROUTE.md`,
   },
   {
     // \`npx eslint\` / \`npx --no-install tsc\` are how this repo formats and

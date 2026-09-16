@@ -63,7 +63,7 @@ inert there. Full text: `.cursor/rules/11-lifecycle-gate.mdc`. Phases and gates:
 
 **`10-evidence-and-dependency-guard`** — Confirm classes, interfaces, tables,
 packages and config keys **exist** before referencing them (grep first). Never
-add a NuGet/npm package that is not already in the repo unless the user
+add a NuGet/npm/PyPI package that is not already in the repo unless the user
 explicitly asked. The `PreToolUse` Bash hook blocks package-install commands —
 that block is a signal to stop and ask, not to find a workaround.
 
@@ -87,6 +87,11 @@ that block is a signal to stop and ask, not to find a workaround.
 thousands of lines of scanned source **out of the main conversation** — only
 the findings come back. On a large .NET + React repo this is the difference
 between finishing a task and running out of context mid-refactor.
+
+What the window already holds before the first user word is measurable, not a
+guess: `node .cursor/tools/context-cost.mjs report` lists the contract file and
+its imports, the always-on rules, the SessionStart digest and the skill and
+agent description lines, per host. Bytes measured, tokens estimated, nothing scored.
 
 **Read-only is a convention, not a sandbox.** The `tools:` list is what the
 host is asked to offer; it is not enforced on every editor. Do not delegate
@@ -516,6 +521,7 @@ node .cursor/tools/incidents.mjs open --title "..." --detected reconciliation \
      --guard "templates/dotnet/BannedSymbols.txt#<symbol>" --falsifies NFR-3 --by "<name>"
 node .cursor/tools/incidents.mjs check      # gate 6 / CI: are those guards still there
 node .cursor/tools/incidents.mjs learned    # what production disproved
+node .cursor/tools/incidents.mjs reclassify --by "<name>"   # after a ladder fix
 ```
 
 `/postmortem` step 6 already names the failure this closes: *"teams delete useful
@@ -615,7 +621,7 @@ Prose rules are advisory; hooks are not. `.claude/settings.json` wires:
 | `SessionStart` | Injects the current lifecycle phase, memory-bank Tier 1 digest + `repo-map.json` freshness. Rules `00` and `11` become automatic. |
 | `PreToolUse` (Write/Edit/Delete) | **Blocks** hand-edits to `.cursor/cache/repo-map.json` and `lifecycle/state.json`, writes to `.env`/secret files, hardcoded connection-string passwords — and every write to the **enforcement surface**: the hooks, `.claude/settings.json`, `.cursor/hooks.json`, `.cursor/mcp-policy.json`, `.cursor/lifecycle/`, `lifecycle.mjs`, `.mcp.json` and every record under `lifecycle/`. The list is `protected.paths` in `.cursor/lifecycle/write-policy.json`. An agent that can edit the rule instead of obeying it has no rule. Escape for a human developing the platform: `CURSOR_PLATFORM_DEV=1`. |
 | `PreToolUse` (Write/Edit) | **Blocks** every write under `src/`, `backend/`, `frontend/`, `packages/`, `lib/`, `apps/`, `services/` (and the other `application-source` globs) while the lifecycle DESIGN gate is unapproved. A `lifecycle/state.json` that cannot be read is treated as **closed**, not absent. Escape: `LIFECYCLE_OVERRIDE=1`, set by a human on purpose. |
-| `PreToolUse` (Bash) | **Blocks** `dotnet add package`, `npm/yarn/pnpm install <pkg>`, `git push --force`, `ef database update` against non-local connections; shell writes (redirects, `Set-Content`, `rm`, `sed -i`, `git checkout --`, interpreter one-liners…) to any protected path; `psql -f` and any `psql -c` that is not a single read; and the **human-only commands** `lifecycle.mjs approve`, `override`, `init --existing`, `lifecycle.mjs evidence reseal`, `release-evidence.mjs sign` and `self-audit.mjs integrity --write` — a consent typed by the agent is not a consent. No escape for those. |
+| `PreToolUse` (Bash) | **Blocks** `dotnet add package`, `npm/yarn/pnpm install <pkg>`, `pip`/`uv`/`pipx install <pkg>`, `uvx`/`pipx run <pkg>`, `npx skills add <repo>`, `git push --force`, `ef database update` against non-local connections; shell writes (redirects, `Set-Content`, `rm`, `sed -i`, `git checkout --`, interpreter one-liners…) to any protected path; `psql -f` and any `psql -c` that is not a single read; and the **human-only commands** `lifecycle.mjs approve`, `override`, `init --existing`, `lifecycle.mjs evidence reseal`, `release-evidence.mjs sign` and `self-audit.mjs integrity --write` — a consent typed by the agent is not a consent. No escape for those. |
 | `PreToolUse` (`mcp__.*`) | **Blocks** MCP calls that violate `.cursor/mcp-policy.json`. A server with no entry is **denied** (v2; `unlisted:"allow"` is honoured but reported). Each server has an access level — `deny`, `read-only`, `restricted-write`, `full` — and on read-only anything not recognisably a read (`deleteRows`, `truncate_table`, `frobnicate`) is refused. SQL in **any** argument field is classified by a tokenizer, not a first-word regex: a `DELETE` inside a CTE, `EXPLAIN ANALYZE`, a second statement behind a comment or literal, `FOR UPDATE`, `SELECT INTO` and `pg_sleep`/`lo_import`/`set_config` are all refused. A missing or unparseable policy denies everything. Cursor attaches the same guard to `beforeMCPExecution`. The client-side lock is defence in depth; the boundary is the role in `templates/postgres/readonly-role.sql`. |
 | `PostToolUse` (Write/Edit) | Runs `dotnet format` / `eslint --fix` on the touched file and feeds failures back. |
 | `Stop` | Warns if source changed but `memory-bank/activeContext.md` was not updated. |

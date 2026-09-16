@@ -5,6 +5,7 @@ in ignored cache, not here.
 
 | Document | What it is |
 |---|---|
+| [token-tools-assessment-2026-09-15.md](token-tools-assessment-2026-09-15.md) | caveman and headroom assessed and not adopted; what a session costs before the first user word, and the two install gaps the evaluation found |
 | [project-command-center-verification-2026-09-12.md](project-command-center-verification-2026-09-12.md) | Latest independent verification: all 52 prompt sections, G01–G11 and ten enhancements; nine reproduced defects; G01–G10 reopened |
 | [project-command-center-review-2026-09-10.md](project-command-center-review-2026-09-10.md) | 52-section prompt coverage, corrected defects, remaining gaps and enhancements |
 | [project-review-2026-09-10.md](project-review-2026-09-10.md) | R01–R13 + optional H01–H22 |

@@ -32,6 +32,15 @@
       "//": "Browser automation for React E2E verification and RTL/visual checks. Heavy tool surface - turn it off for backend-only sessions.",
       "command": "npx",
       "args": ["-y", "@playwright/mcp@latest"]
+    },
+
+    "omniroute": {
+      "//": "OPTIONAL, and only if a human runs the gateway - see .cursor/docs/OMNIROUTE.md and docs/adr/0001. HTTP transport on purpose: this file never spawns the npm package, which has 77 dependencies and a postinstall. Key: `omniroute tokens create --name claude-mcp --scope read`. The gateway must run with OMNIROUTE_MCP_ENFORCE_SCOPES=1 and MCP_TOOL_ALLOW mirroring .cursor/mcp-policy.json; that lock is the server's to keep, and the policy file is the one that fails the build.",
+      "type": "http",
+      "url": "http://127.0.0.1:20128/api/mcp/stream",
+      "headers": {
+        "Authorization": "Bearer ${OMNIROUTE_MCP_KEY}"
+      }
     }
   }
 }

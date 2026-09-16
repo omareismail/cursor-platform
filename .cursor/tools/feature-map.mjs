@@ -819,7 +819,7 @@ function impactOf(m, { file, object }) {
   };
 }
 
-export { collectEdges, impactOf, emptyMap };
+export { collectEdges, impactOf, emptyMap, worktreeShas };
 export { load as loadFeatureMap };
 
 // ------------------------------------------------------------------- main ---

@@ -130,7 +130,7 @@ script attaches; the wiring lives in `.cursor/hooks.json`.
 |---|---|---|
 | `session-start.mjs` | `SessionStart` | Injects memory-bank Tier 1 digest, `repo-map.json` freshness, and feature-map coverage. **Rule `00` becomes automatic** rather than a request the model may skip. |
 | `guard-write.mjs` | `PreToolUse` Write/Edit | Blocks hand-edits to `repo-map.json` and `feature-map.json`, writes to `.env`/secrets files, edits to Tier 2 memory-bank, and hardcoded credentials in content. |
-| `guard-bash.mjs` | `PreToolUse` Bash | Blocks `dotnet add package`, `npm install <pkg>`, `dotnet ef database update`, force-push, `git reset --hard`, `DROP TABLE`. |
+| `guard-bash.mjs` | `PreToolUse` Bash | Blocks `dotnet add package`, `npm install <pkg>`, `pip`/`uv`/`pipx install <pkg>`, `uvx`, `npx skills add`, `dotnet ef database update`, force-push, `git reset --hard`, `DROP TABLE`. |
 | `post-edit-verify.mjs` | `PostToolUse` Write/Edit | Fast tripwires on the file just written — money as `double`, `DateTime.Now`, sync-over-async, interpolated SQL, `fetch` in a component, token in `localStorage`, physical CSS. Optional `dotnet format` / `eslint --fix`. |
 | `stop-memory-check.mjs` | `Stop` | Blocks the stop once if source changed but `activeContext.md` did not. |
 | `sync-skills.mjs` | manual | Regenerates the skill shims. |

@@ -56,7 +56,7 @@ Category D (`repo-discovery`, `context-builder`, `context-sync`,
 Non-negotiables:
 
 - Confirm classes, interfaces, tables, packages, and config keys exist before
-  referencing them. No new NuGet/npm packages unless already in the repo or
+  referencing them. No new NuGet/npm/PyPI packages unless already in the repo or
   explicitly requested.
 - Only change what the task requires — no unrelated reformatting or scope creep.
 - **Lifecycle:** never run a skill belonging to a later phase than `lifecycle/state.json`

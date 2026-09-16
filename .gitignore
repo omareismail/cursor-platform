@@ -11,6 +11,10 @@
 .cursor/cache/*
 !.cursor/cache/.gitkeep
 
+# Graphify output. A human builds it with Graphify; the platform only reads
+# graphify-out/graph.json, through .cursor/tools/graphify.mjs.
+graphify-out/
+
 # NOTE: plugin/ is a GENERATED but COMMITTED artifact. A marketplace with a
 # local ./plugin source has to be able to fetch it, so it is deliberately not
 # ignored. Rebuild with: node .cursor/tools/build-plugin.mjs build

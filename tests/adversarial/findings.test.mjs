@@ -119,6 +119,94 @@ section("incidents.mjs — a weak (rung-7) guard fails JSON the same way as text
   check("guard-weak is a block finding, not a warn", rep.findings.some((f) => f.code === "guard-weak" && f.severity === "block"), JSON.stringify(rep.findings));
 }
 
+/*
+ * The rung ladder has to be able to see THIS repository's tests.
+ *
+ * The extension alternation read (cs|ts|tsx|js) and omitted `mjs`, while all 29
+ * suites under tests/ are `.mjs`. So a real executable test named as a guard was
+ * classified rung 8, "a line in a document", and `check` reported "no real
+ * guard" whatever was written - a check that could not pass in the repository
+ * that ships it. The section above passed throughout, because its fixture used
+ * a memory-bank path to exercise the weak case and nothing exercised the strong
+ * one.
+ */
+section("incidents.mjs — a real test file is a rung-3 guard, in every JS flavour");
+{
+  const root = fixture("f-inc-rung3");
+  // The anchor must sit in EXECUTABLE code, not a comment - incidents.mjs
+  // refuses a guard whose needle is only on a commented-out line, which is the
+  // worst state of all: the record still claims the guard is there.
+  put(root, "tests/adversarial/paths.test.mjs", 'section("isProtected — trailing separator (P2G-1)");\ncheck("x", true, "");\n');
+  const r = runTool("incidents.mjs", ["open", "--title", "a test guards it", "--detected", "manual",
+    "--guard", "tests/adversarial/paths.test.mjs#P2G-1", "--by", "omar"], root);
+  check("fixture: incident opened", r.exit === 0, r.err);
+  check("a .mjs test is classified rung 3, not rung 8", /rung 3\s+tests\/adversarial\/paths\.test\.mjs/.test(r.out), r.out.slice(0, 400));
+
+  const chk = runTool("incidents.mjs", ["check"], root);
+  check("check PASSES when the guard is a real test", chk.exit === 0, `${chk.exit} ${chk.out.slice(0, 400)}`);
+
+  // The whole alternation, so the next flavour does not repeat this.
+  const rep = parse(runTool("incidents.mjs", ["check", "--json"], root));
+  check("json is clean too", rep && rep.ok === true, JSON.stringify(rep && rep.findings));
+}
+
+
+/*
+ * The rung is stored at open time, so a record written before a ladder fix keeps
+ * the wrong one - `check` reads the stored value, not a fresh classification.
+ * INC-0001 in this repository was exactly that: a real .mjs test, stored rung 8,
+ * and no command could reach it.
+ *
+ * The stale record here is written straight to disk with no chain yet, which is
+ * how a repo that predates the evidence chain actually looks - and the only way
+ * to reach this state without a human resealing, which a test may not do.
+ *
+ * What reclassify must NOT do matters as much: it must not touch the incident's
+ * facts, must not lose the rung it replaced, and must not absorb a record
+ * somebody edited by hand once the chain exists - that last one is how an audit
+ * trail becomes decoration.
+ */
+section("incidents.mjs — reclassify recomputes a stored rung without rewriting history");
+{
+  const root = fixture("f-inc-reclass");
+  put(root, "tests/adversarial/paths.test.mjs", 'section("trailing separator (P2G-1)");\ncheck("x", true, "");\n');
+  const recPath = join(root, "lifecycle", "incidents", "INC-0001.json");
+  put(root, "lifecycle/incidents/INC-0001.json", JSON.stringify({
+    id: "INC-0001", title: "stored rung", at: "2026-09-16T00:00:00.000Z", openedBy: "omar",
+    detected: "manual", impact: "", falsifies: [],
+    guards: [{ spec: "tests/adversarial/paths.test.mjs#P2G-1", rung: 8, mechanism: "a line in a document" }],
+    unmechanisable: "", postmortem: "", note: "", recurrenceOf: [],
+  }, null, 2));
+  check("fixture: check is red on the stale rung", runTool("incidents.mjs", ["check"], root).exit === 1, "");
+
+  let r = runTool("incidents.mjs", ["reclassify"], root);
+  check("reclassify refuses without --by", r.exit === 2 && /--by/.test(r.err + r.out), `${r.exit} ${r.err}`);
+
+  r = runTool("incidents.mjs", ["reclassify", "--by", "omar"], root);
+  check("reclassify reports the move and its direction", r.exit === 0 && /rung 8 -> 3\s+stronger/.test(r.out), r.out.slice(0, 400));
+  check("check is green afterwards", runTool("incidents.mjs", ["check"], root).exit === 0, "");
+
+  const after = JSON.parse(readFileSync(recPath, "utf8"));
+  check("the incident's own facts are untouched", after.title === "stored rung" && after.detected === "manual"
+    && after.openedBy === "omar" && after.guards[0].spec === "tests/adversarial/paths.test.mjs#P2G-1", JSON.stringify(after).slice(0, 300));
+  check("the rung it replaced is kept, with who and when", after.reclassified?.[0]?.by === "omar"
+    && after.reclassified[0].changes[0].from === 8 && after.reclassified[0].changes[0].to === 3, JSON.stringify(after.reclassified));
+
+  const ev = runTool("lifecycle.mjs", ["evidence"], root);
+  check("the chain records the rewrite and still verifies", ev.exit === 0 && /incident-reclassified/.test(ev.out), `${ev.exit} ${ev.out.slice(0, 300)}`);
+
+  r = runTool("incidents.mjs", ["reclassify", "--by", "omar"], root);
+  check("a second run writes nothing", r.exit === 0 && /Nothing written/.test(r.out), r.out.slice(0, 300));
+
+  // The one that matters: once the chain exists, a record edited by hand must be
+  // refused, not quietly re-signed by the next ordinary command.
+  const t = JSON.parse(readFileSync(recPath, "utf8"));
+  t.guards[0].rung = 8; t.title = "tampered";
+  put(root, "lifecycle/incidents/INC-0001.json", JSON.stringify(t, null, 2));
+  r = runTool("incidents.mjs", ["reclassify", "--by", "omar"], root);
+  check("a hand-edited record is refused, not absorbed", r.exit === 1 && /CHANGED/.test(r.err + r.out), `${r.exit} ${(r.err + r.out).slice(0, 300)}`);
+}
+
 section("artifact-schema.mjs — a dangling id");
 {
   const root = fixture("f-ids", { gates: true });

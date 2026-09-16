@@ -59,7 +59,7 @@ CLAUDE.md            # Claude Code entry point — imports AGENTS.md, adds Claud
   tools/             # feature-map, task-graph, ac-trace, delivery-metrics,
                      #   flag-debt, docs-lint, lifecycle, platform-metadata,
                      #   artifact-schema, change-request, signed-lifecycle-range
-                     #   (35 validators + build-plugin)
+                     #   (38 validators + build-plugin)
   cache/             # repo-map.json (structure) + feature-map.json (behaviour)
                      #   both generated; gitignored except .gitkeep
   lifecycle/gates/   # 6 gate definitions - what each phase must satisfy
@@ -113,6 +113,7 @@ templates/           # build gates for TARGET app repos: analyzers, CPM,
 | [PROPOSAL-REVIEW.md](.cursor/docs/PROPOSAL-REVIEW.md) | Architectural review of ~150 proposed additions — what was approved, rejected, and why |
 | Historical records | [ENTERPRISE_MATURITY_REPORT.md](.cursor/docs/ENTERPRISE_MATURITY_REPORT.md) · [MIGRATION_NOTES_PASS1.md](.cursor/docs/MIGRATION_NOTES_PASS1.md) · [PHASE5_GAP_ANALYSIS.md](.cursor/docs/PHASE5_GAP_ANALYSIS.md) — point-in-time, counts deliberately frozen |
 | [mcp-ecosystem.md](.cursor/docs/mcp-ecosystem.md) | MCP servers, env vars, and **⚠ 2026 corrections** (two previously-recommended servers are archived) |
+| [OMNIROUTE.md](.cursor/docs/OMNIROUTE.md) | Running a session behind an LLM gateway: hardening, tier pinning, and why gate reviewers stay on Anthropic models ([ADR-0001](docs/adr/0001-omniroute-local-llm-gateway.md)) |
 | [DUAL-AGENT-SETUP.md](.cursor/docs/DUAL-AGENT-SETUP.md) | How Cursor and Claude Code share one source of truth |
 | [templates/README.md](templates/README.md) | Build gates — guard rules as compiler errors and CI failures |
 
@@ -120,13 +121,14 @@ templates/           # build gates for TARGET app repos: analyzers, CPM,
 
 ## Local setup (MCP)
 
-`.mcp.json` (committed, Claude Code) and `.cursor/settings.local.json` (gitignored, Cursor) configure the same four servers. See [mcp-ecosystem.md](.cursor/docs/mcp-ecosystem.md) for the rationale and the deliberately-omitted list.
+`.mcp.json` (committed, Claude Code) and `.cursor/settings.local.json` (gitignored, Cursor) configure the same five servers. See [mcp-ecosystem.md](.cursor/docs/mcp-ecosystem.md) for the rationale and the deliberately-omitted list.
 
 | Variable | Used by | Notes |
 |----------|---------|-------|
 | `GITHUB_PAT` | github (official remote server) | Fine-grained PAT, read-only scopes by default |
 | `POSTGRES_READONLY_URL` | postgres (Postgres MCP Pro) | **Must be a SELECT-only role** |
 | `CONTEXT7_API_KEY` | context7 | Optional; raises rate limits |
+| `OMNIROUTE_MCP_KEY` | omniroute (local LLM gateway) | Optional, and only if you run the gateway. A scoped read token — see [OMNIROUTE.md](.cursor/docs/OMNIROUTE.md) |
 
 > **⚠ If you are running an older copy of this platform:** the previously
 > configured `@modelcontextprotocol/server-github` and
@@ -185,7 +187,7 @@ time, in the order listed there — then run `/repo-discovery full` and
 - **12 rules** — 5 global (`00`, `05`, `09`, `10`, `11-lifecycle-gate`) + 7 glob-scoped (architecture, security, DB, audit, RTL, specs)
 - **14 subagents** — `feature-analyst`, `ops-reviewer`, `pattern-scout`, `repo-cartographer`, `dotnet-auditor`, `react-auditor`, `security-auditor`, `db-auditor`, plus the lifecycle phase owners `lifecycle-controller`, `product-manager`, `business-analyst`, `solution-architect`, `ux-bridge`, `test-engineer` (all read-only, isolated context)
 - **2 cache layers** — `repo-map.json` (structure, from `/repo-discovery`) and `feature-map.json` (behaviour, from `/feature-trace`); freshness computed from file content hashes
-- **35 validators** — `feature-map.mjs` (is this trace still true?), `task-graph.mjs` (is this task small enough to finish?), `ac-trace.mjs` (is every acceptance criterion covered by a test that can fail?), `delivery-metrics.mjs` (is delivery improving?), `flag-debt.mjs` (which flags outlived their purpose?), `docs-lint.mjs` (is the documentation graph intact?), `lifecycle.mjs` (which phase are we in, and were its artifacts ever produced?), `platform-metadata.mjs` (does any document still claim a count that stopped being true?), `artifact-schema.mjs` (does every requirement reach a story, every story a use case, every use case an endpoint?), `change-request.mjs` (if this rule changes, what stops being true?), `release-evidence.mjs` (what shipped, what proved it, and who signed?), `signed-lifecycle-range.mjs` (which commits in this push actually touched lifecycle records?), `risk-profile.mjs` (where is being wrong expensive, and do the tests know it?), `failure-modes.mjs` (what happens when something you do not control fails?), `fitness.mjs` (does the promoted architecture still hold?), `incidents.mjs` (is the guard that incident bought still standing?), `delivery-intel.mjs` (is the process producing anything, or being performed?), `self-audit.mjs` (is every control actually reachable, has any fail-closed copy drifted, and does anything run without a human remembering?), `dashboard.mjs` (can I see the whole project on one screen?), `memory-bank.mjs` (what does the memory bank contain, and is any of it real?)
+- **38 validators** — `feature-map.mjs` (is this trace still true?), `task-graph.mjs` (is this task small enough to finish?), `ac-trace.mjs` (is every acceptance criterion covered by a test that can fail?), `delivery-metrics.mjs` (is delivery improving?), `flag-debt.mjs` (which flags outlived their purpose?), `docs-lint.mjs` (is the documentation graph intact?), `lifecycle.mjs` (which phase are we in, and were its artifacts ever produced?), `platform-metadata.mjs` (does any document still claim a count that stopped being true?), `artifact-schema.mjs` (does every requirement reach a story, every story a use case, every use case an endpoint?), `change-request.mjs` (if this rule changes, what stops being true?), `release-evidence.mjs` (what shipped, what proved it, and who signed?), `signed-lifecycle-range.mjs` (which commits in this push actually touched lifecycle records?), `risk-profile.mjs` (where is being wrong expensive, and do the tests know it?), `failure-modes.mjs` (what happens when something you do not control fails?), `fitness.mjs` (does the promoted architecture still hold?), `incidents.mjs` (is the guard that incident bought still standing?), `delivery-intel.mjs` (is the process producing anything, or being performed?), `self-audit.mjs` (is every control actually reachable, has any fail-closed copy drifted, and does anything run without a human remembering?), `dashboard.mjs` (can I see the whole project on one screen?), `memory-bank.mjs` (what does the memory bank contain, and is any of it real?)
 - **7 hooks** — memory + lifecycle-phase injection at session start, write/bash/phase/MCP guards, post-edit tripwires, memory-update check at stop
 - **Build gates** — MSBuild layer guards, `BannedSymbols.txt`, Central Package Management, NetArchTest suites, ESLint boundaries, CI quality gates
 

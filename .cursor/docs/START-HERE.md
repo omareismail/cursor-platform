@@ -48,6 +48,7 @@ are. Full runbook: `.cursor/docs/IDEA-TO-PRODUCTION.md`.
 | Initialise or inspect delivery / ideas / checkpoints | `/project` |
 | Start a new product | `/lifecycle start` |
 | Is this phase finished? | `/lifecycle-gate [PHASE]` |
+| Which model is about to judge a gate? | `node .cursor/tools/omniroute.mjs tiers`, read-only; exit 1 means a reviewer tier is remapped and no verdict should be recorded. See `.cursor/docs/OMNIROUTE.md` |
 | **1** I have an idea | `/product-brief "<the idea>"` |
 | **1** Who is this for? | `/persona-gen` |
 | **1** What must it do? | `/product-requirements` |
@@ -85,6 +86,7 @@ building or changing anything.
 | Does the code match the spec? | `/spec-drift-audit [spec-file\|feature-id]` |
 | Where is the nearest example to copy? | `/pattern-finder [what you are building]` |
 | What files does this task touch? | `/context-builder [task description]` |
+| What sits around this file? (a human has run Graphify) | `node .cursor/tools/graphify.mjs neighbours <file>`, read-only; run `status` first to see whether the graph still matches the code |
 
 ---
 
@@ -275,6 +277,7 @@ that writes application source.
 /platform-health-validator          # Naming, duplicates, orphaned docs, rule conflicts
 node .cursor/tools/doctor.mjs diagnose   # install mode, hooks, source layout, policy
 node .cursor/tools/doctor.mjs preview    # checkout-copy would-copy vs conflict
+node .cursor/tools/context-cost.mjs report  # what a session carries before the first user word
 node .cursor/tools/_policy.mjs roots     # canonical application-source directories
 node .cursor/tools/_policy.mjs simulate --proposed <file>  # newly-allowed vs newly-refused
 node .cursor/tools/_policy.mjs explain <path>              # gated / exempt / ungoverned

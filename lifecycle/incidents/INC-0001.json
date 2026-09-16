@@ -9,12 +9,25 @@
   "guards": [
     {
       "spec": "tests/adversarial/paths.test.mjs#P2G-1",
-      "rung": 8,
-      "mechanism": "a line in a document"
+      "rung": 3,
+      "mechanism": "architecture or convention test — CI, every PR"
     }
   ],
   "unmechanisable": "",
   "postmortem": "",
   "note": "",
-  "recurrenceOf": []
+  "recurrenceOf": [],
+  "reclassified": [
+    {
+      "at": "2026-09-16T12:55:55.739Z",
+      "by": "omar.ismail",
+      "changes": [
+        {
+          "spec": "tests/adversarial/paths.test.mjs#P2G-1",
+          "from": 8,
+          "to": 3
+        }
+      ]
+    }
+  ]
 }

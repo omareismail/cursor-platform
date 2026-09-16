@@ -101,13 +101,41 @@ Two failure modes to avoid, both of which make the gate useless:
 
 Every gate file ends with a verdict block. Use it exactly.
 
+**Step 7a — Which model reached this verdict?**
+
+```bash
+node .cursor/tools/omniroute.mjs tiers --json
+```
+
+Reads the session's environment; no network, milliseconds. Exit 2 or a `direct`
+mode means the session talks to Anthropic directly — carry on. Exit 0 with a
+gateway means the tiers gate reviewers run on are still Anthropic model ids —
+carry on.
+
+**Exit 1 means stop.** A tier this gate's reviewer runs on has been remapped to
+something that is not an Anthropic model, and the tool names which. Do not record
+the verdict. Report the tier, the id it resolves to, and the fix — pin
+`ANTHROPIC_DEFAULT_<TIER>_MODEL` to a `claude-*` id and relaunch the session. The
+gate file names a reviewer because the judgement is supposed to come from that
+reviewer; a verdict recorded under its name while a different model did the
+reading is the one failure this whole three-consent design exists to prevent, and
+it is invisible in the record afterwards.
+
+If the tool is missing, say so and carry on — an absent adapter is not a reason
+to stop, only an unanswered question.
+
 **Step 8 — Record the verdict. This is a consent, not a comment.**
 
 ```bash
 node .cursor/tools/lifecycle.mjs record-gate <PHASE> \
   --verdict GO|NO-GO --by "<the reviewer the gate names>" \
-  --criteria "<n>/<total>" --note "<one line>"
+  --criteria "<n>/<total>" --note "<one line>; model-tier: <what step 7a reported>"
 ```
+
+End the `--note` with what step 7a reported — `model-tier: direct` or
+`model-tier: gateway, opus=claude-opus-5`. It costs one clause and it puts the
+answer in `lifecycle/evidence/`, where someone asking "what judged this?" months
+later can find it.
 
 `--by` must be the role from the gate file's `**Reviewed by:**` line. Anything
 else is refused, and if the name you pass is one of the phase's authors the
@@ -172,8 +200,9 @@ giving it.
 
 ## Output
 
-- Terminal: the verdict block from the gate definition, plus per-criterion
-  evidence
+- Terminal: the verdict block from the gate definition, per-criterion evidence,
+  and one line naming the model tier the review ran on — `direct`, or the gateway
+  and the tiers it resolved to
 - `lifecycle/evidence/<phase>-<timestamp>.json` — the machine-readable record
 - The judgement consent recorded in `lifecycle/state.json`, via the tool
 - No source or artifact writes. This skill judges; it does not fix.

@@ -176,6 +176,26 @@ concurrency).
 
 ---
 
+### Install-path gap — B11 (2026-09-16)
+
+Found while assessing two third-party token-reduction tools
+([token-tools-assessment-2026-09-15.md](../../docs/reviews/token-tools-assessment-2026-09-15.md)).
+Their install instructions were a survey of the ways into this repository, and
+two of them were open: `curl \| sh`, `irm \| iex` and global npm installs were
+already refused, Python installers and remote skill installers were not.
+
+| ID | What shipped |
+|---|---|
+| B11 | `guard-bash`: `pip` / `pip3` / `python -m pip` / `pipx` / `uv pip` `install <pkg>`, `uv add`, `uv tool install`; the ephemeral runners `uvx`, `uv tool run`, `pipx run <pkg>`; and `npx` / `npm exec` / `dlx` / `bunx` `skills add\|install <repo>`. Declared restores stay allowed: `-r <file>`, `-e .` and paths, `uv sync` / `lock` / `run`, `pip list`, bare `uvx --version`. `npx -y skills add` reports the remote-skill reason, not the lockfile one |
+
+Not fixed, and inherited rather than widened: every rule in that file matches
+the whole command string, so a note *about* one of these commands is refused
+too (B11-3). Not covered: `pipenv`, `poetry`, `conda`, `uv run --with`, and
+`claude plugin install` / `claude mcp add` — the last pair are the same class of
+front door and are a decision nobody has taken yet.
+
+---
+
 ## Remaining
 
 V01–V04 are implemented and suite-covered. They are not attested or committed.

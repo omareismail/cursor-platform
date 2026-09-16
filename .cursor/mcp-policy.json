@@ -52,6 +52,23 @@
       "trust": "medium",
       "access": "full",
       "//access": "It drives a browser; that is the whole point. The risk here is not mutation but reach - a browser can log into things. Keep it off for backend-only sessions, as .mcp.json already advises."
+    },
+
+    "omniroute": {
+      "trust": "medium",
+      "access": "read-only",
+      "//": "A local LLM gateway a human runs, registered for governance visibility only - health, catalog, quota, spend, and why a route was chosen. It announces 110 tools across 33 scopes and its own scope enforcement is OFF by default, so this entry is the lock that fails the build. Full context: .cursor/docs/OMNIROUTE.md and docs/adr/0001-omniroute-local-llm-gateway.md",
+      "allow": ["omniroute_cost_report"],
+      "//allow": "Reads whose names this guard cannot classify. 'report' is not a read verb, and omniroute_cost_report is the spend view. Everything else useful here - get_health, list_models_catalog, check_quota, explain_route, db_health_check - already reads as a read and needs no entry.",
+      "deny": [
+        "*route_request*", "*_test_combo", "*best_combo*", "*pick_fastest*", "*simulate*",
+        "*_web_*", "*_x_search", "*oneproxy*", "*proxy*",
+        "skill_*", "*skills*", "*memory*", "*notion*", "*obsidian*", "*github*", "*plugin*", "*corpus*", "*gamif*",
+        "*ccr*", "*rtk*", "*compress*",
+        "*_set_*", "*create_*", "*switch*", "*flush*", "*sync*", "*configure*",
+        "*launch*", "*spawn*", "*token*", "*key*", "*import*", "*install*", "*stealth*"
+      ],
+      "//deny": "Denied regardless of access level, so raising it later does not quietly open these. Three groups. (1) Anything that sends a completion - route_request, test_combo, best_combo: a model answering inside a gate review is a second model in the loop that no record names. (2) Anything that fetches - web_search and web_fetch would otherwise pass as reads, since 'search' and 'fetch' are read verbs, and a page fetched through the gateway arrives with no provenance. (3) Anything that mutates the gateway, mints a token, spawns a process, or turns on the compression and stealth features ADR-0001 rule 8 forbids - the agent is not the party that configures this service."
     }
   }
 }

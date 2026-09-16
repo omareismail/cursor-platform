@@ -37,6 +37,23 @@ If it reports no `lifecycle/state.json`, this repo has not adopted the
 lifecycle. That is a valid configuration — say so, and offer `start` rather than
 assuming the user wants it.
 
+**Step 1a — And which model is about to judge the next gate?**
+
+```bash
+node .cursor/tools/omniroute.mjs tiers
+```
+
+Environment only, no network. Report one line with the ladder:
+
+- `Gateway: direct Anthropic` — exit 0 or 2, nothing else to say.
+- `Gateway: <host>, reviewer tiers native` — exit 0 behind a gateway.
+- `Gateway: <host> — REVIEWER TIER REMAPPED (<tier> -> <id>)` — exit 1. Say
+  plainly that `/lifecycle-gate` will refuse to record a verdict until the tier
+  is pinned, and give the variable. Do not treat it as a warning to note and move
+  past; it decides whether the next gate can be cleared at all.
+
+If the tool is absent, skip the line.
+
 **Step 2 — Route on the sub-command.**
 
 | Sub-command | Do this |
@@ -138,6 +155,7 @@ them rather than leaving the user to work it out.
 
 ## Output
 
-- Terminal: phase ladder, gate status, the next legitimate command
+- Terminal: phase ladder, gate status, the gateway line, the next legitimate
+  command
 - `lifecycle/state.json` updated (by the tool — never by hand; `guard-write.mjs`
   blocks direct edits)
