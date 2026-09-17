@@ -12,7 +12,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, existsSync, readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -57,16 +57,18 @@ export function fixture(name, { withTools = true, mcpPolicy = "repo", writePolic
   for (const f of ["architecture.md", "activeContext.md"]) {
     writeFileSync(join(root, "memory-bank", f), "# " + f + "\n\nReal content, long enough to be more than a stub.\n");
   }
-  for (const h of HOOKS) {
-    const src = join(REPO, ".claude", "hooks", h);
-    if (existsSync(src)) cpSync(src, join(root, ".claude", "hooks", h));
-  }
-  if (withTools) {
-    for (const t of TOOLS) {
-      const src = join(REPO, ".cursor", "tools", t);
-      if (existsSync(src)) cpSync(src, join(root, ".cursor", "tools", t));
-    }
-  }
+  // A copy that lands short - or does not land - leaves a script node runs to
+  // exit 0 in silence, which reads downstream as a tool that succeeded and said
+  // nothing. Compare the sizes here, where the cause is still local, rather
+  // than discovering it as an unparseable empty string several frames later.
+  const copyIn = (src, dest, what) => {
+    if (!existsSync(src)) { console.log(`  !! fixture ${name}: ${what} is missing from the repo, not copied  (${src})`); return; }
+    cpSync(src, dest);
+    const from = statSync(src).size, to = statSafeSize(dest);
+    if (to !== from) console.log(`  !! fixture ${name}: ${what} copied ${to} of ${from} bytes  (${dest})`);
+  };
+  for (const h of HOOKS) copyIn(join(REPO, ".claude", "hooks", h), join(root, ".claude", "hooks", h), h);
+  if (withTools) for (const t of TOOLS) copyIn(join(REPO, ".cursor", "tools", t), join(root, ".cursor", "tools", t), t);
   if (gates) {
     cpSync(join(REPO, ".cursor", "lifecycle", "gates"), join(root, ".cursor", "lifecycle", "gates"), { recursive: true });
     cpSync(join(REPO, "schemas"), join(root, "schemas"), { recursive: true });
@@ -104,13 +106,25 @@ export function runHook(hook, payload, root, env = {}) {
 
 /** Run a tool from the fixture's .cursor/tools/ with arguments. */
 export function runTool(tool, args, root, env = {}) {
-  const r = spawnSync(process.execPath, [join(root, ".cursor", "tools", tool), ...args], {
+  const script = join(root, ".cursor", "tools", tool);
+  const r = spawnSync(process.execPath, [script, ...args], {
     encoding: "utf8", cwd: root,
     env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...env },
     timeout: 60_000,
   });
-  return { exit: r.status, out: r.stdout || "", err: r.stderr || "", signal: r.signal, spawnError: r.error, tool, args, root };
+  // `node <empty file>` exits 0 with both streams empty, and so does a tool
+  // that was never copied into the fixture at all - fixture() guards every
+  // cpSync with existsSync and skips silently. Either way the suite sees a
+  // tool that "succeeded" and said nothing, which is what windows-latest
+  // reported for ac-trace.mjs and lifecycle.mjs in CI runs 35202767759,
+  // 35205279865 and 35207132257. A zero-byte or absent script is never
+  // correct, so saying so here cannot fire on work that is behaving.
+  const size = statSafeSize(script);
+  if (size !== null && size === 0) console.log(`  !! ${tool} in the fixture is 0 bytes - node exits 0 in silence  (${script})`);
+  if (size === null) console.log(`  !! ${tool} is not in the fixture at all - fixture() skips a copy whose source is missing  (${script})`);
+  return { exit: r.status, out: r.stdout || "", err: r.stderr || "", signal: r.signal, spawnError: r.error, tool, args, root, size };
 }
+const statSafeSize = (p) => { try { return statSync(p).size; } catch { return null; } };
 
 /**
  * Run a tool and parse its `--json`, saying what went wrong when it did not.
@@ -141,6 +155,7 @@ export function parseJson(r) {
     console.log(`     cwd   ${r.root}`);
     console.log(`     exit  ${r.exit}${r.signal ? ` signal ${r.signal}` : ""}${why}`);
     console.log(`     node  ${process.version} on ${process.platform}`);
+    console.log(`     script ${r.size === null ? "ABSENT" : r.size + " bytes"}`);
     for (const line of (r.err.trimEnd() || "(stderr was empty too)").split("\n").slice(0, 15)) console.log(`     | ${line}`);
     if (r.out) for (const line of r.out.trimEnd().split("\n").slice(0, 5)) console.log(`     > ${line}`);
     throw new Error(`${call} produced no parseable JSON (exit ${r.exit}); first stderr line: ${r.err.trim().split("\n")[0] || "(empty)"}`);
