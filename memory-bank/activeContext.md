@@ -3,7 +3,7 @@
 **Current branch:** main (platform-ui fast-forwarded into it at 6facbdf)
 **Recently reviewed implementation:** ECC read and not installed; five mechanisms re-implemented natively — `session-end.mjs`, `harness-scan.mjs`, `guard-read.mjs`, `guard-prompt.mjs`, the quality-gate rule and two guard-bash rules
 **Active feature:** Project Command Center (`IDEA-001`, IMPLEMENTING)
-**Next step:** 13 commits sit unpushed on `main` and the CI workflow is inside one of them, so the platform's own CI has still never run (**B16-1**). Before the push, settle the line endings and re-attest — the current manifest passes here and fails on every clone (see `progress.md` § In Progress).
+**Next step:** `main` pushed at `66851cc` and **the platform's own CI ran for the first time** (run `35202767759`) — **B16-1 closed**. 8 of 10 jobs green; both `guards` jobs red, for two unrelated reasons neither of which reproduces on this machine. Fix the harness diagnostics first (`runTool`'s callers parse `stdout` and discard `exit`/`stderr`, so a failing tool surfaces as a bare `SyntaxError` naming nothing) — without that the 8 Windows suites cannot be diagnosed from a CI log. Then register items #3, #5, #6.
 
 ## ECC: five mechanisms taken, nothing installed — 2026-09-17
 
