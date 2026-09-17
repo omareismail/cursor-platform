@@ -197,3 +197,22 @@ jobs:
             exit 1
           fi
           echo "plugin/ is identical to a fresh build."
+
+      # The one check that looks at this platform the way a consumer does, and
+      # it was run nowhere. That is why the built manifest carried three
+      # independent defects - hook events at the manifest root, `agents` as a
+      # directory string, two `//` comment keys - through two builds a day
+      # apart, while every document called the plugin the recommended install
+      # (P3G-1, B16-2). Rebuild-and-diff above proves the tree matches its
+      # source; it cannot say whether the source is valid.
+      #
+      # Pinned deliberately: unpinned, this job's meaning would drift with
+      # whatever the CLI shipped that morning, and a validator that changes
+      # under you is worse than none. Raise it on purpose, with the run that
+      # proves the new one still passes.
+      - name: claude plugin validate
+        run: |
+          set -euo pipefail
+          npm install -g @anthropic-ai/claude-code@2.1.86
+          claude plugin validate ./plugin
+          claude plugin validate .
