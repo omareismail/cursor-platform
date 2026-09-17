@@ -38,7 +38,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { report, emit, block } from "./_findings.mjs";
 import { join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 
 // The template convention (which markers mean 'unfilled', and how many
@@ -564,7 +564,14 @@ function die(m, c) { console.error(m); process.exit(c); }
 
 // Only run the CLI when invoked directly. lifecycle.mjs imports buildGraph() to
 // fold traceability into the mechanical consent, and must not trip a command.
-const invokedDirectly = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].split("\\").join("/")}`).href;
+// pathToFileURL, not a hand-built `file://` + string: the two disagree on
+// percent-encoding. import.meta.url encodes a tilde as %7E and the built URL
+// leaves it literal, so on any path containing one the comparison is false,
+// the CLI never runs, and the tool exits 0 having printed nothing. Windows
+// 8.3 short names are made of tildes - every path under a user whose name is
+// longer than eight characters has one, which is why this was invisible here
+// and broke eight suites on a runner whose tmpdir is C:\Users\RUNNER~1.
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly) main();
 
 function main() {

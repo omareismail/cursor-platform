@@ -40,6 +40,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { report, emit, block, warn } from "./_findings.mjs";
 import { join, extname, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
 
@@ -621,7 +622,14 @@ const failures = (a) =>
 // Only run the CLI when this file IS the program. Without the guard, importing
 // it from another tool executes a command chosen from that tool's argv and then
 // calls process.exit — a confusing way to discover coupling.
-const invokedDirectly = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].split("\\").join("/")}`).href;
+// pathToFileURL, not a hand-built `file://` + string: the two disagree on
+// percent-encoding. import.meta.url encodes a tilde as %7E and the built URL
+// leaves it literal, so on any path containing one the comparison is false,
+// the CLI never runs, and the tool exits 0 having printed nothing. Windows
+// 8.3 short names are made of tildes - every path under a user whose name is
+// longer than eight characters has one, which is why this was invisible here
+// and broke eight suites on a runner whose tmpdir is C:\Users\RUNNER~1.
+const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly) {
   const [cmd, ...args] = process.argv.slice(2);
   if (!cmd || !CMDS[cmd]) {
