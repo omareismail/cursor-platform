@@ -374,4 +374,4 @@ Every metric is labelled MEASURED or PROXY. Pass --deploy-tag and --fix-pattern
 to convert proxies into measurements. See .cursor/skills/delivery-metrics/skill.md.`);
   process.exit(cmd && !CMDS[cmd] ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async

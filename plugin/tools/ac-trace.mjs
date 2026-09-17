@@ -629,5 +629,5 @@ if (invokedDirectly) {
       .split("\n").slice(2, 46).join("\n").replace(/^\s*\*\/?\s?/gm, "").trim());
     process.exit(cmd ? 2 : 0);
   }
-  process.exit(CMDS[cmd](args) ?? 0);
+  process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async
 }

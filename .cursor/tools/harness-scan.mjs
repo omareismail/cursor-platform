@@ -549,4 +549,4 @@ the ones a human attested. A file can pass one and fail the other.
 Exit 1 on a blocking finding, so CI can gate. Nothing is scored.`);
   process.exit(cmd ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async

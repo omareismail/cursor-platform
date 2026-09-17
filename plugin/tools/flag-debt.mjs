@@ -255,4 +255,4 @@ Exit 1 on expired flags (and on undeclared flags with --strict), so CI can gate.
 See .cursor/skills/release-safety/skill.md.`);
   process.exit(cmd ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async

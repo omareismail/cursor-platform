@@ -397,4 +397,4 @@ if (!cmd || !CMDS[cmd] || cmd === "--help" || cmd === "-h") {
     .split("\n").slice(2, 45).join("\n").replace(/^\s*\*\/?\s?/gm, "").trim());
   process.exit(cmd && !CMDS[cmd] ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async

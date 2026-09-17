@@ -326,4 +326,4 @@ Nothing here is scored or given a target. A number reported as good becomes a
 number to hit, and the cheapest way to hit "no failed gates" is to stop looking.`);
   process.exit(cmd ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async

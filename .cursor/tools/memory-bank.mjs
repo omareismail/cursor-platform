@@ -243,5 +243,5 @@ The two tiers, the template convention and the staleness threshold used to be
 written down in four files. Two of the copies already disagreed.`);
     process.exit(cmd ? 2 : 0);
   }
-  process.exit(CMDS[cmd](args) ?? 0);
+  process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async
 }

@@ -491,4 +491,4 @@ The baseline is a ratchet. It records accepted architectural debt with a date,
 check fails only on what is new, and accepting a larger set is refused.`);
   process.exit(cmd ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async

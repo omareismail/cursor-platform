@@ -481,4 +481,4 @@ payment system that is a formal change with a named owner, not something a
 repository tool authorises.`);
   process.exit(cmd ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async

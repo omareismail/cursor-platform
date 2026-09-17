@@ -404,4 +404,4 @@ failure that skill's own step 6 warns about.
 Records live in lifecycle/incidents/ and are committed.`);
   process.exit(cmd ? 2 : 0);
 }
-process.exit(CMDS[cmd](args) ?? 0);
+process.exitCode = CMDS[cmd](args) ?? 0; // not process.exit(): that drops stdout still unflushed, and on Windows a pipe is async
