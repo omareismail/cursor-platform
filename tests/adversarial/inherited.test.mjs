@@ -10,11 +10,11 @@
 
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
-import { fixture, runHook, runTool, write, put, gitInit, DOC, check, denies, allows, report, section, REPO } from "../_harness.mjs";
+import { fixture, runHook, runTool, runToolJson, write, put, gitInit, DOC, check, denies, allows, report, section, REPO } from "../_harness.mjs";
 
 const lc = await import(new URL(`file:///${join(REPO, ".cursor", "tools", "lifecycle.mjs").replace(/\\/g, "/")}`));
 const readState = (root) => JSON.parse(readFileSync(join(root, "lifecycle", "state.json"), "utf8"));
-const derived = (root) => JSON.parse(runTool("lifecycle.mjs", ["status", "--json"], root).out).derived;
+const derived = (root) => runToolJson("lifecycle.mjs", ["status", "--json"], root).derived;
 
 section("init --existing — a claim needs a claimant and something to be about");
 {

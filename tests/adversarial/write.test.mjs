@@ -44,8 +44,18 @@ section("guard-write.mjs — the enforcement surface is not the agent's to edit"
     ".cursor/rules/12-new.mdc", ".cursor/tools/other-tool.mjs", "memory-bank/activeContext.md", "README.md", "lifecycle/README.md"])
     allows(`allows: ${f}`, runHook(H, write(join(root, f)), root));
 
-  // Windows spelling of the same file
-  denies("backslashes do not hide a protected file", runHook(H, write(root + "\\.cursor\\mcp-policy.json"), root), "enforcement surface");
+  // Windows spelling of the same file. This is the assertion INC-0001 bought
+  // (P2G-1), and it is platform-specific in a way nobody noticed until the
+  // first CI run: on POSIX a backslash is a legal character in a filename, not
+  // a separator, so this payload names a *different* file that happens to have
+  // backslashes in its name - and guard-write allowing it is correct. Asserting
+  // the refusal on Linux asserted a bug. The bypass exists where the separator
+  // does, so the refusal is pinned there and the POSIX reading is pinned here.
+  const winSpelling = write(root + "\\.cursor\\mcp-policy.json");
+  if (process.platform === "win32")
+    denies("backslashes do not hide a protected file", runHook(H, winSpelling, root), "enforcement surface");
+  else
+    allows("on POSIX a backslash is part of the name, so this is a different file", runHook(H, winSpelling, root));
 
   // Every tool that writes, not only Write.
   for (const tool of ["Edit", "MultiEdit", "NotebookEdit", "Delete"]) {

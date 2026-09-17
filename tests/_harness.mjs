@@ -109,8 +109,46 @@ export function runTool(tool, args, root, env = {}) {
     env: { ...process.env, CLAUDE_PROJECT_DIR: root, ...env },
     timeout: 60_000,
   });
-  return { exit: r.status, out: r.stdout || "", err: r.stderr || "" };
+  return { exit: r.status, out: r.stdout || "", err: r.stderr || "", signal: r.signal, spawnError: r.error, tool, args, root };
 }
+
+/**
+ * Run a tool and parse its `--json`, saying what went wrong when it did not.
+ *
+ * WHY THIS EXISTS
+ *
+ * Call sites across this suite did `JSON.parse(runTool(...).out)`. A tool that
+ * dies before printing leaves `out` empty, and JSON.parse then throws
+ * "Unexpected end of JSON input" - naming neither the tool, its arguments, its
+ * exit code nor its stderr. The first CI run this repository ever had
+ * (35202767759) reported eight failing suites on windows-latest and not one
+ * cause, because the reason was discarded one frame below where it was still
+ * in hand.
+ *
+ * It reports only when the parse actually fails. A non-zero exit is normal and
+ * silent - every checker exits 1 on findings and 2 on nothing to check, and
+ * several cases here run a tool precisely to watch it refuse. A diagnostic
+ * that also fires on correct work is one somebody turns off, and then the real
+ * one is off too.
+ */
+export function parseJson(r) {
+  try {
+    return JSON.parse(r.out);
+  } catch (e) {
+    const call = `${r.tool} ${(r.args || []).join(" ")}`;
+    const why = r.spawnError ? ` error ${r.spawnError.code || r.spawnError.message}` : "";
+    console.log(`  !! ${call} - stdout is not JSON: ${e.message}`);
+    console.log(`     cwd   ${r.root}`);
+    console.log(`     exit  ${r.exit}${r.signal ? ` signal ${r.signal}` : ""}${why}`);
+    console.log(`     node  ${process.version} on ${process.platform}`);
+    for (const line of (r.err.trimEnd() || "(stderr was empty too)").split("\n").slice(0, 15)) console.log(`     | ${line}`);
+    if (r.out) for (const line of r.out.trimEnd().split("\n").slice(0, 5)) console.log(`     > ${line}`);
+    throw new Error(`${call} produced no parseable JSON (exit ${r.exit}); first stderr line: ${r.err.trim().split("\n")[0] || "(empty)"}`);
+  }
+}
+
+/** Run a tool and parse its `--json` in one step. */
+export const runToolJson = (tool, args, root, env = {}) => parseJson(runTool(tool, args, root, env));
 
 /** A real document: long enough, no template markers, no unfilled [slots]. */
 export const DOC = (title) => `# ${title}\n\n` + Array.from({ length: 6 }, (_, i) => `Paragraph ${i + 1}: real content about ${title}, decided and written down so that a reviewer has something to judge.`).join("\n\n") + "\n";

@@ -11,11 +11,11 @@
 
 import { join } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
-import { fixture, runTool, put, gitInit, DOC, check, report, section, REPO } from "../_harness.mjs";
+import { fixture, runTool, runToolJson, put, gitInit, DOC, check, report, section, REPO } from "../_harness.mjs";
 
 const lc = await import(new URL(`file:///${join(REPO, ".cursor", "tools", "lifecycle.mjs").replace(/\\/g, "/")}`));
-const statusOf = (root, phase) => JSON.parse(runTool("lifecycle.mjs", ["status", "--json"], root).out).derived[phase];
-const checkOf = (root, phase) => JSON.parse(runTool("lifecycle.mjs", ["check", phase, "--json"], root).out);
+const statusOf = (root, phase) => runToolJson("lifecycle.mjs", ["status", "--json"], root).derived[phase];
+const checkOf = (root, phase) => runToolJson("lifecycle.mjs", ["check", phase, "--json"], root);
 const row = (res, artifact) => res.artifacts.find((a) => a.artifact === artifact);
 const sourceTree = (res) => res.artifacts.find((a) => a.type === "source-tree");
 

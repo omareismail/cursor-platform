@@ -12,7 +12,7 @@
 import { join } from "node:path";
 import { readFileSync, writeFileSync, unlinkSync, existsSync, readdirSync, cpSync, rmSync, mkdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { fixture, runHook, runTool, bash, put, gitInit, DOC, check, denies, report, section, REPO } from "../_harness.mjs";
+import { fixture, runHook, runTool, parseJson, bash, put, gitInit, DOC, check, denies, report, section, REPO } from "../_harness.mjs";
 
 const lc = await import(new URL(`file:///${join(REPO, ".cursor", "tools", "lifecycle.mjs").replace(/\\/g, "/")}`));
 const ev = await import(new URL(`file:///${join(REPO, ".cursor", "tools", "_evidence.mjs").replace(/\\/g, "/")}`));
@@ -20,7 +20,7 @@ const ev = await import(new URL(`file:///${join(REPO, ".cursor", "tools", "_evid
 const INDEX = (root) => join(root, "lifecycle", "index.jsonl");
 const lines = (root) => readFileSync(INDEX(root), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
 const evidence = (root, ...a) => runTool("lifecycle.mjs", ["evidence", ...a], root);
-const evJson = (root) => JSON.parse(evidence(root, "--json").out);
+const evJson = (root) => parseJson(evidence(root, "--json"));
 const codes = (root) => evJson(root).findings.map((f) => f.code);
 
 /** A greenfield product with REQUIREMENTS judged GO — three records on disk, all indexed. */
