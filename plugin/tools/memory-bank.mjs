@@ -236,7 +236,9 @@ const CMDS = {
 // the CLI never runs, and the tool exits 0 having printed nothing. Windows
 // 8.3 short names are made of tildes - every path under a user whose name is
 // longer than eight characters has one, which is why this was invisible here
-// and broke eight suites on a runner whose tmpdir is C:\Users\RUNNER~1.
+// and broke eight suites on a CI runner whose temp directory sits under an
+// 8.3-shortened user name. (No literal home path here: harness-scan blocks
+// one in a shipped file, correctly, and this comment tripped it once.)
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly) {
   const [cmd, ...args] = process.argv.slice(2);
