@@ -2,7 +2,7 @@
 
 **Blocks:** phase 5 (Testing) closing, not opening — testing runs *alongside*
 development. This gate asks whether the MVP is actually built.
-**Mechanical check:** `node .cursor/tools/lifecycle.mjs check DEVELOPMENT`
+**Mechanical check:** `node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs check DEVELOPMENT`
 **Judgement:** `/lifecycle-gate`.
 **Authored by:** the implementers (the speckit pipeline)
 **Reviewed by:** `test-engineer` — never an author of the artifacts above.
@@ -43,7 +43,7 @@ FAIL: implemented without a spec. `01-specify-rules` forbids it; this is where i
 is checked at the product level.
 
 **2. Every MVP story passed Definition of Ready before it was built.**
-PASS: `node .cursor/tools/artifact-schema.mjs ready` reports every MVP story
+PASS: `node ${CLAUDE_PLUGIN_ROOT}/tools/artifact-schema.mjs ready` reports every MVP story
 READY. Run it now, not from memory - a story can lose readiness after the fact
 when its use case or endpoint is revised.
 FAIL: a story that entered development without a use case, an endpoint or
@@ -66,7 +66,7 @@ and its tests, green proves they agree — not that either is right.
 **5. Architecture guards report no blockers.**
 PASS: `/dotnet-clean-code-guard` and `/react-clean-code-guard` clean, or every
 finding has a recorded, accepted justification — **and**
-`node .cursor/tools/fitness.mjs check` reports no new violation of the layering
+`node ${CLAUDE_PLUGIN_ROOT}/tools/fitness.mjs check` reports no new violation of the layering
 promoted at gate 3.
 FAIL: findings deferred to "later". Later is phase 6, where they are incidents.
 
@@ -93,7 +93,7 @@ anything that got in another way.
 FAIL: a transitive surprise discovered by `/dotnet-dependency-audit` in phase 5.
 
 **9. Feature flags have expiry.**
-PASS: `node .cursor/tools/flag-debt.mjs scan` exits 0.
+PASS: `node ${CLAUDE_PLUGIN_ROOT}/tools/flag-debt.mjs scan` exits 0.
 FAIL: flags that will outlive the people who added them.
 
 ---
@@ -108,7 +108,7 @@ MVP:         <stories done>/<stories in MVP scope>
 Drift:       <features where spec and code disagree>
 Stranded:    <tasks In Progress, tasks Done without task-verify evidence>
 Blocking:    <criterion, file, what is wrong, what would fix it>
-Record:      node .cursor/tools/lifecycle.mjs record-gate DEVELOPMENT --verdict GO|NO-GO \
+Record:      node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs record-gate DEVELOPMENT --verdict GO|NO-GO \
                   --by "test-engineer" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve DEVELOPMENT --by "<a human, not test-engineer>"
+Then:        node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs approve DEVELOPMENT --by "<a human, not test-engineer>"
 ```

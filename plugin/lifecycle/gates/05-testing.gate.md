@@ -1,7 +1,7 @@
 # Gate 5 — Testing
 
 **Blocks:** phase 6 (Production).
-**Mechanical check:** `node .cursor/tools/lifecycle.mjs check TESTING`
+**Mechanical check:** `node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs check TESTING`
 **Judgement:** `/lifecycle-gate`.
 **Authored by:** `test-engineer`
 **Reviewed by:** `product-manager` — never an author of the artifacts above.
@@ -33,7 +33,7 @@ refuses a signature from the same party that filed the verdict.
 ## Judgement criteria
 
 **1. Every acceptance criterion has a test that asserts it.**
-PASS: `node .cursor/tools/ac-trace.mjs check specs/features/<slug>.md` clean for
+PASS: `node ${CLAUDE_PLUGIN_ROOT}/tools/ac-trace.mjs check specs/features/<slug>.md` clean for
 every MVP feature.
 FAIL: an AC no test claims, a test claiming an AC the spec dropped, an AC whose
 only test is skipped. This is the criterion that closes the loop back to phase 1;
@@ -41,7 +41,7 @@ if it fails, the product was not built to its requirements whatever the coverage
 figure says.
 
 **2. Effort is where being wrong is expensive.**
-PASS: `node .cursor/tools/risk-profile.mjs check` clean. Criteria that touch
+PASS: `node ${CLAUDE_PLUGIN_ROOT}/tools/risk-profile.mjs check` clean. Criteria that touch
 money, identity, permission, a regulator, or anything that cannot be taken back
 carry a test asserting the **failure** path — and the critical ones are proved at
 two layers, not by one unit test with every collaborator mocked out.
@@ -56,7 +56,7 @@ broker's name" and "the settlement transfers 1,500 SAR to a mada account" is a
 > nothing it says can justify testing something less.
 
 **3. No vacuous tests.**
-PASS: `node .cursor/tools/ac-trace.mjs lint` clean — no claiming test without an
+PASS: `node ${CLAUDE_PLUGIN_ROOT}/tools/ac-trace.mjs lint` clean — no claiming test without an
 assertion, no assertion that cannot fail.
 FAIL: coverage produced by tests that execute code without checking it.
 
@@ -111,7 +111,7 @@ Risk:        T3 <n> (<gaps>)  T2 <n> (<gaps>)   — risk-profile.mjs check
 Layers:      unit <y/n>  integration <y/n>  e2e <y/n>  load <y/n>
 Mutation:    <score> vs <threshold>
 Blocking:    <criterion, file, what is wrong, what would fix it>
-Record:      node .cursor/tools/lifecycle.mjs record-gate TESTING --verdict GO|NO-GO \
+Record:      node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs record-gate TESTING --verdict GO|NO-GO \
                   --by "product-manager" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve TESTING --by "<a human, not product-manager>"
+Then:        node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs approve TESTING --by "<a human, not product-manager>"
 ```

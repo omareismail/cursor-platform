@@ -434,7 +434,12 @@ ${rewritePaths(body)}
   const gateDir = join(ROOT, ".cursor", "lifecycle", "gates");
   if (existsSync(gateDir)) {
     for (const f of readdirSync(gateDir).filter((x) => x.endsWith(".gate.md")).sort()) {
-      emit(`lifecycle/gates/${f}`, read(join(gateDir, f)));
+      // Through rewritePaths, like every other shipped document. Copied
+      // verbatim, the six gates carried 34 `node .cursor/tools/...` lines that
+      // resolve to nothing on a plugin install, so a reviewer reaching the
+      // criteria was handed commands that cannot run (P3G-4). Only those
+      // lines change; the gates reference no rule, skill or doc path.
+      emit(`lifecycle/gates/${f}`, rewritePaths(read(join(gateDir, f))));
     }
   }
 

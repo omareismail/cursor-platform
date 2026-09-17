@@ -1,7 +1,7 @@
 # Gate 3 — Design
 
 **Blocks:** phase 4 (Development) — **mechanically**, not by convention.
-**Mechanical check:** `node .cursor/tools/lifecycle.mjs check DESIGN`
+**Mechanical check:** `node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs check DESIGN`
 **Judgement:** `/lifecycle-gate`.
 **Authored by:** `solution-architect`, `ux-bridge`
 **Reviewed by:** `security-auditor` — never an author of the artifacts above.
@@ -48,7 +48,7 @@ considered, no decision was made.
 PASS: `artifact-schema.mjs check` reports no unlinked `UC-*`, and the endpoint
 catalogue gives each row a method, route, auth, request and response shape.
 
-> **Now computed, not judged.** `node .cursor/tools/artifact-schema.mjs check`
+> **Now computed, not judged.** `node ${CLAUDE_PLUGIN_ROOT}/tools/artifact-schema.mjs check`
 > decides this one from the ids in the documents, and `lifecycle.mjs check`
 > fails on it — so it is part of the mechanical consent and cannot be argued
 > with. Read the output; do not re-derive it by hand.
@@ -98,7 +98,7 @@ FAIL: leaving it to phase 6, when the architecture no longer permits the answer.
 **10. Every dependency you do not control has a decided failure behaviour.**
 PASS: for each external call, broker, cache and database, the design says what
 happens when it is slow, when it is down, and when it answers twice — and
-`node .cursor/tools/failure-modes.mjs check` finds a timeout on every one.
+`node ${CLAUDE_PLUGIN_ROOT}/tools/failure-modes.mjs check` finds a timeout on every one.
 FAIL: silence. A dependency that FAILS is survivable; one that goes SLOW takes
 the service with it, because requests pile up on a pool that never drains.
 `new HttpClient()` defaults to a hundred seconds, which under load is an outage
@@ -130,8 +130,8 @@ This promotion is what makes the design binding — and it is now literally true
 rather than aspirational:
 
 ```bash
-node .cursor/tools/fitness.mjs rules     # what was derived, and from where
-node .cursor/tools/fitness.mjs all       # every violation of it, today
+node ${CLAUDE_PLUGIN_ROOT}/tools/fitness.mjs rules     # what was derived, and from where
+node ${CLAUDE_PLUGIN_ROOT}/tools/fitness.mjs all       # every violation of it, today
 ```
 
 `fitness.mjs` reads the layering **out of** `memory-bank/architecture.md` and
@@ -156,8 +156,8 @@ Threat model: <run / NOT RUN — automatic NO-GO if not run>
 Unmapped:    <use cases with no endpoint, entities with no table, screens with no endpoints>
 Promotion:   <which memory-bank files this will change>
 Blocking:    <criterion, file, what is wrong, what would fix it>
-Record:      node .cursor/tools/lifecycle.mjs record-gate DESIGN --verdict GO|NO-GO \
+Record:      node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs record-gate DESIGN --verdict GO|NO-GO \
                   --by "security-auditor" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve DESIGN --by "<a human, not security-auditor>"
+Then:        node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs approve DESIGN --by "<a human, not security-auditor>"
              ^ this unblocks guard-phase.mjs. Say so explicitly when reporting GO.
 ```

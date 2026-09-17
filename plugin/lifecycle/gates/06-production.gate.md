@@ -1,7 +1,7 @@
 # Gate 6 — Production
 
 **Blocks:** going live.
-**Mechanical check:** `node .cursor/tools/lifecycle.mjs check PRODUCTION`
+**Mechanical check:** `node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs check PRODUCTION`
 **Judgement:** `/lifecycle-gate`, wrapping `/production-readiness-review`.
 **Authored by:** `ops-reviewer`
 **Reviewed by:** `security-auditor` — never an author of the artifacts above.
@@ -78,7 +78,7 @@ PASS: a named owner, a runbook they have read, an escalation path.
 FAIL: the team finds out from a customer.
 
 **9b. Every guard a past incident bought is still standing.**
-PASS: `node .cursor/tools/incidents.mjs check` clean — each guard named in
+PASS: `node ${CLAUDE_PLUGIN_ROOT}/tools/incidents.mjs check` clean — each guard named in
 `lifecycle/incidents/` still exists, is not commented out, and is not inside a
 test the suite is skipping.
 FAIL: a defence removed in a cleanup by somebody who never knew what it was for.
@@ -103,8 +103,8 @@ PASS: SAMA/ZATCA/mada evidence produced and stored where an auditor will look,
 and a release record exists for the version being shipped:
 
 ```bash
-node .cursor/tools/release-evidence.mjs cut --version <v>
-node .cursor/tools/release-evidence.mjs show <v>
+node ${CLAUDE_PLUGIN_ROOT}/tools/release-evidence.mjs cut --version <v>
+node ${CLAUDE_PLUGIN_ROOT}/tools/release-evidence.mjs show <v>
 ```
 
 FAIL: reconstructing it after the fact. Six weeks later nobody can reassemble
@@ -143,9 +143,9 @@ Readiness:    <GO/NO-GO from /production-readiness-review, verbatim>
 Rollback:     <tested on: date, environment, time-to-rollback>
 On call:      <named owner>
 Blocking:     <criterion, what is wrong, what would fix it>
-Record:      node .cursor/tools/lifecycle.mjs record-gate PRODUCTION --verdict GO|NO-GO \
+Record:      node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs record-gate PRODUCTION --verdict GO|NO-GO \
                   --by "security-auditor" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve PRODUCTION --by "<a human, not security-auditor>"
+Then:        node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs approve PRODUCTION --by "<a human, not security-auditor>"
 ```
 
 A NO-GO here is the system working. Report it plainly.

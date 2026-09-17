@@ -1,7 +1,7 @@
 # Gate 1 — Requirements
 
 **Blocks:** phase 2 (Analysis).
-**Mechanical check:** `node .cursor/tools/lifecycle.mjs check REQUIREMENTS`
+**Mechanical check:** `node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs check REQUIREMENTS`
 **Judgement:** `/lifecycle-gate` reads the criteria below and returns GO or NO-GO.
 **Authored by:** `product-manager`, `ux-bridge`
 **Reviewed by:** `business-analyst` — never an author of the artifacts above.
@@ -48,7 +48,7 @@ FAIL: "users" and "admins".
 PASS: `artifact-schema.mjs check` reports no unlinked `FR-*`.
 FAIL: a requirement no story implements is a promise nobody scheduled.
 
-> **Now computed, not judged.** `node .cursor/tools/artifact-schema.mjs check`
+> **Now computed, not judged.** `node ${CLAUDE_PLUGIN_ROOT}/tools/artifact-schema.mjs check`
 > decides this one from the ids in the documents, and `lifecycle.mjs check`
 > fails on it — so it is part of the mechanical consent and cannot be argued
 > with. Read the output; do not re-derive it by hand.
@@ -68,7 +68,7 @@ and it will be relitigated in phase 4 at ten times the cost.
 **6. Non-functional requirements are quantified — and not already disproved.**
 PASS: numbers with units and a measurement point — P99 latency at the API edge,
 availability over a stated window, retention in days, concurrent users at peak.
-And `node .cursor/tools/incidents.mjs learned` names no id this document still
+And `node ${CLAUDE_PLUGIN_ROOT}/tools/incidents.mjs learned` names no id this document still
 asserts.
 FAIL: "highly available", "scalable", "secure". Or a target production has
 already contradicted: `nfr.md` says P99 under 400 ms, an incident recorded 1200
@@ -108,9 +108,9 @@ GATE 1 — REQUIREMENTS: GO | NO-GO
 Mechanical:  <pass/fail, from lifecycle.mjs check>
 Criteria:    <n>/8 pass
 Blocking:    <criterion, file:line, what is wrong, what would fix it>
-Record:      node .cursor/tools/lifecycle.mjs record-gate REQUIREMENTS --verdict GO|NO-GO \
+Record:      node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs record-gate REQUIREMENTS --verdict GO|NO-GO \
                   --by "business-analyst" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve REQUIREMENTS --by "<a human, not business-analyst>"
+Then:        node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs approve REQUIREMENTS --by "<a human, not business-analyst>"
 ```
 
 A NO-GO names the fix, not just the fault. Never soften one.

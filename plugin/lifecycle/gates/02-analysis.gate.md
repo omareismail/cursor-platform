@@ -1,7 +1,7 @@
 # Gate 2 — Analysis
 
 **Blocks:** phase 3 (Design).
-**Mechanical check:** `node .cursor/tools/lifecycle.mjs check ANALYSIS`
+**Mechanical check:** `node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs check ANALYSIS`
 **Judgement:** `/lifecycle-gate`.
 **Authored by:** `business-analyst`
 **Reviewed by:** `solution-architect` — never an author of the artifacts above.
@@ -38,7 +38,7 @@ PASS: `artifact-schema.mjs check` reports no unlinked `S-*` and no dangling ids.
 FAIL: use cases that no story asked for (scope creep entering through the back
 door) or stories no use case covers (a hole that surfaces in phase 4).
 
-> **Now computed, not judged.** `node .cursor/tools/artifact-schema.mjs check`
+> **Now computed, not judged.** `node ${CLAUDE_PLUGIN_ROOT}/tools/artifact-schema.mjs check`
 > decides this one from the ids in the documents, and `lifecycle.mjs check`
 > fails on it — so it is part of the mechanical consent and cannot be argued
 > with. Read the output; do not re-derive it by hand.
@@ -105,7 +105,7 @@ Mechanical:  <pass/fail>
 Criteria:    <n>/9 pass
 Untraced:    <stories with no use case, use cases with no story>
 Blocking:    <criterion, file, what is wrong, what would fix it>
-Record:      node .cursor/tools/lifecycle.mjs record-gate ANALYSIS --verdict GO|NO-GO \
+Record:      node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs record-gate ANALYSIS --verdict GO|NO-GO \
                   --by "solution-architect" --criteria "<n>/<total>"
-Then:        node .cursor/tools/lifecycle.mjs approve ANALYSIS --by "<a human, not solution-architect>"
+Then:        node ${CLAUDE_PLUGIN_ROOT}/tools/lifecycle.mjs approve ANALYSIS --by "<a human, not solution-architect>"
 ```
