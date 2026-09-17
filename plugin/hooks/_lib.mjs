@@ -201,12 +201,169 @@ export function isProtected(rel) {
 }
 
 /**
+ * The build gates: the files where /postmortem's findings stop being documents.
+ *
+ * A BannedSymbols entry, an analyzer severity in .editorconfig, a lint rule - an
+ * incident bought each of these, and incidents.mjs check re-reads them to prove
+ * the defence is still there. An agent that can edit them can delete the defence
+ * and watch the build go green, which is the failure /postmortem step 6 names in
+ * so many words: teams remove useful guards during cleanups because nobody
+ * recorded that they helped.
+ *
+ * Owned by write-policy.json under `qualityConfig`; this is the fail-closed
+ * fallback, and self-audit A12 keeps the two in step. Creating one of these is
+ * allowed - adding a gate is not weakening one.
+ */
+export const QUALITY_CONFIG_FALLBACK = [
+  "**/BannedSymbols.txt",
+  "**/.editorconfig",
+  "**/Directory.Build.props",
+  "**/.globalconfig",
+  "**/.eslintrc",
+  "**/.eslintrc.*",
+  "**/eslint.config.*",
+  "**/.prettierrc",
+  "**/.prettierrc.*",
+  "**/biome.json",
+  "**/biome.jsonc",
+  "**/.markdownlint*",
+  "**/.husky/**",
+  "**/lefthook.yml",
+  "**/.pre-commit-config.yaml",
+];
+
+/** Every quality-gate pattern in force: the policy's list unioned with the fallback. */
+export function qualityConfigPatterns() {
+  const fromPolicy = writePolicy()?.policy?.qualityConfig?.paths;
+  return [...new Set([...QUALITY_CONFIG_FALLBACK, ...(Array.isArray(fromPolicy) ? fromPolicy : [])])];
+}
+
+/** The quality-gate pattern a project-relative path matches, or null. */
+export function isQualityConfig(rel) {
+  if (!rel) return null;
+  const raw = String(rel).replace(/\\/g, "/").replace(/^\.\//, "");
+  const trimmed = raw.replace(/\/+$/, "");
+  if (!trimmed) return null;
+  const patterns = qualityConfigPatterns();
+  // Both shapes, for the same reason isProtected() matches both - see P2G-1.
+  return patterns.find((g) => globMatch(g, trimmed))
+      || patterns.find((g) => globMatch(g, raw))
+      || null;
+}
+
+/**
+ * Files no agent may read.
+ *
+ * Claude Code has always refused these through `permissions.deny` in
+ * .claude/settings.json - but that file is Claude Code's alone. A Cursor
+ * checkout and a plugin install have no equivalent, so the protection existed on
+ * one host and silently nowhere else. Owned by write-policy.json under
+ * `secretFiles`; this is the fail-closed fallback, A12 keeps them in step, and
+ * A13 keeps the policy equal to Claude's own deny list.
+ */
+export const SECRET_FILES_FALLBACK = [
+  ".env",
+  ".env.*",
+  "**/appsettings.Production.json",
+  "**/*.pfx",
+  "**/*.p12",
+  "**/id_rsa",
+  ".cursor/settings.local.json",
+  ".claude/settings.local.json",
+];
+
+/** Every secret-file pattern in force: the policy's list unioned with the fallback. */
+export function secretFilePatterns() {
+  const fromPolicy = writePolicy()?.policy?.secretFiles?.paths;
+  return [...new Set([...SECRET_FILES_FALLBACK, ...(Array.isArray(fromPolicy) ? fromPolicy : [])])];
+}
+
+/** The secret-file pattern a project-relative path matches, or null. */
+export function isSecretFile(rel) {
+  if (!rel) return null;
+  const raw = String(rel).replace(/\\/g, "/").replace(/^\.\//, "");
+  const trimmed = raw.replace(/\/+$/, "");
+  if (!trimmed) return null;
+  const patterns = secretFilePatterns();
+  // Both shapes, for the same reason isProtected() matches both - see P2G-1.
+  return patterns.find((g) => globMatch(g, trimmed))
+      || patterns.find((g) => globMatch(g, raw))
+      || null;
+}
+
+/**
  * The one escape for the protected list. Set in the editor's environment by a
  * human who is developing the platform itself - the hooks, the policies, the
  * state machine. It is an environment variable and not a file because a file
  * is something an agent can write.
  */
 export const platformDev = () => process.env.CURSOR_PLATFORM_DEV === "1";
+
+/**
+ * Credential shapes, owned here because four callers need the same answer:
+ * guard-write refuses them in content being written, guard-prompt warns when one
+ * is in a prompt, session-end redacts them out of a summary before it is stored,
+ * and harness-scan reports them in a committed config. Four copies of a regex is
+ * four chances for one of them to be the lenient one, and the lenient one is the
+ * only one that matters.
+ *
+ * The two lists are judged differently. SECRET_PATTERNS are assignment-shaped,
+ * so a documented example is a false positive and SECRET_PLACEHOLDER exempts it.
+ * TOKEN_PATTERNS are issuer-prefixed: nothing legitimately begins with a live
+ * key's prefix, so no exemption applies and none is offered.
+ */
+export const SECRET_PATTERNS = [
+  [/(?:password|pwd)\s*=\s*["']?(?!\s*[{$<])[^"';\s]{4,}/i, "connection-string password"],
+  [/(?:api[_-]?key|apikey|secret|client[_-]?secret|access[_-]?token)\s*[:=]\s*["'][A-Za-z0-9_\-\/+]{16,}["']/i, "hardcoded API key/secret"],
+  [/-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/, "private key material"],
+  [/\bBearer\s+eyJ[A-Za-z0-9_\-]{20,}/, "hardcoded JWT"],
+];
+
+export const SECRET_PLACEHOLDER = /\$\{|\{\{|<YOUR|placeholder|example|REDACTED|env:/i;
+
+export const TOKEN_PATTERNS = [
+  [/\bsk-ant-[A-Za-z0-9_\-]{16,}/, "Anthropic API key"],
+  [/\bsk-[A-Za-z0-9]{20,}/, "OpenAI-style API key"],
+  [/\bgh[pousr]_[A-Za-z0-9]{20,}/, "GitHub token"],
+  [/\bAKIA[0-9A-Z]{16}\b/, "AWS access key id"],
+  [/\bxox[bpsa]-[A-Za-z0-9-]{10,}/, "Slack token"],
+];
+
+/** The first credential shape in `text`, or null. Names the class, never logs the value. */
+export function findSecret(text) {
+  const s = typeof text === "string" ? text : "";
+  if (!s) return null;
+  for (const [re, what] of SECRET_PATTERNS) {
+    const m = s.match(re);
+    if (m && !SECRET_PLACEHOLDER.test(m[0])) return { what, match: m[0], index: m.index ?? 0 };
+  }
+  for (const [re, what] of TOKEN_PATTERNS) {
+    const m = s.match(re);
+    if (m) return { what, match: m[0], index: m.index ?? 0 };
+  }
+  return null;
+}
+
+/**
+ * Replace every credential shape with a marker naming its class.
+ *
+ * Run over anything this platform is about to PERSIST. A session summary is
+ * derived from a transcript, and a transcript holds whatever a person pasted
+ * into it; writing that to a file turns a momentary paste into a stored secret.
+ */
+export function redactSecrets(text) {
+  let s = typeof text === "string" ? text : "";
+  if (!s) return s;
+  const apply = (list, exemptPlaceholders) => {
+    for (const [re, what] of list) {
+      const g = new RegExp(re.source, re.flags.includes("g") ? re.flags : re.flags + "g");
+      s = s.replace(g, (m) => (exemptPlaceholders && SECRET_PLACEHOLDER.test(m) ? m : `[REDACTED: ${what}]`));
+    }
+  };
+  apply(SECRET_PATTERNS, true);
+  apply(TOKEN_PATTERNS, false);
+  return s;
+}
 
 /**
  * A `file:` URL as a filesystem path. `new URL(...).pathname` is `/D:/x` on
@@ -290,14 +447,43 @@ export function inject(hookEventName, additionalContext) {
  * output shapes and stay silent; an unknown or missing event name is answered,
  * because the events that can be fail-closed are the deciding ones.
  */
-const DECIDING = /^(preToolUse|beforeShellExecution|beforeMCPExecution|beforeReadFile|beforeSubmitPrompt|beforeTabFileRead)$/;
-const ADVISORY = /^(sessionStart|afterFileEdit|stop|afterAgentResponse|afterAgentThought|afterTabFileEdit|subagentStart|subagentStop|preCompact|postToolUse)$/i;
+const DECIDING = /^(preToolUse|beforeShellExecution|beforeMCPExecution|beforeReadFile|beforeTabFileRead)$/;
+const ADVISORY = /^(sessionStart|sessionEnd|afterFileEdit|stop|afterAgentResponse|afterAgentThought|afterTabFileEdit|subagentStart|subagentStop|preCompact|postToolUse)$/i;
+
+/**
+ * beforeSubmitPrompt decides as well, but in its OWN shape: {continue:boolean},
+ * never {permission}. Cursor blocks submission when the reply does not match the
+ * event's schema, so answering "allow" there would refuse every prompt the guard
+ * had just passed - a guard that denies the thing it approved. It is therefore
+ * listed neither in DECIDING nor ADVISORY and answered before both.
+ */
+const PROMPT_EVENT = /^beforeSubmitPrompt$/;
+
 export function ok() {
   if (HOST === "cursor") {
     const ev = PAYLOAD?.hook_event_name;
+    if (typeof ev === "string" && PROMPT_EVENT.test(ev)) emit(1, JSON.stringify({ continue: true }), 0);
     if (typeof ev !== "string" || DECIDING.test(ev) || !ADVISORY.test(ev)) emit(1, JSON.stringify({ permission: "allow" }), 0);
   }
   process.exit(0);
+}
+
+/**
+ * Tell the agent something about the prompt a person just submitted, without
+ * stopping the prompt.
+ *
+ * Exit 2 on Claude Code's UserPromptSubmit does not warn - it ERASES the message
+ * the person typed. Nothing this platform has to say about a prompt is worth
+ * deleting someone's words, so the only channel used here is the additive one:
+ * context on Claude, `continue: true` with a note on Cursor.
+ */
+export function promptAdvise(text) {
+  const msg = String(text || "").trim();
+  if (!msg) ok();
+  if (HOST === "cursor") {
+    emit(1, JSON.stringify({ continue: true, user_message: msg.split("\n")[0] }), 0);
+  }
+  emit(1, JSON.stringify({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: msg } }), 0);
 }
 
 /** The file a tool is about to write, or has just written. */
@@ -354,4 +540,40 @@ export function mcpCall(payload) {
 export function shellCommand(payload) {
   const p = payload || PAYLOAD || {};
   return (p.tool_input?.command || p.command || "").trim();
+}
+
+/** The session, under either host's name for it. Empty string when neither sent one. */
+export function sessionId(payload) {
+  const p = payload || PAYLOAD || {};
+  return String(p.session_id || p.conversation_id || "");
+}
+
+/**
+ * The JSONL transcript of this session, or null.
+ *
+ * Claude Code sends the path on the lifecycle events; Cursor sends nothing of
+ * the kind, and no amount of defensive reading invents one. A caller must treat
+ * null as "this host does not offer a transcript" and say so in its output,
+ * rather than reporting an empty summary as an accurate one.
+ */
+export function transcriptPath(payload) {
+  const p = payload || PAYLOAD || {};
+  return p.transcript_path || process.env.CLAUDE_TRANSCRIPT_PATH || null;
+}
+
+/** The prompt a person just submitted (UserPromptSubmit / beforeSubmitPrompt). */
+export function promptText(payload) {
+  const p = payload || PAYLOAD || {};
+  return typeof p.prompt === "string" ? p.prompt : "";
+}
+
+/**
+ * A path inside `.cursor/cache/`, which `.gitignore` excludes.
+ *
+ * Everything written there is per-machine and never committed: it is evidence
+ * for the machine that produced it, not a record the platform stands behind.
+ * Records the platform stands behind live under `lifecycle/` and are committed.
+ */
+export function cachePath(...parts) {
+  return resolve(projectDir(), ".cursor", "cache", ...parts);
 }

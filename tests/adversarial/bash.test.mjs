@@ -377,4 +377,53 @@ section("guard-bash.mjs — Python installers and remote skill installers (gap B
     runHook(H, bash("pip install requests"), root, { CURSOR_PLATFORM_DEV: "1" }), "new Python package");
 }
 
-report("guard-bash refuses the human-only commands, shell writes to the enforcement surface, SQL writes through psql, and unlocked package or remote skill installs.");
+/*
+ * Skipping the git hooks.
+ *
+ * The exemptions matter more than the refusals here. `-n` means --no-verify on
+ * `commit` and dry-run on `add`, `rm` and `push`, and --no-stat on `merge`. A
+ * rule that read `-n` the same way everywhere would refuse `git add -n`, the
+ * safest command in the set - and a guard that refuses safe work is a guard
+ * somebody turns off, at which point the refusals below stop happening too.
+ */
+section("guard-bash.mjs — the git hooks are not the agent's to skip");
+{
+  const root = fixture("gb-noverify");
+
+  for (const cmd of [
+    "git commit -m x --no-verify",
+    "git commit --no-verify -m x",
+    "git commit -n -m x",
+    "git commit -am x --no-verify",
+    "git push --no-verify origin main",
+    "git merge --no-verify feature",
+    "sh -c \"git commit --no-verify -m x\"",
+  ]) denies(`refuses: ${cmd}`, runHook(H, bash(cmd), root), "skips the git hooks");
+
+  for (const cmd of [
+    "git -c core.hooksPath=/dev/null commit -m x",
+    "git -c core.hooksPath=/tmp/none push",
+    "git config core.hooksPath /tmp/none",
+    "git config --local core.hooksPath .empty",
+  ]) denies(`refuses: ${cmd}`, runHook(H, bash(cmd), root), "hooks directory");
+
+  for (const cmd of [
+    "git add -n .",
+    "git rm -n old.txt",
+    "git push -n origin main",
+    "git merge -n feature",
+    "git log -n 5",
+    "git commit -m \"an ordinary commit\"",
+    "git commit -am \"staged and committed\"",
+    "git config --get core.hooksPath",
+    "git config --unset core.hooksPath",
+    "git config --list",
+  ]) allows(`allows: ${cmd}`, runHook(H, bash(cmd), root));
+
+  cursorDenies("Cursor is told the same thing, in its own envelope",
+    runHook(H, cursorBash(root, "git commit -m x --no-verify"), root), "skips the git hooks");
+  denies("CURSOR_PLATFORM_DEV does not unlock it - a platform developer's commit is still a commit",
+    runHook(H, bash("git commit -m x --no-verify"), root, { CURSOR_PLATFORM_DEV: "1" }), "skips the git hooks");
+}
+
+report("guard-bash refuses the human-only commands, shell writes to the enforcement surface, SQL writes through psql, unlocked package or remote skill installs, and skipping the git hooks.");

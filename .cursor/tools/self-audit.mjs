@@ -24,8 +24,10 @@
  *   docs-lint.mjs          broken links, ghost skills, ghost tools, stale counts
  *   platform-metadata.mjs  every stated count against the real one
  *   build-plugin.mjs check the built plugin tree against the source
+ *   harness-scan.mjs       what the shipped bytes SAY: invisible characters,
+ *                          instruction-shaped prose, risky permissions
  *
- * `run` invokes all three and reports them, so there is one command. What this
+ * `run` invokes all four and reports them, so there is one command. What this
  * file adds is only what none of them looks at: WIRING.
  *
  *   A1  every hook script is wired in Claude Code's settings AND Cursor's
@@ -47,9 +49,14 @@
  *       hook that exits silently is counted as a failed hook
  *   A11 the protected-path list in write-policy.json and its fallback in
  *       _lib.mjs still agree - A9, for the enforcement surface itself
+ *   A12 the same, for every OTHER policy section that has a fail-closed copy
+ *       (qualityConfig, secretFiles) - one loop, so a third section does not
+ *       become a third hand-written check
+ *   A13 the files Claude Code refuses to READ and the ones the policy refuses
+ *       are the same files, so the protection is not real on one host only
  *
  * Usage:
- *   node .cursor/tools/self-audit.mjs run [--json]      wiring + the three others
+ *   node .cursor/tools/self-audit.mjs run [--json]      wiring + the four others
  *   node .cursor/tools/self-audit.mjs wiring [--json]   only the wiring checks
  *
  * Exit codes:  0 = everything connected   1 = a control is not reachable
@@ -331,7 +338,10 @@ function auditInCi() {
  * {permission:"allow"} explicitly. If that line goes, every fail-closed guard
  * blocks every call - the day this was first switched on, it did.
  */
-const GUARDS = ["guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs"];
+// guard-prompt.mjs is deliberately NOT here. Its event answers {continue:true},
+// not {permission}, and a fail-closed hook on it would stop a person's message
+// from being sent when it crashed - refusing the human rather than the risk.
+const GUARDS = ["guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs", "guard-read.mjs"];
 function failClosedIn(obj, file) {
   const seen = new Map();
   const walk = (node) => {
@@ -382,6 +392,77 @@ function protectedCopies() {
   const d = setDiff(owner, copy);
   for (const p of d.absent) fail("A11", `_lib.mjs -> ${p}`, "is protected by write-policy.json but not by the fallback. When the policy is unreadable, an agent may write this file");
   for (const p of d.extra) warn("A11", `_lib.mjs -> ${p}`, "is in the fallback but not in write-policy.json. The two disagree about what is protected");
+}
+
+/* ------------------------------------------------------------------- A12 */
+
+/**
+ * A12 — every other policy section and its fail-closed fallback agree.
+ *
+ * A11 does this for `protected.paths`, which came first. The arrangement then
+ * repeated itself twice - `qualityConfig` for the build gates, `secretFiles` for
+ * the paths no agent may read - and a second hand-written copy of A11 would be
+ * the very thing A9 exists to catch. One loop, one pair per row.
+ *
+ * A pair absent from both files is skipped rather than failed: a project that
+ * has not adopted a section is not in violation of it. A pair present in only
+ * one of them is the finding, in whichever direction.
+ */
+const POLICY_COPIES = [
+  ["qualityConfig", "QUALITY_CONFIG_FALLBACK", "an agent may weaken a build gate when the policy is unreadable"],
+  ["secretFiles", "SECRET_FILES_FALLBACK", "an agent may read a secret-bearing file when the policy is unreadable"],
+];
+function policySectionCopies() {
+  const policy = readJson(".cursor/lifecycle/write-policy.json");
+  const lib = read(".claude/hooks/_lib.mjs");
+  if (!policy || lib === null) return;
+  for (const [section, constName, consequence] of POLICY_COPIES) {
+    const owner = policy[section]?.paths;
+    const copy = arrayLiteral(lib, constName);
+    if (!Array.isArray(owner) && !copy) continue;                 // section not adopted here
+    if (!Array.isArray(owner) || !owner.length) { fail("A12", `write-policy.json -> ${section}.paths`, `is missing or empty while _lib.mjs still carries ${constName}. The list is enforced but is not declared where a human would look for it`); continue; }
+    if (!copy) { fail("A12", `_lib.mjs -> ${constName}`, `is missing or is no longer a plain array literal, so ${consequence}`); continue; }
+    const d = setDiff(owner, copy);
+    for (const p of d.absent) fail("A12", `_lib.mjs -> ${p}`, `is in write-policy.json ${section} but not in ${constName}; when the policy is unreadable, ${consequence}`);
+    for (const p of d.extra) warn("A12", `_lib.mjs -> ${p}`, `is in ${constName} but not in write-policy.json ${section}. The two disagree about what is covered`);
+  }
+}
+
+/* ------------------------------------------------------------------- A13 */
+
+/**
+ * A13 — the two hosts refuse to read the same files.
+ *
+ * Claude Code has its own answer to this question in .claude/settings.json
+ * (`permissions.deny`), which nothing else reads: Cursor and every plugin
+ * install had no equivalent, so the protection was real on one host and absent
+ * on the others while the documents described it as the platform's.
+ * guard-read.mjs closes that by reading write-policy.json -> secretFiles, and
+ * this keeps the two lists equal so they cannot drift apart a second time.
+ *
+ * `Read(./x)` translates to `x`. A path Claude refuses and the policy does not
+ * is a hole on the other hosts, and fails; the reverse is only a warning,
+ * because the policy covering MORE than Claude's native list is the direction
+ * that protects rather than exposes.
+ */
+function secretReadParity() {
+  const settings = readJson(".claude/settings.json");
+  const policy = readJson(".cursor/lifecycle/write-policy.json");
+  if (!settings || !policy) return;
+  const deny = settings.permissions?.deny;
+  const owner = policy.secretFiles?.paths;
+  if (!Array.isArray(deny) || !Array.isArray(owner)) return;      // section not adopted here
+
+  const reads = deny
+    .map(String)
+    .map((e) => /^Read\(\s*(.+?)\s*\)$/i.exec(e))
+    .filter(Boolean)
+    .map((m) => m[1].replace(/^\.\//, ""));
+  if (!reads.length) return;
+
+  const d = setDiff(reads, owner);
+  for (const p of d.absent) fail("A13", `write-policy.json -> secretFiles`, `does not cover ${p}, which .claude/settings.json refuses to read. Claude Code is protected and Cursor and every plugin install are not`);
+  for (const p of d.extra) warn("A13", `.claude/settings.json -> permissions.deny`, `does not list Read(./${p}) while secretFiles does. guard-read refuses it on both hosts, so this is safe - but the two lists are meant to be the same list`);
 }
 
 /* -------------------------------------------------------------------- A9 */
@@ -511,6 +592,8 @@ function runWiring() {
   watchedCopies();
   failClosed();
   protectedCopies();
+  policySectionCopies();
+  secretReadParity();
   return findings;
 }
 
@@ -522,7 +605,9 @@ function report(list) {
                   A4: "the built plugin does not wire it", A5: "gate roles", A6: "an orphan tool", A7: "a check that runs nowhere",
                   A8: "the built plugin ships a tool without the data it reads",
                   A9: "a fail-closed copy has drifted from the file that owns it",
-                  A10: "a guard that fails open", A11: "the protected-path list and its fallback disagree" };
+                  A10: "a guard that fails open", A11: "the protected-path list and its fallback disagree",
+                  A12: "a policy section and its fail-closed fallback disagree",
+                  A13: "the two hosts refuse to read different files" };
   for (const [c, fs_] of [...byCheck].sort()) {
     out(`## ${c} — ${NAMES[c] || c} (${fs_.length})\n`);
     for (const f of fs_) { out(`  ${f.sev}  ${f.what}`); out(`        ${f.why}`); }
@@ -712,10 +797,17 @@ function integrityCheck(args) {
   return 1;
 }
 
-/** Compose the three existing checkers rather than reimplementing any of them. */
+/**
+ * Compose the four existing checkers rather than reimplementing any of them.
+ *
+ * harness-scan.mjs is the newest and answers the question this file cannot:
+ * wiring says a control is REACHABLE and integrity says it is the one a human
+ * SIGNED, but neither reads what the bytes say. A skill can be wired, attested
+ * and still carry an instruction nobody noticed.
+ */
 function others() {
   const rows = [];
-  for (const [tool, args] of [["docs-lint.mjs", ["check"]], ["platform-metadata.mjs", ["check"]], ["build-plugin.mjs", ["check"]]]) {
+  for (const [tool, args] of [["docs-lint.mjs", ["check"]], ["platform-metadata.mjs", ["check"]], ["build-plugin.mjs", ["check"]], ["harness-scan.mjs", ["scan"]]]) {
     const abs = join(ROOT, ".cursor", "tools", tool);
     if (!existsSync(abs)) { rows.push({ tool, ran: false, why: "not present" }); continue; }
     try { execFileSync(process.execPath, [abs, ...args], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 8 * 1024 * 1024 }); rows.push({ tool, ran: true, ok: true }); }
@@ -742,7 +834,7 @@ const CMDS = {
     const rows = others();
     if (args.includes("--json")) { out(JSON.stringify({ wiring: list, others: rows }, null, 2)); return list.some((f) => f.sev === "FAIL") || rows.some((r) => r.ran && !r.ok) ? 1 : 0; }
     out(`# Self-audit\n`);
-    out(`## The three existing checkers\n`);
+    out(`## The four existing checkers\n`);
     for (const r of rows) {
       out(`  ${pad(r.ran ? (r.ok ? "PASS" : "FAIL") : "----", 7)}${pad(r.tool, 26)}${r.ran ? "" : r.why}`);
       for (const l of r.tail || []) out(`  ${" ".repeat(7)}${l}`);
@@ -762,7 +854,8 @@ const [cmd, ...args] = process.argv.slice(2);
 if (!cmd || !CMDS[cmd]) {
   out(`self-audit.mjs — is every control this platform claims actually connected?
 
-  run [--json]      wiring, plus docs-lint, platform-metadata and build-plugin check
+  run [--json]      wiring, plus docs-lint, platform-metadata, build-plugin check
+                    and harness-scan
   wiring [--json]   only the wiring: hooks in both hosts and in the built plugin,
                     the data those tools read, gate reviewers, orphan tools, and
                     whether this audit itself runs in CI

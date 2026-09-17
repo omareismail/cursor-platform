@@ -334,15 +334,18 @@ running out of context mid-refactor.
 | `security-auditor` | Secrets, injection, authZ/IDOR, supply chain |
 | `db-auditor` | Schema, migrations, dialects, query plans |
 
-### `.claude/hooks/` — 7 scripts
+### `.claude/hooks/` — 10 scripts
 
 | Hook | Fires | Does |
 |---|---|---|
 | `session-start.mjs` | session start | Injects memory-bank digest + cache freshness. **Makes rule 00 automatic.** |
 | `guard-write.mjs` | before Write/Edit/Delete | Blocks edits to the caches, `.env`, Tier 2 memory-bank, hardcoded credentials — and to the enforcement surface itself (hooks, wiring, policies, lifecycle records; `protected.paths` in `write-policy.json`) |
 | `guard-bash.mjs` | before Bash | Blocks `dotnet add package`, `npm install <pkg>`, `pip`/`uv`/`pipx install <pkg>`, `uvx`, `npx skills add`, `ef database update`, force-push, `DROP TABLE`, shell writes to protected paths, `psql` writes, and the human-only `lifecycle.mjs approve` / `override` / `init --existing` / `lifecycle.mjs evidence reseal` / `release-evidence.mjs sign` / `self-audit.mjs integrity --write` |
+| `guard-read.mjs` | before Read | Blocks reading `.env*`, `appsettings.Production.json`, `*.pfx`, `*.p12`, `id_rsa`, either `settings.local.json` (`secretFiles` in `write-policy.json`). No escape variable — a read that succeeds puts the value in the transcript |
+| `guard-prompt.mjs` | on prompt submit | Warns when the message just submitted carries a credential shape; names the class, never the value, never blocks |
 | `post-edit-verify.mjs` | after Write/Edit | Fast tripwires on the file just written — money as `double`, `DateTime.Now`, sync-over-async, interpolated SQL, `fetch` in a component, physical CSS |
 | `stop-memory-check.mjs` | on stop | Blocks once if source changed but `activeContext.md` did not |
+| `session-end.mjs` | session end, pre-compact | Writes the session summary the next session on this worktree reads. Per-machine, gitignored, redacted, 16 KB cap, no LLM call |
 | `sync-skills.mjs` | manual | Regenerates the shims |
 | `_lib.mjs` | — | Shared helpers: payload normalisation, path resolution, the protected-path list |
 | `_sql.mjs` | — | The SQL tokenizer and classifier `guard-mcp` and `guard-bash` judge statements with |

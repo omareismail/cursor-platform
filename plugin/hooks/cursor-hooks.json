@@ -34,6 +34,26 @@
         "failClosed": true
       }
     ],
+    "beforeReadFile": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/guard-read.mjs",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ],
+    "beforeTabFileRead": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/guard-read.mjs",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/guard-prompt.mjs",
+        "timeout": 10
+      }
+    ],
     "afterFileEdit": [
       {
         "command": "node ${PLUGIN_ROOT}/hooks/post-edit-verify.mjs",
@@ -43,6 +63,18 @@
     "stop": [
       {
         "command": "node ${PLUGIN_ROOT}/hooks/stop-memory-check.mjs",
+        "timeout": 20
+      }
+    ],
+    "sessionEnd": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/session-end.mjs",
+        "timeout": 20
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "node ${PLUGIN_ROOT}/hooks/session-end.mjs",
         "timeout": 20
       }
     ]

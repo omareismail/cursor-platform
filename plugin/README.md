@@ -25,8 +25,8 @@ and MCP servers, so the rules, agents and hooks would not travel.
 | Skills | 99 |
 | Rules | 12 |
 | Subagents | 14 |
-| Hooks | 7 + wiring |
-| Validators | 38 |
+| Hooks | 10 + wiring |
+| Validators | 39 |
 | Reference docs | 11 |
 
 ## What it deliberately does NOT ship

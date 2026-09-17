@@ -278,6 +278,7 @@ that writes application source.
 node .cursor/tools/doctor.mjs diagnose   # install mode, hooks, source layout, policy
 node .cursor/tools/doctor.mjs preview    # checkout-copy would-copy vs conflict
 node .cursor/tools/context-cost.mjs report  # what a session carries before the first user word
+node .cursor/tools/harness-scan.mjs scan    # what the shipped bytes SAY: hidden characters, smuggled instructions, risky config
 node .cursor/tools/_policy.mjs roots     # canonical application-source directories
 node .cursor/tools/_policy.mjs simulate --proposed <file>  # newly-allowed vs newly-refused
 node .cursor/tools/_policy.mjs explain <path>              # gated / exempt / ungoverned

@@ -67,7 +67,24 @@ function repoRoot() {
   try { return execFileSync("git", ["rev-parse", "--show-toplevel"], { stdio: "pipe" }).toString().trim(); }
   catch { return null; }
 }
-const read = (p) => readFileSync(p, "utf8");
+/*
+ * Sources are read with line endings NORMALISED, because the built tree must be
+ * a function of the repository content and nothing else.
+ *
+ * descriptionFor() splits paragraphs on "
+
+". On a working copy holding CRLF
+ * the separator is "
+
+", nothing splits, the single blob is filtered out
+ * and every affected skill silently shipped the generic "Runs the <name>
+ * workflow." instead of its real description - 20 of 99 of them, and no error
+ * anywhere. Worse, the output then depended on each machine's checkout state, so
+ * `check` - a CI gate whose whole job is to be deterministic - could pass here
+ * and fail on a fresh clone. .gitattributes already mandates eol=lf for
+ * plugin/**; this makes the builder agree with it.
+ */
+const read = (p) => readFileSync(p, "utf8").replace(/\r\n/g, "\n");
 const write = (p, s) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, s, "utf8"); };
 
 // --------------------------------------------------------------- rewriting --
@@ -328,9 +345,13 @@ ${rewritePaths(body)}
           ] },
           { matcher: "Bash", hooks: [{ type: "command", command: `node ${P}/hooks/guard-bash.mjs`, timeout: 15 }] },
           { matcher: "mcp__.*", hooks: [{ type: "command", command: `node ${P}/hooks/guard-mcp.mjs`, timeout: 15 }] },
+          { matcher: "Read", hooks: [{ type: "command", command: `node ${P}/hooks/guard-read.mjs`, timeout: 10 }] },
         ],
         PostToolUse: [{ matcher: "Write|Edit|MultiEdit", hooks: [{ type: "command", command: `node ${P}/hooks/post-edit-verify.mjs`, timeout: 120 }] }],
         Stop: [{ hooks: [{ type: "command", command: `node ${P}/hooks/stop-memory-check.mjs`, timeout: 20 }] }],
+        UserPromptSubmit: [{ hooks: [{ type: "command", command: `node ${P}/hooks/guard-prompt.mjs`, timeout: 10 }] }],
+        SessionEnd: [{ hooks: [{ type: "command", command: `node ${P}/hooks/session-end.mjs`, timeout: 20 }] }],
+        PreCompact: [{ hooks: [{ type: "command", command: `node ${P}/hooks/session-end.mjs`, timeout: 20 }] }],
       },
     }, null, 2) + "\n");
 
@@ -354,8 +375,13 @@ ${rewritePaths(body)}
         ],
         beforeShellExecution: [{ command: `node ${CP}/hooks/guard-bash.mjs`, timeout: 15, failClosed: true }],
         beforeMCPExecution: [{ command: `node ${CP}/hooks/guard-mcp.mjs`, timeout: 15, failClosed: true }],
+        beforeReadFile: [{ command: `node ${CP}/hooks/guard-read.mjs`, timeout: 10, failClosed: true }],
+        beforeTabFileRead: [{ command: `node ${CP}/hooks/guard-read.mjs`, timeout: 10, failClosed: true }],
+        beforeSubmitPrompt: [{ command: `node ${CP}/hooks/guard-prompt.mjs`, timeout: 10 }],
         afterFileEdit: [{ command: `node ${CP}/hooks/post-edit-verify.mjs`, timeout: 120 }],
         stop: [{ command: `node ${CP}/hooks/stop-memory-check.mjs`, timeout: 20 }],
+        sessionEnd: [{ command: `node ${CP}/hooks/session-end.mjs`, timeout: 20 }],
+        preCompact: [{ command: `node ${CP}/hooks/session-end.mjs`, timeout: 20 }],
       },
     }, null, 2) + "\n");
   }

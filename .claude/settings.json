@@ -64,6 +64,16 @@
         ]
       },
       {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/guard-read.mjs",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "mcp__.*",
         "hooks": [
           {
@@ -94,6 +104,42 @@
           {
             "type": "command",
             "command": "node .claude/hooks/stop-memory-check.mjs",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/guard-prompt.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/session-end.mjs",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/session-end.mjs",
             "timeout": 20
           }
         ]

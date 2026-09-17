@@ -182,6 +182,15 @@ description lines the host shows the model so it can route. Bytes are measured,
 tokens estimated. Nothing is scored, because a context budget is a target and
 the cheapest way to hit one is to delete guidance that was doing work.
 
+`node .cursor/tools/harness-scan.mjs scan` asks the third question: what the
+files in this table actually **say**. A skill is prose a model reads as
+instruction, and it arrives the way code does — a merge, a plugin update, a
+translated mirror nobody reads in the original. The scan reports invisible
+characters, prose whose only purpose is to command the reader, and configuration
+that grants more than it should. It is not scored either, and it is deliberately
+narrow: heuristics that fired on correct work were removed rather than tuned,
+because a warning that fires on correct work is a warning somebody switches off.
+
 ### Category C — Diagrams & docs → announce, then proceed automatically
 
 | Skill | When to use it |

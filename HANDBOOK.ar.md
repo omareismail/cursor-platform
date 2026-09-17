@@ -26,7 +26,7 @@
 | مهارات (skills) | 99 | `.cursor/skills/` |
 | قواعد حراسة (rules) | 12 | `.cursor/rules/` |
 | وكلاء فرعيون (subagents) | 14 | `.claude/agents/` |
-| خطّافات إنفاذ (hooks) | 7 | `.claude/hooks/` |
+| خطّافات إنفاذ (hooks) | 10 | `.claude/hooks/` |
 | أدوات تحقّق (tools) | 20 | `.cursor/tools/` |
 | ملفات الذاكرة (memory-bank) | 24 | `memory-bank/` |
 | مراحل دورة الحياة | 6 | `.cursor/lifecycle/gates/` |
@@ -99,7 +99,7 @@ cursor/
 │   ├── skills/            99 shim مولّد — يشير لـ .cursor/skills/ (لا تعدّله يدوياً)
 │   ├── skills/_descriptions.json   أوصاف مكتوبة يدوياً تتفوّق على الاستخراج التلقائي
 │   ├── agents/            14 وكيلاً فرعياً للقراءة فقط (عزل السياق)
-│   ├── hooks/             7 خطّافات إنفاذ + sync-skills.mjs + _lib.mjs
+│   ├── hooks/             10 خطّافات إنفاذ + sync-skills.mjs + _lib.mjs
 │   └── settings.json      ربط الخطّافات + قوائم السماح/المنع
 │
 ├── .claude-plugin/        بيان الـ marketplace والبلجن
@@ -710,8 +710,11 @@ node .cursor/tools/feature-map.mjs verify    # أي تتبّع أصبح قديم
 | `PreToolUse` (كتابة) | `guard-phase.mjs` | **يمنع** كل كتابة تحت `src/` و`backend/` و`frontend/` قبل اعتماد بوابة التصميم. ملف حالة لا يُقرأ يُعامَل كبوابة **مغلقة**، لا كغياب |
 | `PreToolUse` (Bash) | `guard-bash.mjs` | **يمنع** `dotnet add package` و`npm install <pkg>` و`pip`/`uv`/`pipx install <pkg>` و`uvx` و`npx skills add` و`git push --force` و`ef database update` على اتصال غير محلي، والكتابة من الصدفة على المسارات المحمية، و`psql` غير القارئ، والأوامر البشرية فقط: `lifecycle.mjs approve` / `override` / `init --existing` و`release-evidence.mjs sign` |
 | `PreToolUse` (`mcp__.*`) / `beforeMCPExecution` | `guard-mcp.mjs` | **يمنع** ما يخالف `.cursor/mcp-policy.json`: خادم غير مسجَّل (المجهول مرفوض)، كتابة على خادم `read-only` (بما فيها `deleteRows` و`truncate_table` وأي أداة لا تُعرَف كقراءة)، أداة في قائمة المنع، SQL في أي حقل ليس قراءة واحدة (CTE تحمل `DELETE`، `EXPLAIN ANALYZE`، عبارة ثانية خلف تعليق، `pg_sleep`)، أو أداة خارج مرحلتها. سياسة مفقودة أو تالفة تمنع كل شيء |
+| `PreToolUse` (قراءة) / `beforeReadFile` | `guard-read.mjs` | **يمنع** قراءة `.env*` و`appsettings.Production.json` و`*.pfx` و`*.p12` و`id_rsa` وملفَّي `settings.local.json` (القائمة في `secretFiles` داخل `write-policy.json`). لا يوجد متغيّر تجاوز: القراءة الناجحة تضع القيمة في سجل المحادثة، وهو بالضبط ما يمنعه الخطّاف |
+| `UserPromptSubmit` / `beforeSubmitPrompt` | `guard-prompt.mjs` | **ينبّه ولا يمنع** حين تحمل الرسالة المُرسَلة شكل بيانات اعتماد. يسمّي النوع ولا يكرّر القيمة أبداً. `exit 2` هنا يمحو رسالة الإنسان، لذا القناة الوحيدة المستخدَمة إضافية |
 | `PostToolUse` (كتابة) | `post-edit-verify.mjs` | يشغّل `dotnet format` / `eslint --fix` على الملف المعدَّل ويعيد الأخطاء |
 | `Stop` | `stop-memory-check.mjs` | ينبّه إذا تغيّر المصدر ولم يُحدَّث `memory-bank/activeContext.md` |
+| `SessionEnd` / `PreCompact` | `session-end.mjs` | يكتب ملخّص الجلسة الذي تقرؤه الجلسة التالية على نسخة العمل نفسها، تحت `.cursor/cache/sessions/` — محلي للجهاز، خارج git، منقّى من بيانات الاعتماد، بسقف 16 كيلوبايت وبلا أي نداء لنموذج |
 
 بالإضافة إلى ملفَّين ليسا خطّافات:
 `_lib.mjs` (دوال مشتركة: `block()`, `ok()`, `inject()`) و`sync-skills.mjs`
@@ -1526,8 +1529,11 @@ node .cursor/tools/build-plugin.mjs check      # هل الشجرة متزامن�
 | `guard-write.mjs` | `PreToolUse` كتابة | `preToolUse` |
 | `guard-phase.mjs` | `PreToolUse` كتابة | `preToolUse` |
 | `guard-bash.mjs` | `PreToolUse` Bash | `beforeShellExecution` |
+| `guard-read.mjs` | `PreToolUse` قراءة | `beforeReadFile`، `beforeTabFileRead` |
+| `guard-prompt.mjs` | `UserPromptSubmit` | `beforeSubmitPrompt` |
 | `post-edit-verify.mjs` | `PostToolUse` كتابة | `afterFileEdit` |
 | `stop-memory-check.mjs` | `Stop` | `stop` |
+| `session-end.mjs` | `SessionEnd`، `PreCompact` | `sessionEnd`، `preCompact` |
 
 > `stop` يختلف بأكثر من الاسم: Claude Code يسمح بتنبيه استشاري عبر `exit 2`،
 > بينما مخرج Cursor الوحيد هناك `followup_message` الذي **يرسل رسالة مستخدم

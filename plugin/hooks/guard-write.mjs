@@ -2,7 +2,8 @@
 // Claude Code: PreToolUse (Write | Edit | MultiEdit | NotebookEdit)   |   Cursor: preToolUse (every tool, incl. Delete)
 // Turns four prose rules into hard blocks, and keeps the hands off the enforcement surface.
 
-import { readPayload, relPath, targetPath, writtenContent, isProtected, platformDev, isReadTool, block, ok } from "./_lib.mjs";
+import { existsSync } from "node:fs";
+import { readPayload, relPath, targetPath, writtenContent, isProtected, isQualityConfig, platformDev, isReadTool, SECRET_PATTERNS, SECRET_PLACEHOLDER, block, ok } from "./_lib.mjs";
 
 const p = await readPayload();
 
@@ -78,6 +79,41 @@ something an agent can write. Do not route around this with the shell; the
 shell guard refuses the same paths.`);
 }
 
+// 2b. The build gates: where /postmortem's findings stop being documents.
+//
+// An analyzer severity, a banned symbol, a lint rule - each of these was bought
+// by an incident, and `incidents.mjs check` re-reads them to prove the defence
+// is still there. Weakening one and watching the build go green is the exact
+// failure /postmortem step 6 names: defences deleted during cleanups because
+// nobody recorded that they helped.
+//
+// EDITING an existing gate is refused; CREATING one is not, because adding a
+// gate is not weakening one. Delete counts as an edit - Cursor has a Delete tool
+// and it reaches this hook the same way.
+const isDelete = /^delete$/i.test(p.tool_name || "");
+const qc = isQualityConfig(file);
+if (qc && !platformDev() && !process.env.CLAUDE_ALLOW_QUALITY_CONFIG_EDIT) {
+  let exists = false;
+  try { exists = existsSync(targetPath(p)); } catch { exists = false; }
+  if (exists || isDelete) {
+    block(`BLOCKED: ${file} is a quality gate, not ordinary configuration.
+
+  matched:  ${qc}
+  tool:     ${p.tool_name || "unknown"}
+  policy:   .cursor/lifecycle/write-policy.json -> qualityConfig
+
+This is where /postmortem's findings become compile-time failures, and where
+\`incidents.mjs check\` looks for the guards past incidents bought. Weakening one
+turns a red build green without fixing anything, and the record still claims the
+guard is there.
+
+An agent may CREATE such a file; it may not weaken one that exists. Fix the code
+to satisfy the rule, or propose the exact diff and let the user apply it. If the
+user has decided the rule itself is wrong, they can re-run with
+CLAUDE_ALLOW_QUALITY_CONFIG_EDIT=1 set.`);
+  }
+}
+
 // 3. Never write secret-bearing files.
 if (/(^|\/)\.env(\.|$)/.test(lower) || /(^|\/)secrets?\.(json|ya?ml)$/.test(lower)) {
   block(`BLOCKED: ${file} holds secrets and must not be written by an agent.
@@ -121,16 +157,17 @@ CLAUDE_ALLOW_TIER2_EDIT=1 set.`);
 }
 
 // 5. Hardcoded credentials in the content being written.
+//
+// The patterns are owned by _lib.mjs, because guard-prompt, session-end and
+// harness-scan need the same answer to the same question. This loop is
+// unchanged: assignment-shaped matches, exempted when they are placeholders.
+// The issuer-prefixed TOKEN_PATTERNS are deliberately NOT applied here - that
+// would be a widening of what this guard refuses, and widening a guard is a
+// decision to take on its own evidence, not a side effect of moving a constant.
 if (body) {
-  const secretPatterns = [
-    [/(?:password|pwd)\s*=\s*["']?(?!\s*[{$<])[^"';\s]{4,}/i, "connection-string password"],
-    [/(?:api[_-]?key|apikey|secret|client[_-]?secret|access[_-]?token)\s*[:=]\s*["'][A-Za-z0-9_\-\/+]{16,}["']/i, "hardcoded API key/secret"],
-    [/-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/, "private key material"],
-    [/\bBearer\s+eyJ[A-Za-z0-9_\-]{20,}/, "hardcoded JWT"],
-  ];
-  for (const [re, what] of secretPatterns) {
+  for (const [re, what] of SECRET_PATTERNS) {
     const m = body.match(re);
-    if (m && !/\$\{|\{\{|<YOUR|placeholder|example|REDACTED|env:/i.test(m[0])) {
+    if (m && !SECRET_PLACEHOLDER.test(m[0])) {
       block(`BLOCKED: ${what} detected in the content being written to ${file}.
 Match: ${m[0].slice(0, 60)}...
 Use configuration/user-secrets/environment variables. Never inline credentials.

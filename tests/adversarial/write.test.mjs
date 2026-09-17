@@ -15,7 +15,7 @@
 
 import { join } from "node:path";
 import { cpSync, existsSync } from "node:fs";
-import { fixture, runHook, write, cursorWrite, check, denies, allows, cursorDenies, cursorAllows, report, section } from "../_harness.mjs";
+import { fixture, runHook, write, cursorWrite, put, check, denies, allows, cursorDenies, cursorAllows, report, section } from "../_harness.mjs";
 
 const H = "guard-write.mjs";
 const install = (root) => { if (process.env.CANDIDATE && existsSync(process.env.CANDIDATE)) cpSync(process.env.CANDIDATE, join(root, ".claude", "hooks", H)); return root; };
@@ -106,6 +106,111 @@ section("guard-write.mjs — Cursor: deny is a body, allow is said out loud");
     if (!/"permission":"allow"/.test(r.out)) silent++;
   }
   check("Cursor: 40 consecutive allows, none silent", silent === 0, `${silent} of 40 answered with nothing on stdout`);
+}
+
+/*
+ * The build gates.
+ *
+ * /postmortem's argument is that a finding becomes a compile-time failure rather
+ * than a document, and incidents.mjs check re-reads those files to prove the
+ * guard an incident bought is still there. An agent that edits one turns the
+ * build green without fixing anything, and the incident record still claims the
+ * defence exists - the worst of the three states that check distinguishes.
+ *
+ * The asymmetry is the design: CREATING one of these is allowed, because adding
+ * a gate is not weakening one. Only an edit to a file that already exists is
+ * refused.
+ */
+section("guard-write.mjs — a quality gate may be created, never weakened");
+{
+  const root = install(fixture("gw-quality"));
+  const gates = [
+    "templates/dotnet/BannedSymbols.txt",
+    ".editorconfig",
+    "backend/.editorconfig",
+    "Directory.Build.props",
+    "frontend/eslint.config.mjs",
+    ".prettierrc.json",
+    "biome.json",
+    ".husky/pre-commit",
+    ".pre-commit-config.yaml",
+  ];
+  for (const f of gates) {
+    put(root, f, "existing gate content\n");
+    denies(`refuses an edit to: ${f}`, runHook(H, write(join(root, f)), root), "quality gate");
+  }
+
+  for (const tool of ["Edit", "MultiEdit", "Delete"]) {
+    denies(`${tool} on a gate is refused`, runHook(H, { ...write(join(root, ".editorconfig")), tool_name: tool }, root), "quality gate");
+  }
+
+  // Creating one is the point of the exception. A gate that does not exist yet
+  // cannot be weakened, and refusing to add one would refuse the fix.
+  for (const f of ["src/NewArea/BannedSymbols.txt", "services/api/.editorconfig", "web/eslint.config.js"]) {
+    allows(`allows creating: ${f}`, runHook(H, write(join(root, f)), root));
+  }
+
+  // Deliberately NOT a gate. tsconfig strictness is edited as often for routine
+  // reasons as for bad ones, and a guard that fires on routine work is a guard
+  // somebody switches off - taking the rest of this section with it.
+  put(root, "tsconfig.json", "{}\n");
+  allows("tsconfig.json is not treated as a quality gate", runHook(H, write(join(root, "tsconfig.json")), root));
+  put(root, "package.json", "{}\n");
+  allows("package.json is not treated as a quality gate", runHook(H, write(join(root, "package.json")), root));
+
+  allows("the user's own decision unlocks it", runHook(H, write(join(root, ".editorconfig")), root, { CLAUDE_ALLOW_QUALITY_CONFIG_EDIT: "1" }));
+  allows("so does the platform-developer escape", runHook(H, write(join(root, ".editorconfig")), root, { CURSOR_PLATFORM_DEV: "1" }));
+  denies("...but CLAUDE_ALLOW_TIER2_EDIT is a different escape and does not", runHook(H, write(join(root, ".editorconfig")), root, { CLAUDE_ALLOW_TIER2_EDIT: "1" }), "quality gate");
+
+  cursorDenies("Cursor is told the same thing, in its own envelope",
+    runHook(H, cursorWrite(root, join(root, ".editorconfig")), root), "quality gate");
+
+  // The fallback is the half that matters when the policy is unreadable.
+  const noPolicy = install(fixture("gw-quality-fallback", { writePolicy: false }));
+  put(noPolicy, ".editorconfig", "existing\n");
+  denies("with write-policy.json absent the fallback still refuses", runHook(H, write(join(noPolicy, ".editorconfig")), noPolicy), "quality gate");
+}
+
+/*
+ * Rule 5, the credential check, had no case at all until the patterns moved to
+ * _lib.mjs so that guard-prompt, session-end and harness-scan could share them.
+ * A constant that four callers read is a constant worth pinning where it is
+ * enforced, not only where it is defined.
+ *
+ * Every secret-shaped value is assembled at RUNTIME: a literal here would be
+ * refused by this very hook when the file was saved.
+ */
+section("guard-write.mjs — rule 5: credentials in the content being written");
+{
+  const root = install(fixture("gw-secrets"));
+  const target = join(root, "src", "Config.cs");
+
+  denies("an assignment-shaped secret is refused",
+    runHook(H, write(target, "var c = \"" + "pass" + "word=" + "s3cr3tvalue" + "\";"), root), "connection-string password");
+  denies("a hardcoded API key is refused",
+    runHook(H, write(target, "api_key: " + '"' + "A".repeat(24) + '"'), root), "hardcoded API key/secret");
+  denies("private key material is refused",
+    runHook(H, write(target, "-----BEGIN " + "PRIVATE KEY-----\nMIIE...\n"), root), "private key material");
+  denies("a hardcoded JWT is refused",
+    runHook(H, write(target, "Authorization: " + "Bearer " + "eyJ" + "a".repeat(28)), root), "hardcoded JWT");
+
+  allows("an interpolated variable is not a credential",
+    runHook(H, write(target, "var c = \"" + "pass" + "word=" + "${DB_PASSWORD}" + "\";"), root));
+  allows("a documented example is not a credential",
+    runHook(H, write(target, "api_key: " + '"' + "exampleValueNotARealCredential" + '"'), root));
+  allows("prose about a credential is not a credential",
+    runHook(H, write(target, "The pass" + "word is set by the operator, never in source."), root));
+
+  // The deliberate boundary. _lib.TOKEN_PATTERNS exists for guard-prompt and
+  // harness-scan; wiring it in here would widen what this guard refuses, and
+  // widening a guard is a decision taken on its own evidence, never a side
+  // effect of moving a constant. If that decision is ever taken, this case is
+  // the one that has to be rewritten - which is the point of writing it down.
+  allows("an issuer-prefixed token is NOT refused here - TOKEN_PATTERNS is not wired into rule 5",
+    runHook(H, write(target, "const t = \"" + "gh" + "p_" + "A".repeat(24) + "\";"), root));
+
+  cursorDenies("Cursor: a credential in content is denied with a body",
+    runHook(H, { ...cursorWrite(root, target), tool_input: { file_path: target, content: "x=1;" + "pass" + "word=" + "s3cr3tvalue" } }, root), "connection-string password");
 }
 
 report("guard-write keeps the enforcement surface out of the agent's hands, and says allow out loud.");

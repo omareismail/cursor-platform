@@ -1,8 +1,129 @@
 # Active Context
-**Last Updated:** 2026-09-16
-**Current branch:** platform-ui
-**Recently reviewed implementation:** `omniroute.mjs`, the MCP policy and guard-bash gateway rules, `context-cost.mjs`, `guard-bash.mjs` B11 rules; plugin digest `6aee0c3b8b2a2a77`
+**Last Updated:** 2026-09-17
+**Current branch:** main (platform-ui fast-forwarded into it at 6facbdf)
+**Recently reviewed implementation:** ECC read and not installed; five mechanisms re-implemented natively — `session-end.mjs`, `harness-scan.mjs`, `guard-read.mjs`, `guard-prompt.mjs`, the quality-gate rule and two guard-bash rules
 **Active feature:** Project Command Center (`IDEA-001`, IMPLEMENTING)
+**Next step:** 13 commits sit unpushed on `main` and the CI workflow is inside one of them, so the platform's own CI has still never run (**B16-1**). Before the push, settle the line endings and re-attest — the current manifest passes here and fails on every clone (see `progress.md` § In Progress).
+
+## ECC: five mechanisms taken, nothing installed — 2026-09-17
+
+Assessed [ECC](https://github.com/affaan-m/ecc) (MIT, 68 agents, 292 skill
+files, 24 hooks) and **re-implemented five of its mechanisms natively, installing
+nothing** — recorded as [ADR-0002](../docs/adr/0002-ecc-mechanisms-adopted-natively.md),
+[the assessment](../docs/reviews/ecc-assessment-2026-09-16.md) and `IDEA-007`.
+Same treatment as OmniRoute and caveman: read the tool, take the mechanism, keep
+every control a file this repository can hash.
+
+**The finding that decided it was ours, not ECC's.** The refusal to read `.env`,
+certificates and keys lived only in `.claude/settings.json` `permissions.deny`,
+which nothing but Claude Code reads — so **Cursor and every plugin install had no
+such rule** while every document called it a property of the platform. That is
+the exact defect class `self-audit.mjs` exists to find, sitting in the platform's
+own configuration, undetected because nothing looked there. `guard-read.mjs` now
+enforces it on both hosts from `write-policy.json -> secretFiles`, and **A13**
+keeps that list equal to Claude Code's native one so they cannot drift again.
+
+What landed, hook count 7 → 10:
+
+- **`session-end.mjs`** (`SessionEnd` + `PreCompact`, both hosts) writes a
+  deterministic session summary to gitignored `.cursor/cache/sessions/`, and
+  `session-start.mjs` injects the most recent one **for this worktree** under a
+  "historical reference only" heading. No LLM call — ECC's version asks Claude to
+  summarise the transcript; every line here is derived by reading. Redacted
+  through `redactSecrets()` before the write, 16 KB cap, swept after 14 days.
+- **`harness-scan.mjs`** reads what the shipped bytes *say*: invisible
+  characters, instruction-shaped prose in skills/agents/rules, personal paths,
+  wildcard permissions, literal credentials and unpinned packages in `.mcp.json`,
+  plugin MCP copies that drifted, unpinned Actions, agent frontmatter. Composed
+  into `self-audit run` (four checkers now), the dashboard, and its own CI job.
+  **Nothing is scored and there is no baseline file.**
+- **`guard-bash.mjs`** refuses `--no-verify` on commit/push/merge and
+  `core.hooksPath` overrides. `-n` is scoped to `commit` only, because it means
+  dry-run on `add`/`rm`/`push`.
+- **Quality gates** (`qualityConfig`): an agent may create `BannedSymbols.txt`,
+  `.editorconfig`, an eslint config — never weaken one that exists. A12
+  generalises the policy-vs-fallback check so a fourth section is not a fourth
+  hand-written audit.
+- **`guard-prompt.mjs`** warns, never blocks — exit 2 on `UserPromptSubmit`
+  erases the person's message. Names the class of credential, never the value.
+
+**The scan was narrowed twice before it was trusted.** Its first run produced 97
+warnings, all of them the generated `Do not edit here` banner in `plugin/`. Two
+heuristics were dropped for firing on correct work. The suite's last case runs it
+against this repository and requires zero blocking findings, so that calibration
+cannot rot quietly.
+
+Bundle D of the assessment — skill-run and MCP audit logs, per-session token
+counts — was **deferred by the owner, not rejected**; the `_lib.mjs` foundation
+it needs is already in place.
+
+**Not done, and needing a human:** `lifecycle/integrity.json` reports the
+enforcement surface CHANGED/UNATTESTED until someone reviews and re-attests. The
+command is in `progress.md`; this agent may not run it.
+
+## Enforcement-surface audit: a Critical bypass, and three checks that could not pass — 2026-09-16
+
+Four findings, all mechanical, all now pinned by assertions.
+
+**P2G-1 (Critical, closed).** `_lib.isProtected` normalised backslashes to `/`
+but never stripped a trailing separator. A shell token ending in the backslash
+its own quote escaped (`> \".mcp.json\"`) survived guard-bash's token scan as
+`.mcp.json\` → `.mcp.json/`. A `**` glob still matched that shape; an
+**exact-file entry never did**. So all twenty exact-file protected paths —
+`.mcp.json`, `.claude/settings.json`, `.cursor/hooks.json`, `write-policy.json`,
+`lifecycle.mjs` — were shell-writable with no escape variable and no `cd`, while
+the seven glob entries held, which is why nothing looked broken. The fix matches
+the trimmed **and** raw shape: trimming alone would have un-protected every
+directory form, since `.claude/hooks/` stops matching `.claude/hooks/**`. 21
+assertions in `tests/adversarial/paths.test.mjs` (45/45). Recorded as
+**INC-0001**, guard `paths.test.mjs#P2G-1`.
+
+**The distributable plugin did not install.** Three emitter defects in
+`build-plugin.mjs`: hook events written at the manifest root (the host validator
+rejects it), two `//` documentation keys inherited into the manifest, and
+`agents` emitted as a directory string — which the schema rejects and which
+overrides the auto-discovery that already worked. `claude plugin validate` now
+passes; before this it had never been run against the built tree.
+
+**Both install recipes produced broken adopters.** They copied from a working
+checkout (carrying `settings.local.json` and 235 cache files), copied the
+platform's own `memory-bank/`, and omitted `.claude/`, `schemas/` and
+`CLAUDE.md` from the commit lists — so every teammate who cloned an adopter got
+**no Claude Code hooks at all**. Corrected and verified end-to-end: 578 → 313
+files, 0 cache, 0 local settings, and in a teammate clone 19/19 guard controls
+hold, `artifact-schema check` exits 0 where it used to throw, and 9/9 digest
+pointers resolve.
+
+**Two checks could not pass in the repository that ships them.**
+`incidents.mjs` rung 3 omitted `mjs` from its extension list while all 29 suites
+under `tests/` are `.mjs`, so no guard here could rate above rung 8 and `check`
+was permanently red. And `build-plugin.mjs` read sources verbatim while
+`descriptionFor` splits on `"\n\n"`, so on a CRLF working copy **20 of 99
+skills** silently shipped `"Runs the <name> workflow."` instead of their real
+description — the text a host reads to decide when to invoke a skill. Worse, the
+built tree then depended on each machine's checkout state, so `check` could pass
+locally and fail on a fresh clone. Both fixed; `read()` now normalises, and the
+digest is identical across rebuilds.
+
+**New: `incidents.mjs reclassify --by "<name>"`.** The rung is computed at open
+time and stored, so a record written before a ladder fix keeps the wrong one and
+no command could reach it. It recomputes the rung and nothing else — the
+incident's facts are untouched, the replaced rung is kept in `reclassified[]`,
+and it goes through `commitIndexedRecord`, so the chain **gains** an entry rather
+than losing one. A hand-edited record is refused, not absorbed.
+
+**Open, and deliberately left for a human decision.** `reclassify` is ALLOW from
+an agent shell and `.cursor/tools/incidents.mjs` is ALLOW to edit, while
+`lifecycle/incidents/*.json` is DENY. An agent can therefore weaken the ladder in
+the classifier, run `reclassify`, and turn a red check green under any name it
+types — reaching a record it may not edit, through a tool it may. Closing it
+means adding `reclassify` to the human-only list in `guard-bash.mjs` or
+`incidents.mjs` to `protected.paths`; both are attested files, so either needs
+re-attestation.
+
+**Next step.** Run `node .cursor/tools/incidents.mjs reclassify --by "<name>"`
+to move INC-0001 from its stored rung 8 to rung 3 and make `incidents check`
+green; then commit `build-plugin.mjs` and the 51 rebuilt plugin files.
 
 ## OmniRoute adopted as a router, never a rewriter — 2026-09-16
 

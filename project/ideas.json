@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "revision": 11,
-  "updatedAt": "2026-09-16T07:53:59.361Z",
+  "revision": 12,
+  "updatedAt": "2026-09-17T07:35:11.480Z",
   "ideas": [
     {
       "id": "IDEA-001",
@@ -221,6 +221,38 @@
       "history": [
         {
           "at": "2026-09-16T07:53:59.361Z",
+          "status": "CAPTURED",
+          "by": "cli"
+        }
+      ]
+    },
+    {
+      "id": "IDEA-007",
+      "title": "ECC mechanisms re-implemented natively (ADR-0002)",
+      "description": "",
+      "reason": "",
+      "value": "UNKNOWN",
+      "priority": "MED",
+      "effort": "UNKNOWN",
+      "risk": "UNKNOWN",
+      "status": "CAPTURED",
+      "createdAt": "2026-09-17T07:35:11.380Z",
+      "updatedAt": "2026-09-17T07:35:11.380Z",
+      "author": "omar.ismail",
+      "requirementIds": [],
+      "featureIds": [],
+      "phaseId": null,
+      "checkpointIds": [],
+      "taskIds": [],
+      "evidence": [],
+      "decision": null,
+      "decisionId": null,
+      "implementationRefs": [],
+      "testRefs": [],
+      "releaseId": null,
+      "history": [
+        {
+          "at": "2026-09-17T07:35:11.479Z",
           "status": "CAPTURED",
           "by": "cli"
         }

@@ -278,6 +278,7 @@ that writes application source.
 node ${CLAUDE_PLUGIN_ROOT}/tools/doctor.mjs diagnose   # install mode, hooks, source layout, policy
 node ${CLAUDE_PLUGIN_ROOT}/tools/doctor.mjs preview    # checkout-copy would-copy vs conflict
 node ${CLAUDE_PLUGIN_ROOT}/tools/context-cost.mjs report  # what a session carries before the first user word
+node ${CLAUDE_PLUGIN_ROOT}/tools/harness-scan.mjs scan    # what the shipped bytes SAY: hidden characters, smuggled instructions, risky config
 node ${CLAUDE_PLUGIN_ROOT}/tools/_policy.mjs roots     # canonical application-source directories
 node ${CLAUDE_PLUGIN_ROOT}/tools/_policy.mjs simulate --proposed <file>  # newly-allowed vs newly-refused
 node ${CLAUDE_PLUGIN_ROOT}/tools/_policy.mjs explain <path>              # gated / exempt / ungoverned

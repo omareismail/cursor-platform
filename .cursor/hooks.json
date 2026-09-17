@@ -48,6 +48,32 @@
       }
     ],
 
+    "beforeReadFile": [
+      {
+        "//": "The same refusal Claude Code has always had in .claude/settings.json permissions.deny - which Cursor does not read, so this repository was protected on one host and not the other. failClosed, because a crashed guard must deny a read of a key file, not wave it through.",
+        "command": "node .claude/hooks/guard-read.mjs",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ],
+
+    "beforeTabFileRead": [
+      {
+        "//": "Tab reads files too, and a credential reaching the model through autocomplete is the same credential.",
+        "command": "node .claude/hooks/guard-read.mjs",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ],
+
+    "beforeSubmitPrompt": [
+      {
+        "//": "Advisory, and NOT failClosed on purpose: the reply shape for this event is {continue:boolean}, and a hook that crashes here would stop a person's message from being sent. Warning about a pasted credential is never worth deleting somebody's words.",
+        "command": "node .claude/hooks/guard-prompt.mjs",
+        "timeout": 10
+      }
+    ],
+
     "afterFileEdit": [
       {
         "command": "node .claude/hooks/post-edit-verify.mjs",
@@ -58,6 +84,22 @@
     "stop": [
       {
         "command": "node .claude/hooks/stop-memory-check.mjs",
+        "timeout": 20
+      }
+    ],
+
+    "sessionEnd": [
+      {
+        "//": "Writes the summary the next session on this worktree reads. Advisory and fail-open on purpose: a summary that could not be built is a lost convenience, and failing a person's session close over it would be the opposite mistake.",
+        "command": "node .claude/hooks/session-end.mjs",
+        "timeout": 20
+      }
+    ],
+
+    "preCompact": [
+      {
+        "//": "The same script. Compaction is the moment the window is about to forget, so the record gets a marker rather than being replaced - the next reader can see the session continued past one.",
+        "command": "node .claude/hooks/session-end.mjs",
         "timeout": 20
       }
     ]

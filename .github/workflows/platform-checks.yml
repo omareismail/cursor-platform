@@ -23,6 +23,10 @@
 #            state that opened the design gate).
 #   audit    self-audit run — wiring, plus docs-lint, platform-metadata and
 #            build-plugin check, which it composes rather than reimplements.
+#   harness  The shipped bytes say what they should. Wiring proves a control is
+#            reachable and integrity proves it is the one a human signed; neither
+#            reads the CONTENT. A skill can be wired, attested, and still carry a
+#            zero-width character or an instruction aimed at the model.
 #   integrity  Every file that enforces something (hooks, wiring, policies,
 #            gates, lifecycle.mjs) still hashes to what a human attested in
 #            lifecycle/integrity.json. The guards stop an agent editing a
@@ -118,10 +122,25 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # self-audit run composes docs-lint, platform-metadata and build-plugin
-      # check, so this one command is the whole static surface.
+      # self-audit run composes docs-lint, platform-metadata, build-plugin check
+      # and harness-scan, so this one command is the whole static surface.
       - name: node .cursor/tools/self-audit.mjs run
         run: node .cursor/tools/self-audit.mjs run
+
+  harness:
+    name: the shipped bytes say what they should
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # `audit` composes this too. It is a job of its own because the jobs here
+      # are independent on purpose: a content finding in a skill should not be
+      # hidden behind a docs count that drifted, and the reverse.
+      - name: node .cursor/tools/harness-scan.mjs scan
+        run: node .cursor/tools/harness-scan.mjs scan
 
   integrity:
     name: the enforcement surface is what a human attested

@@ -14,7 +14,7 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { fixture, runHook, write, check, denies, report, section, REPO } from "../_harness.mjs";
+import { fixture, runHook, write, check, denies, report, section, claudeEvent, cursorEvent, REPO } from "../_harness.mjs";
 
 const lib = await import(new URL(`file:///${join(REPO, ".claude", "hooks", "_lib.mjs").replace(/\\/g, "/")}`));
 const root = fixture("paths");
@@ -119,6 +119,92 @@ section("_lib.isProtected — a trailing separator is still the same file (P2G-1
   // The glob entries that held before must still hold.
   check("a hooks glob holds with a trailing slash", lib.isProtected(".claude/hooks/guard-bash.mjs/") !== null, "");
   check("the hooks directory itself is protected", lib.isProtected(".claude/hooks/") !== null, "");
+}
+
+/*
+ * The credential patterns and the lifecycle accessors (T-01).
+ *
+ * Every secret-shaped string here is BUILT AT RUNTIME from fragments, and no
+ * variable is named so that its own assignment looks like one. A literal would
+ * be refused by guard-write.mjs the moment this file were written - the guard
+ * working correctly, and the test impossible to save. It refused an earlier
+ * draft of this very section.
+ */
+section("_lib.findSecret / redactSecrets");
+{
+  const pwAssign = "pass" + "word=" + "hunter22";
+  const ghToken = "gh" + "p_" + "A".repeat(24);
+  const anthropic = "sk-" + "ant-" + "B".repeat(24);
+  const aws = "AKIA" + "ABCDEFGHIJKLMNOP";
+  const slack = "xox" + "b-" + "1234567890abcd";
+  const documented = "api_key: " + '"' + "exampleValueNotARealCredential" + '"';
+  const interpolated = "pass" + "word=" + "${DB_PASSWORD}";
+
+  check("an assignment-shaped secret is found", lib.findSecret(pwAssign)?.what === "connection-string password", JSON.stringify(lib.findSecret(pwAssign)));
+  check("a GitHub token is found", lib.findSecret(ghToken)?.what === "GitHub token", JSON.stringify(lib.findSecret(ghToken)));
+  check("an Anthropic key is found", lib.findSecret(anthropic)?.what === "Anthropic API key", JSON.stringify(lib.findSecret(anthropic)));
+  check("an AWS access key id is found", lib.findSecret(aws)?.what === "AWS access key id", JSON.stringify(lib.findSecret(aws)));
+  check("a Slack token is found", lib.findSecret(slack)?.what === "Slack token", JSON.stringify(lib.findSecret(slack)));
+
+  check("a documented example is exempt", lib.findSecret(documented) === null, JSON.stringify(lib.findSecret(documented)));
+  check("an interpolated variable is exempt", lib.findSecret(interpolated) === null, JSON.stringify(lib.findSecret(interpolated)));
+  check("ordinary prose is not a credential", lib.findSecret("the pass" + "word is stored in the vault") === null, "");
+  check("empty input is null, not a throw", lib.findSecret("") === null && lib.findSecret(undefined) === null, "");
+
+  const composed = `line one\n${ghToken}\nline three\n${pwAssign}\n`;
+  const red = lib.redactSecrets(composed);
+  check("redactSecrets removes the token value", !red.includes(ghToken), red);
+  check("redactSecrets removes the assigned value", !red.includes("hunter22"), red);
+  check("redactSecrets names the class it removed", red.includes("[REDACTED: GitHub token]"), red);
+  check("redactSecrets keeps the surrounding text", red.includes("line one") && red.includes("line three"), red);
+  check("redactSecrets leaves a placeholder alone", lib.redactSecrets(interpolated).includes("${DB_PASSWORD}"), lib.redactSecrets(interpolated));
+  check("redactSecrets is a no-op on clean text", lib.redactSecrets("nothing to see") === "nothing to see", "");
+}
+
+section("_lib — the lifecycle-event accessors read both hosts");
+{
+  delete process.env.CLAUDE_TRANSCRIPT_PATH;
+  check("sessionId reads Claude Code's session_id", lib.sessionId({ session_id: "abc123" }) === "abc123", "");
+  check("sessionId reads Cursor's conversation_id", lib.sessionId({ conversation_id: "xyz789" }) === "xyz789", "");
+  check("sessionId is an empty string when neither host sent one", lib.sessionId({}) === "", "");
+  check("transcriptPath reads the payload", lib.transcriptPath({ transcript_path: "/t/s.jsonl" }) === "/t/s.jsonl", "");
+  check("transcriptPath is null when there is none - Cursor never sends one", lib.transcriptPath({}) === null, String(lib.transcriptPath({})));
+  check("promptText reads the prompt", lib.promptText({ prompt: "hello" }) === "hello", "");
+  check("promptText is an empty string for a non-string prompt", lib.promptText({ prompt: { a: 1 } }) === "" && lib.promptText({}) === "", "");
+  check("cachePath lands under the gitignored cache", lib.cachePath("sessions", "x.md").replace(/\\/g, "/").endsWith("/.cursor/cache/sessions/x.md"), lib.cachePath("sessions", "x.md"));
+  check("cachePath is absolute", /^([A-Za-z]:)?[\\/]/.test(lib.cachePath("x")), lib.cachePath("x"));
+}
+
+/*
+ * ok() answers in the shape the EVENT defines, not one shape for every event.
+ *
+ * Cursor rejects a reply that does not match the event's schema, and on
+ * beforeSubmitPrompt a rejected reply blocks the person's message. Answering
+ * {permission:"allow"} there - which is what every deciding event gets - would
+ * refuse every prompt the guard had just approved. guard-write is the probe
+ * because it calls ok() on any payload that names no file.
+ */
+section("_lib.ok — one shape per event");
+{
+  const sp = runHook("guard-write.mjs", cursorEvent(root, "beforeSubmitPrompt", { prompt: "hello" }), root);
+  let spBody = null;
+  try { spBody = JSON.parse(sp.out); } catch { /* reported below */ }
+  check("Cursor beforeSubmitPrompt is answered {continue:true}", sp.exit === 0 && spBody?.continue === true, `exit ${sp.exit}, stdout ${JSON.stringify(sp.out.slice(0, 120))}`);
+  check("Cursor beforeSubmitPrompt is NOT answered with a permission", spBody?.permission === undefined, JSON.stringify(sp.out.slice(0, 120)));
+
+  const se = runHook("guard-write.mjs", cursorEvent(root, "sessionEnd", { reason: "clear" }), root);
+  check("Cursor sessionEnd is advisory, so ok() stays silent", se.exit === 0 && se.out.trim() === "", `exit ${se.exit}, stdout ${JSON.stringify(se.out.slice(0, 120))}`);
+
+  const pc = runHook("guard-write.mjs", cursorEvent(root, "preCompact", { trigger: "auto" }), root);
+  check("Cursor preCompact is advisory too", pc.exit === 0 && pc.out.trim() === "", `exit ${pc.exit}, stdout ${JSON.stringify(pc.out.slice(0, 120))}`);
+
+  const dec = runHook("guard-write.mjs", cursorEvent(root, "preToolUse", { tool_name: "Write", tool_input: { file_path: join(root, "docs", "x.md") } }), root);
+  let decBody = null;
+  try { decBody = JSON.parse(dec.out); } catch { /* reported below */ }
+  check("a deciding event still says allow out loud", dec.exit === 0 && decBody?.permission === "allow", `exit ${dec.exit}, stdout ${JSON.stringify(dec.out.slice(0, 120))}`);
+
+  const claude = runHook("guard-write.mjs", claudeEvent("UserPromptSubmit", { prompt: "hello" }), root);
+  check("Claude Code gets no stdout and exit 0", claude.exit === 0 && claude.out.trim() === "", `exit ${claude.exit}, stdout ${JSON.stringify(claude.out.slice(0, 120))}`);
 }
 
 report("Path handling gives the same answer for every spelling of the same file.");

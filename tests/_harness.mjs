@@ -28,12 +28,12 @@ const failures = [];
 const TMP = mkdtempSync(join(tmpdir(), "platform-tests-"));
 process.on("exit", () => { try { rmSync(TMP, { recursive: true, force: true }); } catch { /* best effort */ } });
 
-const HOOKS = ["_lib.mjs", "_sql.mjs", "guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs", "session-start.mjs"];
+const HOOKS = ["_lib.mjs", "_sql.mjs", "guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs", "guard-read.mjs", "guard-prompt.mjs", "session-start.mjs", "session-end.mjs"];
 // lifecycle.mjs imports _state.mjs and lazily imports artifact-schema.mjs and
 // ac-trace.mjs; release-evidence and change-request import lifecycle.mjs. A
 // fixture that copied lifecycle.mjs alone would fail on the import and every
 // state case would be testing the error path instead of the tool.
-const TOOLS = ["memory-bank.mjs", "lifecycle.mjs", "_state.mjs", "_evidence.mjs", "_findings.mjs", "artifact-schema.mjs", "ac-trace.mjs", "release-evidence.mjs", "change-request.mjs", "incidents.mjs", "feature-map.mjs", "self-audit.mjs", "fitness.mjs", "failure-modes.mjs", "flag-debt.mjs", "risk-profile.mjs", "docs-lint.mjs", "_skills-index.mjs", "signed-lifecycle-range.mjs", "build-plugin.mjs", "_policy.mjs", "doctor.mjs", "stack-profile.mjs", "identity.mjs", "decision-memory.mjs", "derived-status.mjs", "change-verify.mjs", "repair.mjs", "project.mjs", "_project-model.mjs", "_project-txn.mjs", "graphify.mjs", "context-cost.mjs", "omniroute.mjs"];
+const TOOLS = ["memory-bank.mjs", "lifecycle.mjs", "_state.mjs", "_evidence.mjs", "_findings.mjs", "artifact-schema.mjs", "ac-trace.mjs", "release-evidence.mjs", "change-request.mjs", "incidents.mjs", "feature-map.mjs", "self-audit.mjs", "fitness.mjs", "failure-modes.mjs", "flag-debt.mjs", "risk-profile.mjs", "docs-lint.mjs", "_skills-index.mjs", "signed-lifecycle-range.mjs", "build-plugin.mjs", "_policy.mjs", "doctor.mjs", "stack-profile.mjs", "identity.mjs", "decision-memory.mjs", "derived-status.mjs", "change-verify.mjs", "repair.mjs", "project.mjs", "_project-model.mjs", "_project-txn.mjs", "graphify.mjs", "context-cost.mjs", "omniroute.mjs", "harness-scan.mjs"];
 
 /**
  * A project that has a memory bank, the hooks, and (by default) the tools and
@@ -96,7 +96,7 @@ export function runHook(hook, payload, root, env = {}) {
   const r = spawnSync(process.execPath, [join(root, ".claude", "hooks", hook)], {
     input: JSON.stringify(payload),
     encoding: "utf8",
-    env: { ...process.env, CLAUDE_PROJECT_DIR: root, LIFECYCLE_OVERRIDE: "", CLAUDE_ALLOW_TIER2_EDIT: "", CURSOR_PLATFORM_DEV: "", ...env },
+    env: { ...process.env, CLAUDE_PROJECT_DIR: root, LIFECYCLE_OVERRIDE: "", CLAUDE_ALLOW_TIER2_EDIT: "", CLAUDE_ALLOW_QUALITY_CONFIG_EDIT: "", CURSOR_PLATFORM_DEV: "", ...env },
     timeout: 20_000,
   });
   return { exit: r.status, out: r.stdout || "", err: r.stderr || "" };
@@ -139,6 +139,16 @@ export function gitInit(root) {
 export const write = (file, content = "") => ({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: { file_path: file, content } });
 export const bash = (command) => ({ hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command } });
 export const mcp = (server, tool, input = {}) => ({ hook_event_name: "PreToolUse", tool_name: `mcp__${server}__${tool}`, tool_input: input });
+
+/**
+ * Any other Claude Code event: SessionEnd, PreCompact, UserPromptSubmit,
+ * PostToolUse. The lifecycle events carry no tool_input, so the three builders
+ * above cannot express them.
+ */
+export const claudeEvent = (hook_event_name, extra = {}) => ({ hook_event_name, ...extra });
+
+/** The same event on Cursor: camelCase name, and the two stamps detectHost looks for. */
+export const cursorEvent = (root, hook_event_name, extra = {}) => ({ hook_event_name, cursor_version: "1.0.0", workspace_roots: [root], ...extra });
 
 /** Cursor shapes. tool_input on beforeMCPExecution is a JSON STRING. */
 export const cursorWrite = (root, file, tool = "Write") => ({ hook_event_name: "preToolUse", cursor_version: "1.0.0", workspace_roots: [root], tool_name: tool, tool_input: { file_path: file } });

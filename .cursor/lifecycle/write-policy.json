@@ -42,6 +42,47 @@
     ]
   },
 
+  "//qualityConfig": "The build gates. /postmortem's whole argument is that a finding becomes a BannedSymbols entry, an analyzer severity or a convention test rather than a document, and incidents.mjs check re-reads those files to prove the guard an incident bought is still there. All of which an agent could undo by editing one line of config - and a green build afterwards would say nothing was wrong. guard-write.mjs refuses an EDIT to one of these when it already exists; creating one is fine, because adding a gate is not weakening one. Escape for a human who has decided the rule itself is wrong: CLAUDE_ALLOW_QUALITY_CONFIG_EDIT=1.",
+
+  "//qualityConfig-vs-alwaysAllow": "`.editorconfig` appears in both lists and that is not a conflict: they answer different questions. `alwaysAllow` is guard-phase's answer to WHEN a file may be written in the lifecycle - a build gate is never phase-gated, so it is always allowed. `qualityConfig` is guard-write's answer to WHO may edit one that already exists. Both hooks run on the same event and a refusal from either wins, so the narrower rule decides.",
+
+  "//qualityConfig-globs": "Every entry starts with `**/` because globMatch's `*` does not span a separator: `.editorconfig` would match only at the repository root, and a solution-level one under backend/ would be unprotected.",
+
+  "qualityConfig": {
+    "paths": [
+      "**/BannedSymbols.txt",
+      "**/.editorconfig",
+      "**/Directory.Build.props",
+      "**/.globalconfig",
+      "**/.eslintrc",
+      "**/.eslintrc.*",
+      "**/eslint.config.*",
+      "**/.prettierrc",
+      "**/.prettierrc.*",
+      "**/biome.json",
+      "**/biome.jsonc",
+      "**/.markdownlint*",
+      "**/.husky/**",
+      "**/lefthook.yml",
+      "**/.pre-commit-config.yaml"
+    ]
+  },
+
+  "//secretFiles": "Files no agent may READ. This is the exact translation of the `Read(./x)` entries in .claude/settings.json permissions.deny, and self-audit A13 keeps the two equal. It is declared here rather than derived from settings.json at runtime because settings.json is Claude Code's alone: it does not exist in a Cursor-only checkout or in a plugin install, so a hook that read it would govern nothing on either - a control that exists and is unreachable, which is the defect self-audit was written to find. guard-read.mjs refuses these, with no escape variable: the value would land in the transcript, and the transcript is what the guard exists to keep it out of.",
+
+  "secretFiles": {
+    "paths": [
+      ".env",
+      ".env.*",
+      "**/appsettings.Production.json",
+      "**/*.pfx",
+      "**/*.p12",
+      "**/id_rsa",
+      ".cursor/settings.local.json",
+      ".claude/settings.local.json"
+    ]
+  },
+
   "alwaysAllow": [
     "docs/**",
     "specs/**",

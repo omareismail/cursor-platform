@@ -33,8 +33,8 @@ import { detect as detectStack } from "./stack-profile.mjs";
 const ROOT = process.env.CLAUDE_PROJECT_DIR || repoRoot() || process.cwd();
 
 const EXPECTED_HOOKS = [
-  "guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs",
-  "session-start.mjs", "_lib.mjs", "_sql.mjs",
+  "guard-write.mjs", "guard-phase.mjs", "guard-bash.mjs", "guard-mcp.mjs", "guard-read.mjs",
+  "session-start.mjs", "session-end.mjs", "guard-prompt.mjs", "_lib.mjs", "_sql.mjs",
 ];
 
 /** Paths NEW-PROJECT.md / APPLY-TO-PROJECT.md copy from a checkout. */

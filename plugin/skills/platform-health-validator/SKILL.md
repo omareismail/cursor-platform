@@ -43,6 +43,27 @@ likely to have been introduced.
 
 ## Steps
 
+**Step 0 — Read what the shipped bytes say, before judging what they mean.**
+
+```bash
+node ${CLAUDE_PLUGIN_ROOT}/tools/harness-scan.mjs scan
+```
+
+This is mechanical and takes seconds, so it comes before every judgement below.
+It reads the harness the way an attacker would: invisible characters in any
+shipped file, prose in a skill, agent or rule whose only purpose is to command
+the reader, home directories in files that ship, wildcard permissions in
+`settings.json`, literal credentials or unpinned packages in `.mcp.json`, and
+agent frontmatter that the gate audit and the model-tier report both depend on.
+
+A blocking finding here outranks anything in the dimensions below: a skill that
+scores well on structure and carries a zero-width character is not a healthy
+skill. Report those findings first, verbatim, and do not fold them into a score
+— nothing the scan produces is scored, and turning it into one would defeat it.
+
+`self-audit.mjs integrity` answers a different question — whether these files are
+the ones a human attested. A file can pass one and fail the other.
+
 **Step 1 — Duplicate skill detection.**
 
 Check for two distinct failure modes, not just one:

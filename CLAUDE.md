@@ -560,8 +560,9 @@ trusted**, and this whole platform rests on the mechanical consent being the one
 that cannot be argued with.
 
 It checks only wiring, because `docs-lint.mjs` owns links and ghost references,
-`platform-metadata.mjs` owns counts, and `build-plugin.mjs check` owns the built
-tree; `run` invokes all three so there is one command. What it adds:
+`platform-metadata.mjs` owns counts, `build-plugin.mjs check` owns the built
+tree, and `harness-scan.mjs` owns what the shipped bytes **say**; `run` invokes
+all four so there is one command. What it adds:
 
 - every hook script is wired in **both** `.claude/settings.json` and
   `.cursor/hooks.json`, and the two wire the **same set** — `.cursor/hooks.json`
@@ -593,6 +594,30 @@ definitions, `lifecycle.mjs` and `_state.mjs`. `--write` is refused from the
 agent's shell — an agent that can change a hook and re-sign for it has no hook.
 When `--check` fails, that is the finding; show it, do not re-attest.
 
+Integrity answers whether a control is the one a human **signed**. It cannot say
+what the bytes mean, and the files that instruct this agent are prose:
+
+```bash
+node .cursor/tools/harness-scan.mjs scan            # CI, and you
+node .cursor/tools/harness-scan.mjs scan --strict   # warnings become blocks
+```
+
+It reads the harness the way an attacker would — invisible characters in any
+shipped file (zero-width joiners, bidi overrides, the Unicode tag block used for
+ASCII smuggling), prose in a skill, agent or rule whose only purpose is to
+command the reader, a home directory in a file that ships, wildcard permissions
+or `--dangerously-skip-permissions` in `settings.json`, literal credentials or
+unpinned `npx -y` packages in `.mcp.json`, a plugin MCP copy that has drifted
+from the source, unpinned GitHub Actions, and agent frontmatter that A5 and
+`omniroute.mjs` both depend on. **Nothing is scored and there is no baseline
+file**; findings are `block`, `warn` or `info`, each with a file and a line.
+
+Its heuristics are deliberately narrow, and two candidates were dropped for
+firing on correct work: "always run X" is how half the skills describe a
+pipeline step, and the generated `Do not edit here` banner opens all 99 plugin
+skills. A warning that fires on correct work is a warning somebody switches off,
+and then the real one is off too.
+
 Each record under `lifecycle/` vouches for itself; `lifecycle/index.jsonl` vouches
 for the *set*. Every write appends one line naming the file, its sha256, and the
 hash of the line before it:
@@ -620,16 +645,20 @@ Prose rules are advisory; hooks are not. `.claude/settings.json` wires:
 |---|---|
 | `SessionStart` | Injects the current lifecycle phase, memory-bank Tier 1 digest + `repo-map.json` freshness. Rules `00` and `11` become automatic. |
 | `PreToolUse` (Write/Edit/Delete) | **Blocks** hand-edits to `.cursor/cache/repo-map.json` and `lifecycle/state.json`, writes to `.env`/secret files, hardcoded connection-string passwords — and every write to the **enforcement surface**: the hooks, `.claude/settings.json`, `.cursor/hooks.json`, `.cursor/mcp-policy.json`, `.cursor/lifecycle/`, `lifecycle.mjs`, `.mcp.json` and every record under `lifecycle/`. The list is `protected.paths` in `.cursor/lifecycle/write-policy.json`. An agent that can edit the rule instead of obeying it has no rule. Escape for a human developing the platform: `CURSOR_PLATFORM_DEV=1`. |
+| `PreToolUse` (Write/Edit/Delete) | **Blocks** an edit to a **quality gate** that already exists — `BannedSymbols.txt`, `.editorconfig`, `Directory.Build.props`, `.globalconfig`, the eslint/prettier/biome/markdownlint configs, `.husky/`, `lefthook.yml`, `.pre-commit-config.yaml`. That is where `/postmortem` findings become compile-time failures and where `incidents.mjs check` looks for the guards incidents bought; weakening one turns a red build green without fixing anything. **Creating** one is allowed — adding a gate is not weakening one. List: `qualityConfig` in `.cursor/lifecycle/write-policy.json`. Escape: `CLAUDE_ALLOW_QUALITY_CONFIG_EDIT=1`. |
 | `PreToolUse` (Write/Edit) | **Blocks** every write under `src/`, `backend/`, `frontend/`, `packages/`, `lib/`, `apps/`, `services/` (and the other `application-source` globs) while the lifecycle DESIGN gate is unapproved. A `lifecycle/state.json` that cannot be read is treated as **closed**, not absent. Escape: `LIFECYCLE_OVERRIDE=1`, set by a human on purpose. |
 | `PreToolUse` (Bash) | **Blocks** `dotnet add package`, `npm/yarn/pnpm install <pkg>`, `pip`/`uv`/`pipx install <pkg>`, `uvx`/`pipx run <pkg>`, `npx skills add <repo>`, `git push --force`, `ef database update` against non-local connections; shell writes (redirects, `Set-Content`, `rm`, `sed -i`, `git checkout --`, interpreter one-liners…) to any protected path; `psql -f` and any `psql -c` that is not a single read; and the **human-only commands** `lifecycle.mjs approve`, `override`, `init --existing`, `lifecycle.mjs evidence reseal`, `release-evidence.mjs sign` and `self-audit.mjs integrity --write` — a consent typed by the agent is not a consent. No escape for those. |
 | `PreToolUse` (`mcp__.*`) | **Blocks** MCP calls that violate `.cursor/mcp-policy.json`. A server with no entry is **denied** (v2; `unlisted:"allow"` is honoured but reported). Each server has an access level — `deny`, `read-only`, `restricted-write`, `full` — and on read-only anything not recognisably a read (`deleteRows`, `truncate_table`, `frobnicate`) is refused. SQL in **any** argument field is classified by a tokenizer, not a first-word regex: a `DELETE` inside a CTE, `EXPLAIN ANALYZE`, a second statement behind a comment or literal, `FOR UPDATE`, `SELECT INTO` and `pg_sleep`/`lo_import`/`set_config` are all refused. A missing or unparseable policy denies everything. Cursor attaches the same guard to `beforeMCPExecution`. The client-side lock is defence in depth; the boundary is the role in `templates/postgres/readonly-role.sql`. |
+| `PreToolUse` (Read) | **Blocks** reading `.env*`, `appsettings.Production.json`, `*.pfx`, `*.p12`, `id_rsa` and either host's `settings.local.json`. The list is `secretFiles` in `.cursor/lifecycle/write-policy.json`, and Cursor gets the same refusal on `beforeReadFile` and `beforeTabFileRead` — it previously had none, because the rule lived only in Claude Code's `permissions.deny`. **No escape variable:** a read that succeeds puts the value in the transcript, which is the outcome the guard exists to prevent. |
+| `UserPromptSubmit` | **Warns, never blocks**, when the message just submitted contains a credential shape. Exit 2 on this event erases the person's message, so the only channel used is additive. It names the class, never the value, and tells the agent not to echo or persist it. |
 | `PostToolUse` (Write/Edit) | Runs `dotnet format` / `eslint --fix` on the touched file and feeds failures back. |
 | `Stop` | Warns if source changed but `memory-bank/activeContext.md` was not updated. |
+| `SessionEnd` / `PreCompact` | Writes a deterministic summary of the session to `.cursor/cache/sessions/` — last requests, files written, tools used, `git status`, and a derived next action — for `SessionStart` to read back on this worktree. Per-machine, gitignored, redacted, capped at 16 KB. No LLM call. `PreCompact` marks the record rather than replacing it. |
 
 If a hook blocks you, **stop and tell the user why**. Do not route around it
 with a different tool.
 
-The four guards are wired `failClosed` in Cursor: a guard that crashes, times
+The five guards are wired `failClosed` in Cursor: a guard that crashes, times
 out or returns something malformed **denies** rather than disappearing. That is
 why `_lib.ok()` answers `{"permission":"allow"}` out loud — Cursor counts
 "exit 0, nothing on stdout" as a failed hook. `self-audit` A10 checks both

@@ -398,6 +398,38 @@ Generate and review the migration, then let a human apply it. Use
 history. Ask the user before touching migration history.`,
   },
   {
+    // Skipping the git hooks.
+    //
+    // This platform's whole argument is that a control which only runs when the
+    // agent chooses to run it is not a control. `--no-verify` is that choice,
+    // offered by git itself: pre-commit, commit-msg and pre-push stop running
+    // and the commit still lands, with nothing in the history to say so.
+    //
+    // `-n` is scoped to `commit` deliberately. It means --no-verify only there;
+    // on `add`, `rm` and `push` it means dry-run, and on `merge` it means
+    // --no-stat. A guard that refused `git add -n` would be refusing the safest
+    // command in the list, and would be switched off for it.
+    re: /\bgit\b[^|;&]*\s(commit|push|merge)\b[^|;&]*\s--no-verify\b|\bgit\b[^|;&]*\scommit\b[^|;&]*\s-[a-zA-Z]*n[a-zA-Z]*(?=\s|$)/i,
+    msg: `BLOCKED: this skips the git hooks. They are the control; the commit landing
+without them is exactly what they exist to prevent, and nothing in the history
+records that they were skipped.
+
+Fix the failing hook, or show the user what it refused and let them decide. If
+the hook is genuinely wrong, a human runs this in their own terminal.`,
+  },
+  {
+    // The same bypass, spelled as configuration. `-c core.hooksPath=/dev/null`
+    // points git at a directory with no hooks in it for one command; `git config
+    // core.hooksPath` does it for every command afterwards, which is worse and
+    // quieter. Reads are left alone: --get, --list and --unset are how somebody
+    // finds and undoes it.
+    re: /\bgit\b[^|;&]*\s-c\s*core\.hooksPath\b|\bgit\s+config\b(?![^|;&]*--(get|list|unset))[^|;&]*\bcore\.hooksPath\b/i,
+    msg: `BLOCKED: this repoints git at a different hooks directory, which turns every
+git hook off without removing one. Same rule as --no-verify: fix the hook, or
+let a human decide in their own terminal.
+(\`git config --get core.hooksPath\` and \`--unset\` are allowed.)`,
+  },
+  {
     re: /\bgit\s+(reset\s+--hard|clean\s+-[a-z]*f)/i,
     msg: `BLOCKED: destructive git command - this discards uncommitted work.
 Confirm with the user, or stash instead.`,

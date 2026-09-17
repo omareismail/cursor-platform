@@ -1097,6 +1097,7 @@ const FINDING_TOOLS = [
   ["flag-debt.mjs", ["scan", "--json"]],
   ["artifact-schema.mjs", ["check", "--json"]],
   ["docs-lint.mjs", ["check", "--json"]],
+  ["harness-scan.mjs", ["scan", "--json"]],
   ["self-audit.mjs", ["integrity", "--json"]],
 ];
 

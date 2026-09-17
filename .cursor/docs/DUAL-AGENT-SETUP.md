@@ -117,8 +117,11 @@ script attaches; the wiring lives in `.cursor/hooks.json`.
 | `guard-phase.mjs` | `PreToolUse` Write/Edit | `preToolUse` | no source before the design gate |
 | `guard-bash.mjs` | `PreToolUse` Bash | `beforeShellExecution` | package installs, live-DB, force-push |
 | `guard-mcp.mjs` | `PreToolUse` `mcp__.*` | `beforeMCPExecution` | MCP policy: read-only servers, deny lists, SQL verbs, phase coupling |
+| `guard-read.mjs` | `PreToolUse` Read | `beforeReadFile`, `beforeTabFileRead` | refuses to read `.env*`, certificates, keys, either `settings.local.json` |
+| `guard-prompt.mjs` | `UserPromptSubmit` | `beforeSubmitPrompt` | warns, never blocks, when a credential is in the message just submitted |
 | `post-edit-verify.mjs` | `PostToolUse` Write/Edit | `afterFileEdit` | tripwires on the file just written |
 | `stop-memory-check.mjs` | `Stop` | `stop` | source changed, `activeContext.md` did not |
+| `session-end.mjs` | `SessionEnd`, `PreCompact` | `sessionEnd`, `preCompact` | writes the summary the next session on this worktree reads |
 
 > `stop` differs by more than a name. Claude Code lets a Stop hook surface an
 > advisory by exiting 2; Cursor's only output there is `followup_message`, which
@@ -133,7 +136,34 @@ script attaches; the wiring lives in `.cursor/hooks.json`.
 | `guard-bash.mjs` | `PreToolUse` Bash | Blocks `dotnet add package`, `npm install <pkg>`, `pip`/`uv`/`pipx install <pkg>`, `uvx`, `npx skills add`, `dotnet ef database update`, force-push, `git reset --hard`, `DROP TABLE`. |
 | `post-edit-verify.mjs` | `PostToolUse` Write/Edit | Fast tripwires on the file just written — money as `double`, `DateTime.Now`, sync-over-async, interpolated SQL, `fetch` in a component, token in `localStorage`, physical CSS. Optional `dotnet format` / `eslint --fix`. |
 | `stop-memory-check.mjs` | `Stop` | Blocks the stop once if source changed but `activeContext.md` did not. |
+| `guard-read.mjs` | `PreToolUse` Read | Blocks reading `.env*`, `appsettings.Production.json`, `*.pfx`, `*.p12`, `id_rsa` and either host's `settings.local.json`. No escape variable: a read that succeeds puts the value in the transcript, which is the thing being prevented. |
+| `guard-prompt.mjs` | `UserPromptSubmit` | Warns when the submitted message carries a credential shape, names the class and never the value, and tells the agent not to persist it. Never blocks — exit 2 on this event erases the message. |
+| `session-end.mjs` | `SessionEnd`, `PreCompact` | Writes a deterministic session summary to `.cursor/cache/sessions/` (per-machine, gitignored, redacted, 16 KB cap, no LLM call). `session-start.mjs` reads back the most recent one for **this worktree**. |
 | `sync-skills.mjs` | manual | Regenerates the skill shims. |
+
+### Hook payload shapes relied on
+
+Recorded here because these are not in this repository's own files and had to be
+taken from each vendor's documentation. **Checked 2026-09-17**; re-check before
+relying on a field that is not exercised by a test in `tests/adversarial/`.
+
+| Event | Host | Fields used | Can it block? |
+|---|---|---|---|
+| `SessionEnd` | Claude Code | `session_id`, `transcript_path`, `cwd`, `reason` | no |
+| `PreCompact` | Claude Code | `session_id`, `transcript_path`, `trigger` (`manual`/`auto`) | no |
+| `UserPromptSubmit` | Claude Code | `session_id`, `prompt`, `transcript_path`, `cwd` | yes — exit 2 **erases the prompt**; `hookSpecificOutput.additionalContext` is the additive channel |
+| `PostToolUse` | Claude Code | `tool_name`, `tool_input`, `tool_response` | no |
+| `sessionEnd` | Cursor | `conversation_id`, `session_id`, `reason`, `duration_ms` | no |
+| `preCompact` | Cursor | `trigger`, `message_count`, `context_tokens` | no |
+| `beforeSubmitPrompt` | Cursor | `prompt`, `attachments[]` → answer `{continue, user_message?}` | yes — a reply that does not match the schema blocks submission |
+| `beforeReadFile` | Cursor | `file_path`, `content` → answer `{permission}` | yes, and `failClosed` is supported |
+| `beforeTabFileRead` | Cursor | `file_path` → answer `{permission}` | yes |
+
+The `beforeSubmitPrompt` shape is the trap. It is a deciding event, but it
+answers `{continue: boolean}` rather than `{permission}`, so the `{permission:
+"allow"}` every other deciding event gets would be rejected as malformed — and a
+rejected reply there blocks the person's message. `_lib.ok()` special-cases it
+for that reason; `tests/adversarial/paths.test.mjs` pins the shape.
 
 `session-start.mjs` also reports feature-map coverage and names any traced
 feature that went stale, and `guard-write.mjs` blocks hand-edits to
